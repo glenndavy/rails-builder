@@ -28,7 +28,6 @@
             buildInputs = [ ruby ];
             dontUnpack = true;
             installPhase = ''
-              # Isolate gem paths for Bundler installation
               export HOME=$TMPDIR
               export GEM_HOME=$TMPDIR/bundler_gems
               export TMP_BIN=$TMPDIR/bin
@@ -45,10 +44,12 @@
           buildInputs = [ ruby bundler ];
           buildPhase = ''
             echo "***** BUILDER VERSION 0.1 *******************"
-            # Isolate all gem-related paths
+            # Prioritize bundler derivation's bundle executable
+            export PATH=${bundler}/bin:$PATH
+            # Include bundler's GEM_HOME in GEM_PATH
             export HOME=$TMPDIR
             export GEM_HOME=$TMPDIR/gems
-            export GEM_PATH=$GEM_HOME
+            export GEM_PATH=$GEM_HOME:${bundler}/bundler_gems
             export BUNDLE_PATH=$TMPDIR/vendor/bundle
             export BUNDLE_USER_HOME=$TMPDIR/.bundle
             export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
