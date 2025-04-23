@@ -26,8 +26,6 @@
              };
              rubyVersionDotted = builtins.replaceStrings ["_"] ["."] rubyVersion;
              ruby = pkgs."ruby-${rubyVersionDotted}";
-             # Explicitly install Bundler 2.6.8 to match Gemfile.lock
-             bundler = pkgs.bundler.override { inherit ruby; version = "2.6.8"; };
            in
              pkgs.stdenv.mkDerivation {
                name = "rails-app";
