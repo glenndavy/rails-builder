@@ -41,7 +41,7 @@
         pkgs.stdenv.mkDerivation {
           name = "rails-app";
           inherit src;
-          buildInputs = [ ruby bundler pkgs.libyaml pkgs.nodejs_20 pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.rubyPackages.bigdecimal pkgs.rubyPackages.ffi pkgs.libxml2 pkgs.libxslt pkgs.inetuitls ];
+          buildInputs = [ ruby bundler pkgs.libyaml pkgs.nodejs_20 pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.rubyPackages.bigdecimal pkgs.rubyPackages.ffi pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
           buildPhase = ''
             echo "***** BUILDER VERSION 0.1 *******************"
             # Prioritize bundler derivation's bundle executable
