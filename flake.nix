@@ -29,26 +29,30 @@
              # Explicitly install Bundler 2.6.8 to match Gemfile.lock
              bundler = pkgs.bundler.override { inherit ruby; version = "2.6.8"; };
            in
-           pkgs.stdenv.mkDerivation {
-             name = "rails-app";
-             inherit src;
-             buildInputs = [ ruby bundler ];
-             buildPhase = ''
-               # Set Bundler paths to isolate all operations
-               export BUNDLE_PATH=$TMPDIR/vendor/bundle
-               export BUNDLE_USER_HOME=$TMPDIR/.bundle
-               export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
-               mkdir -p $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
-               # Configure Bundler to use the specified path
-               bundle config set --local path 'vendor/bundle'
-               bundle install
-               rails assets:precompile
-             '';
-             installPhase = ''
-               mkdir -p $out
-               cp -r . $out
-             '';
-           };
+             pkgs.stdenv.mkDerivation {
+               name = "rails-app";
+               inherit src;
+               buildInputs = [ ruby bundler ];
+               buildPhase = ''
+              # Isolate all gem-related paths
+                 export HOME=$TMPDIR
+                 export GEM_HOME=$TMPDIR/gems
+                 export GEM_PATH=$GEM_HOME
+                 export BUNDLE_PATH=$TMPDIR/vendor/bundle
+                 export BUNDLE_USER_HOME=$TMPDIR/.bundle
+                 export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
+                 mkdir -p $HOME $GEM_HOME $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
+            # Configure Bundler
+                 bundle config set --local path 'vendor/bundle'
+                 bundle config set --local gemfile Gemfile
+                 bundle install --verbose
+                 rails assets:precompile
+              '';
+              installPhase = ''
+                mkdir -p $out
+                cp -r . $out
+                '';
+             };
 
          nixosModule = { railsApp, ... }: {
            imports = [ ./nixos-module.nix ];
