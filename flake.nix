@@ -30,7 +30,7 @@
              pkgs.stdenv.mkDerivation {
                name = "rails-app";
                inherit src;
-               buildInputs = [ ruby bundler ];
+               buildInputs = [ ruby ];
                buildPhase = ''
                echo "***** BUILDER VERSION 0.1 *******************"
               # Isolate all gem-related paths
