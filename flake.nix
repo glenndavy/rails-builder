@@ -34,6 +34,7 @@
                inherit src;
                buildInputs = [ ruby bundler ];
                buildPhase = ''
+               echo "***** BUILDER VERSION 0.1 *******************"
               # Isolate all gem-related paths
                  export HOME=$TMPDIR
                  export GEM_HOME=$TMPDIR/gems
