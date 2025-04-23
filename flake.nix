@@ -21,7 +21,7 @@
           # Pre-fetch Bundler 2.6.8
           bundlerGem = pkgs.fetchurl {
             url = "https://rubygems.org/downloads/bundler-2.6.8.gem";
-            sha256 = "sha256-vemZkXKWoWLklWSULcIxLtmo0y/C97SWyV9t88/Mh6k="; # Your updated SHA256
+            sha256 = "sha256-vemZkXKWoWLklWSULcIxLtmo0y/C97SWyV9t88/Mh6k="; # Your SHA256
           };
           bundler = pkgs.stdenv.mkDerivation {
             name = "bundler-2.6.8";
@@ -29,7 +29,7 @@
             dontUnpack = true;
             installPhase = ''
               export HOME=$TMPDIR
-              export GEM_HOME=$TMPDIR/bundler_gems
+              export GEM_HOME=$out/bundler_gems
               export TMP_BIN=$TMPDIR/bin
               mkdir -p $HOME $GEM_HOME $TMP_BIN
               gem install --no-document --local ${bundlerGem} --install-dir $GEM_HOME --bindir $TMP_BIN
@@ -41,24 +41,29 @@
         pkgs.stdenv.mkDerivation {
           name = "rails-app";
           inherit src;
-          buildInputs = [ ruby bundler pkgs.libyaml pkgs.nodejs_20 pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.rubyPackages.bigdecimal pkgs.rubyPackages.ffi pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
+          buildInputs = [ ruby bundler ];
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.1 *******************"
-            # Prioritize bundler derivation's bundle executable
+            echo "***** BUILDER VERSION 0.5 *******************"
+            # Set up environment
             export PATH=${bundler}/bin:$PATH
-            # Include bundler's GEM_HOME in GEM_PATH
             export HOME=$TMPDIR
             export GEM_HOME=$TMPDIR/gems
-            export GEM_PATH=$GEM_HOME:${bundler}/bundler_gems
+            export GEM_PATH=${bundler}/bundler_gems:$GEM_HOME:vendor/bundle/ruby/3.2.0
             export BUNDLE_PATH=$TMPDIR/vendor/bundle
             export BUNDLE_USER_HOME=$TMPDIR/.bundle
             export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
             mkdir -p $HOME $GEM_HOME $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
-            # Configure Bundler to use vendored gems
+            # Debug environment
+            echo "Bundler version:"
+            bundle --version
+            echo "PATH: $PATH"
+            echo "GEM_PATH: $GEM_PATH"
+            # Configure Bundler
             bundle config set --local path 'vendor/bundle'
             bundle config set --local gemfile Gemfile
             bundle config set --local without 'development test'
             bundle install --local --verbose
+            # Use bundle exec to ensure rails is found
             bundle exec rails assets:precompile
           '';
           installPhase = ''
