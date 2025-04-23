@@ -43,7 +43,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.openssl pkgs.nodejs pkgs.git pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.5 *******************"
+            echo "***** BUILDER VERSION 0.6 *******************"
             # Set up environment
             export PATH=${bundler}/bin:$PATH
             export HOME=$TMPDIR
