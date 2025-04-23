@@ -44,6 +44,7 @@
             # Configure Bundler
                  bundle config set --local path 'vendor/bundle'
                  bundle config set --local gemfile Gemfile
+                 bundle config set --local without 'development test'
                  bundle install --verbose
                  rails assets:precompile
               '';
