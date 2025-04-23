@@ -7,7 +7,7 @@
   };
 
   outputs = { self, nixpkgs, nixpkgs-ruby }: let
-    forAllSystems = f: nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system: f system);
+    forAllSystems = f: nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ] (system: f system);
   in {
     lib = {
       buildRailsApp = { system, rubyVersion, src, gems }: 
