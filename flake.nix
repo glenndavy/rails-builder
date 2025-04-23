@@ -41,7 +41,7 @@
         pkgs.stdenv.mkDerivation {
           name = "rails-app";
           inherit src;
-          buildInputs = [ ruby bundler ];
+          buildInputs = [ ruby bundler pkgs.libyaml pkgs.openssl pkgs.nodejs pkgs.git pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
           buildPhase = ''
             echo "***** BUILDER VERSION 0.5 *******************"
             # Set up environment
