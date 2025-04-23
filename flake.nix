@@ -43,13 +43,13 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.openssl pkgs.nodejs pkgs.git pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.6 *******************"
+            echo "***** BUILDER VERSION 0.7 *******************"
             # Set up environment
-            export PATH=${bundler}/bin:$PATH
+            export PATH=${bundler}/bin:$PWD/vendor/bundle/ruby/3.2.0/bin:$PATH
             export HOME=$TMPDIR
             export GEM_HOME=$TMPDIR/gems
-            export GEM_PATH=${bundler}/bundler_gems:$GEM_HOME:vendor/bundle/ruby/3.2.0
-            export BUNDLE_PATH=$TMPDIR/vendor/bundle
+            export GEM_PATH=${bundler}/bundler_gems:$GEM_HOME:$PWD/vendor/bundle/ruby/3.2.0
+            export BUNDLE_PATH=$PWD/vendor/bundle
             export BUNDLE_USER_HOME=$TMPDIR/.bundle
             export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
             mkdir -p $HOME $GEM_HOME $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
@@ -58,13 +58,13 @@
             bundle --version
             echo "PATH: $PATH"
             echo "GEM_PATH: $GEM_PATH"
+            echo "Rails executable:"
+            command -v rails || echo "rails not found"
             # Configure Bundler
             bundle config set --local path 'vendor/bundle'
             bundle config set --local gemfile Gemfile
             bundle config set --local without 'development test'
             bundle install --local --verbose
-            which rails
-            # Use bundle exec to ensure rails is found
             bundle exec rails assets:precompile
           '';
           installPhase = ''
