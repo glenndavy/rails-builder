@@ -21,7 +21,8 @@
           # Pre-fetch Bundler 2.6.8
           bundlerGem = pkgs.fetchurl {
             url = "https://rubygems.org/downloads/bundler-2.6.8.gem";
-            sha256 = "06f56f7f4c7aa76b7cb3ab9f5f3cb3c6f3cb83a7f8b5a7848d76169c0b4dd4f9"; # Verified from rubygems.org
+            sha256 = "sha256-vemZkXKWoWLklWSULcIxLtmo0y/C97SWyV9t88/Mh6k="; # Verified from rubygems.org
+            #06f56f7f4c7aa76b7cb3ab9f5f3cb3c6f3cb83a7f8b5a7848d76169c0b4dd4f9
           };
           bundler = pkgs.stdenv.mkDerivation {
             name = "bundler-2.6.8";
