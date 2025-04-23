@@ -63,8 +63,9 @@
             bundle config set --local gemfile Gemfile
             bundle config set --local without 'development test'
             bundle install --local --verbose
+            which rails
             # Use bundle exec to ensure rails is found
-            bin/rails assets:precompile
+            bundle exec rails assets:precompile
           '';
           installPhase = ''
             mkdir -p $out
