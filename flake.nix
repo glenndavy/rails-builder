@@ -59,7 +59,7 @@
             bundle config set --local gemfile Gemfile
             bundle config set --local without 'development test'
             bundle install --local --verbose
-            rails assets:precompile
+            bundle exec rails assets:precompile
           '';
           installPhase = ''
             mkdir -p $out
