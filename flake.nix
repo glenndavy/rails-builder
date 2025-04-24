@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.26 *******************"
+            echo "***** BUILDER VERSION 0.27 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -86,11 +86,10 @@
             export PGUSER=postgres
             export PGDATABASE=rails_build
             mkdir -p $PGDATA
-            initdb -D $PGDATA --no-locale --encoding=UTF8 --username postgres
+            initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
             echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
             pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
             sleep 2
-            #createuser -h $TMPDIR $PGUSER --superuser
             createdb -h $TMPDIR $PGDATABASE
             export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
             # Set up environment
@@ -100,7 +99,6 @@
             # Skip credentials for build
             mkdir -p $APP_DIR/config/initializers
             cat > $APP_DIR/config/initializers/build.rb <<EOF
-            Rails.configuration.active_record.establish_connection = true
             Rails.configuration.require_master_key = false if Rails.env.production?
             EOF
             # Configure Bundler
