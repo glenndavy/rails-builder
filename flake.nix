@@ -43,7 +43,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ];
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.8 *******************"
+            echo "***** BUILDER VERSION 0.9 *******************"
             # Debug paths
             echo "TMPDIR: $TMPDIR"
             echo "PWD: $PWD"
