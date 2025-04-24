@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.23 *******************"
+            echo "***** BUILDER VERSION 0.24 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -80,14 +80,25 @@
                 echo "Skipping ${file} (not found)"
               fi
             '') copyFiles)}
+            # Set up PostgreSQL
+            export PGDATA=$TMPDIR/pgdata
+            export PGHOST=$TMPDIR
+            export PGUSER=postgres
+            export PGDATABASE=rails_build
+            mkdir -p $PGDATA
+            initdb -D $PGDATA --no-locale --encoding=UTF8
+            echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
+            pg_ctl -D $PGDATA -l $TMPDIR/pg.log start
+            createdb -h $TMPDIR $PGDATABASE
+            export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
             # Set up environment
             export RAILS_ENV=${railsEnv}
             ${if railsEnv == "production" then "export RAILS_SERVE_STATIC_FILES=true" else ""}
             ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
-            # Skip database and credentials for build
+            # Skip credentials for build
             mkdir -p $APP_DIR/config/initializers
             cat > $APP_DIR/config/initializers/build.rb <<EOF
-            Rails.configuration.active_record.establish_connection = false if Rails.env.production?
+            Rails.configuration.active_record.establish_connection = true
             Rails.configuration.require_master_key = false if Rails.env.production?
             EOF
             # Configure Bundler
@@ -103,6 +114,8 @@
             chmod -R u+x $APP_DIR/vendor/bundle/ruby/3.2.0/bin
             # Run build commands
             ${builtins.concatStringsSep "\n" buildCommands}
+            # Stop PostgreSQL
+            pg_ctl -D $PGDATA stop
           '';
           installPhase = ''
             mkdir -p $out/app
