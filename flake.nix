@@ -86,11 +86,11 @@
             export PGUSER=postgres
             export PGDATABASE=rails_build
             mkdir -p $PGDATA
-            initdb -D $PGDATA --no-locale --encoding=UTF8
+            initdb -D $PGDATA --no-locale --encoding=UTF8 --username postgres
             echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
             pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
             sleep 2
-            createuser -h $TMPDIR $PGUSER --superuser
+            #createuser -h $TMPDIR $PGUSER --superuser
             createdb -h $TMPDIR $PGDATABASE
             export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
             # Set up environment
