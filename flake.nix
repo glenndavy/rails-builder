@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.27 *******************"
+            echo "***** BUILDER VERSION 0.29 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -140,7 +140,7 @@
         pkgs.dockerTools.buildImage {
           name = "rails-app";
           tag = "latest";
-          contents = [ railsApp ];
+          contents = [ railsApp pkgs.bash ];
           config = {
             Cmd = dockerCmd;
             WorkingDir = "/app";
