@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.21 *******************"
+            echo "***** BUILDER VERSION 0.22 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -70,50 +70,23 @@
             # Debug arguments
             echo "buildCommands: ${builtins.toJSON buildCommands}"
             echo "extraEnv: ${builtins.toJSON extraEnv}"
-            # Debug paths
-            echo "TMPDIR: $TMPDIR"
-            echo "PWD: $PWD"
-            echo "APP_DIR: $TMPDIR/app"
             # Set up app directory
             export APP_DIR=$TMPDIR/app
             mkdir -p $APP_DIR
             # Copy specific files
             echo "Copying files to $APP_DIR:"
             ${builtins.concatStringsSep "\n" (map (file: ''
-              if [ -e "$PWD/${file}" ]; then
+              if [ -e "${file}" ]; then
                 echo "Copying ${file}"
                 cp -r --parents "${file}" $APP_DIR
               else
                 echo "Skipping ${file} (not found)"
               fi
             '') copyFiles)}
-            # Debug copied files
-            echo "Files in $APP_DIR:"
-            ls -l $APP_DIR
-            # Debug vendor/cache
-            echo "Checking vendor/cache in $APP_DIR:"
-            ls -l $APP_DIR/vendor/cache | grep -E "rails-8.0.2|propshaft-1.1.0|debug" || echo "Missing gems in vendor/cache"
             # Set up environment
             export RAILS_ENV=${railsEnv}
             ${if railsEnv == "production" then "export RAILS_SERVE_STATIC_FILES=true" else ""}
             ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
-            # Debug environment
-            echo "Bundler version:"
-            bundle --version
-            echo "RAILS_ENV: $RAILS_ENV"
-            echo "RAILS_SERVE_STATIC_FILES: $RAILS_SERVE_STATIC_FILES"
-            echo "Extra env vars:"
-            ${builtins.concatStringsSep "\n" (builtins.mapAttrs (name: value: "echo ${name}=${pkgs.lib.escapeShellArg value}") extraEnv)}
-            echo "PATH: $PATH"
-            echo "GEM_PATH: $GEM_PATH"
-            echo "Rails executable:"
-            command -v rails || echo "rails not found"
-            # Skip database and credentials for build
-            mkdir -p $APP_DIR/config/initializers
-            cat > $APP_DIR/config/initializers/build.rb <<EOF
-            Rails.configuration.active_record.establish_connection = false if Rails.env.production?
-            Rails.configuration.require_master_key = false if Rails.env.production?
-            EOF
             # Configure Bundler
             cd $APP_DIR
             bundle config set --local path 'vendor/bundle'
@@ -121,13 +94,7 @@
             bundle config set --local gemfile Gemfile
             ${if railsEnv == "production" then "bundle config set --local without 'development test'" else ""}
             # Run bundle install
-            echo "Running bundle install:"
-            bundle install --local --path vendor/bundle --verbose > bundle_install.log 2>&1 || (cat bundle_install.log; exit 1)
-            # Debug installed gems and bin
-            echo "Installed gems:"
-            ls -l vendor/bundle/ruby/3.2.0/gems | grep -E "rails-8.0.2|propshaft-1.1.0|debug" || echo "No matching gems installed"
-            echo "Bin directory:"
-            ls -l vendor/bundle/ruby/3.2.0/bin | grep rails || echo "No rails executable"
+            bundle install --local --path vendor/bundle
             # Ensure bin permissions
             chmod -R u+x $APP_DIR/vendor/bundle/ruby/3.2.0/bin
             # Run build commands
