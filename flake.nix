@@ -28,6 +28,7 @@
             buildInputs = [ ruby ];
             dontUnpack = true;
             installPhase = ''
+              export RAILS_ENV=production
               export HOME=$TMPDIR
               export GEM_HOME=$out/bundler_gems
               export TMP_BIN=$TMPDIR/bin
