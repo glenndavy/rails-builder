@@ -1,5 +1,5 @@
 {
-  description = "Rails app builder flake";
+  description = "Rails app builder flake for multiple apps";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -10,7 +10,16 @@
     forAllSystems = f: nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ] (system: f system);
   in {
     lib = {
-      buildRailsApp = { system, rubyVersion, src, gems, railsEnv ? "production" }: 
+      buildRailsApp = { 
+        system, 
+        rubyVersion, 
+        src, 
+        gems, 
+        railsEnv ? "production", 
+        extraEnv ? {}, 
+        buildCommands ? [ "bundle exec rails assets:precompile" ],
+        extraBuildInputs ? []
+      }: 
         let
           pkgs = import nixpkgs {
             inherit system;
@@ -18,7 +27,6 @@
           };
           rubyVersionDotted = builtins.replaceStrings ["_"] ["."] rubyVersion;
           ruby = pkgs."ruby-${rubyVersionDotted}";
-          # Pre-fetch Bundler 2.6.8
           bundlerGem = pkgs.fetchurl {
             url = "https://rubygems.org/downloads/bundler-2.6.8.gem";
             sha256 = "sha256-vemZkXKWoWLklWSULcIxLtmo0y/C97SWyV9t88/Mh6k=";
@@ -41,9 +49,9 @@
         pkgs.stdenv.mkDerivation {
           name = "rails-app";
           inherit src;
-          buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ];
+          buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.9 *******************"
+            echo "***** BUILDER VERSION 0.11 *******************"
             # Debug paths
             echo "TMPDIR: $TMPDIR"
             echo "PWD: $PWD"
@@ -57,6 +65,8 @@
             ls -l $APP_DIR/vendor/cache | grep -E "rails-8.0.2|propshaft-1.1.0|debug" || echo "Missing gems in vendor/cache"
             # Set up environment
             export RAILS_ENV=${railsEnv}
+            ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${value}") extraEnv))}
+            ${if railsEnv == "production" then "export RAILS_SERVE_STATIC_FILES=true" else ""}
             export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/ruby/3.2.0/bin:$PATH
             export HOME=$TMPDIR
             export GEM_HOME=$TMPDIR/gems
@@ -66,10 +76,18 @@
             export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
             mkdir -p $HOME $GEM_HOME $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
             chmod -R u+w $APP_DIR $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
+            # Skip database and credentials for build
+            mkdir -p $APP_DIR/config/initializers
+            cat > $APP_DIR/config/initializers/build.rb <<EOF
+            Rails.configuration.active_record.establish_connection = false if Rails.env.production?
+            Rails.configuration.require_master_key = false if Rails.env.production?
+            EOF
             # Debug environment
             echo "Bundler version:"
             bundle --version
             echo "RAILS_ENV: $RAILS_ENV"
+            echo "Extra env vars:"
+            ${builtins.concatStringsSep "\n" (builtins.attrNames extraEnv)}
             echo "PATH: $PATH"
             echo "GEM_PATH: $GEM_PATH"
             echo "Rails executable:"
@@ -79,21 +97,19 @@
             bundle config set --local path 'vendor/bundle'
             bundle config set --local bin 'vendor/bundle/ruby/3.2.0/bin'
             bundle config set --local gemfile Gemfile
-            bundle config set --local without 'development test'
+            ${if railsEnv == "production" then "bundle config set --local without 'development test'" else ""}
             # Run bundle install
             echo "Running bundle install:"
             bundle install --local --path vendor/bundle --verbose > bundle_install.log 2>&1 || (cat bundle_install.log; exit 1)
             # Debug installed gems and bin
             echo "Installed gems:"
             ls -l vendor/bundle/ruby/3.2.0/gems | grep -E "rails-8.0.2|propshaft-1.1.0|debug" || echo "No matching gems installed"
-            echo "Checking debug gem files:"
-            ls -l vendor/bundle/ruby/3.2.0/gems/debug-*/lib/debug | grep prelude || echo "No debug/prelude.rb found"
             echo "Bin directory:"
             ls -l vendor/bundle/ruby/3.2.0/bin | grep rails || echo "No rails executable"
             # Ensure bin permissions
             chmod -R u+x $APP_DIR/vendor/bundle/ruby/3.2.0/bin
-            # Run rails
-            bundle exec rails assets:precompile
+            # Run build commands
+            ${builtins.concatStringsSep "\n" buildCommands}
           '';
           installPhase = ''
             mkdir -p $out/app
@@ -106,7 +122,12 @@
         config.deployment.railsApp = railsApp;
       };
 
-      dockerImage = { system, railsApp }: 
+      dockerImage = { 
+        system, 
+        railsApp, 
+        dockerCmd ? [ "/app/vendor/bundle/ruby/3.2.0/bin/bundle" "exec" "puma" "-C" "/app/config/puma.rb" ], 
+        extraEnv ? {}
+      }: 
         let
           pkgs = import nixpkgs { inherit system; };
         in
@@ -115,9 +136,12 @@
           tag = "latest";
           contents = [ railsApp ];
           config = {
-            Cmd = [ "/app/vendor/bundle/ruby/3.2.0/bin/bundle" "exec" "puma" "-C" "/app/config/puma.rb" ];
+            Cmd = dockerCmd;
             WorkingDir = "/app";
             ExposedPorts = { "3000/tcp" = {}; };
+            Env = [
+              "RAILS_ENV=production"
+            ] ++ (builtins.attrValues (builtins.mapAttrs (name: value: "${name}=${value}") extraEnv));
           };
         };
     };
@@ -163,6 +187,8 @@
           echo "PWD: $PWD"
           echo "RAILS_ENV is unset by default. Set it with: export RAILS_ENV=<production|development|test>"
           echo "Example: export RAILS_ENV=development; bundle install; bundle exec rails server"
+          echo "For CI builds, use: nix build .#packages.x86_64-linux.railsApp"
+          echo "Vendored gems required in vendor/cache. Run 'bundle package' to populate."
         '';
       };
     });
