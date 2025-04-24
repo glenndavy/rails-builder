@@ -62,11 +62,14 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.19 *******************"
+            echo "***** BUILDER VERSION 0.21 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
             ${if !builtins.isList buildCommands then "echo 'ERROR: buildCommands must be a list, got ${builtins.typeOf buildCommands}' >&2; exit 1" else ""}
+            # Debug arguments
+            echo "buildCommands: ${builtins.toJSON buildCommands}"
+            echo "extraEnv: ${builtins.toJSON extraEnv}"
             # Debug paths
             echo "TMPDIR: $TMPDIR"
             echo "PWD: $PWD"
