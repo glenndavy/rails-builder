@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.32 *******************"
+            echo "***** BUILDER VERSION 0.33 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -158,7 +158,10 @@
           debugPaths = [
             pkgs.coreutils
             pkgs.findutils
-            pkgs.grep
+            pkgs.silversearcher
+            pkgs.htop
+            pkgs.agrep
+            pkgs.busybox
             pkgs.less
           ];
         in
