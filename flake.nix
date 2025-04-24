@@ -43,7 +43,10 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.openssl pkgs.nodejs pkgs.git pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.7 *******************"
+            echo "***** BUILDER VERSION 0.1 *******************"
+            # Debug vendor/cache
+            echo "Checking vendor/cache:"
+            ls -l vendor/cache | grep -E "rails-8.0.2|propshaft-1.1.0" || echo "Missing gems in vendor/cache"
             # Set up environment
             export PATH=${bundler}/bin:$PWD/vendor/bundle/ruby/3.2.0/bin:$PATH
             export HOME=$TMPDIR
@@ -65,6 +68,9 @@
             bundle config set --local gemfile Gemfile
             bundle config set --local without 'development test'
             bundle install --local --verbose
+            # Debug installed gems
+            echo "Installed gems:"
+            ls -l vendor/bundle/ruby/3.2.0/gems | grep -E "rails-8.0.2|propshaft-1.1.0" || echo "Missing installed gems"
             bundle exec rails assets:precompile
           '';
           installPhase = ''
