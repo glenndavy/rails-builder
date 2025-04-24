@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.29 *******************"
+            echo "***** BUILDER VERSION 0.30 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -120,6 +120,16 @@
           installPhase = ''
             mkdir -p $out/app
             cp -r $APP_DIR/. $out/app
+            mkdir -p $out/bin
+            cat > $out/bin/run-rails <<EOF
+            #!${pkgs.bash}/bin/bash
+            export PATH=$out/app/vendor/bundle/ruby/3.2.0/bin:\$PATH
+            export RAILS_ENV=production
+            export RAILS_SERVE_STATIC_FILES=true
+            cd $out/app
+            bundle exec puma -C config/puma.rb
+            EOF
+            chmod +x $out/bin/run-rails
           '';
         };
 
@@ -140,7 +150,11 @@
         pkgs.dockerTools.buildImage {
           name = "rails-app";
           tag = "latest";
-          contents = [ railsApp pkgs.bash ];
+          copyToRoot = pkgs.buildEnv {
+            name = "image-root";
+            paths = [ railsApp pkgs.bash ];
+            pathsToLink = [ "/bin" "/app" ];
+          };
           config = {
             Cmd = dockerCmd;
             WorkingDir = "/app";
@@ -148,6 +162,7 @@
             Env = [
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
+              "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
             ] ++ extraEnv;
           };
         };
