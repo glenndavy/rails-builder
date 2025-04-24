@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.16 *******************"
+            echo "***** BUILDER VERSION 0.18 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -149,6 +149,11 @@
       }: 
         let
           pkgs = import nixpkgs { inherit system; };
+          envList = (if builtins.isAttrs extraEnv then (
+            pkgs.lib.mapAttrsToList (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv
+          ) else (
+            if builtins.isList extraEnv then extraEnv else []
+          ));
         in
         pkgs.dockerTools.buildImage {
           name = "rails-app";
@@ -160,8 +165,7 @@
             ExposedPorts = { "3000/tcp" = {}; };
             Env = [
               "RAILS_ENV=production"
-            ] ++ (if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then [] else ["RAILS_SERVE_STATIC_FILES=true"]) ++ 
-              (builtins.attrValues (builtins.mapAttrs (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv));
+            ] ++ (if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then [] else ["RAILS_SERVE_STATIC_FILES=true"]) ++ envList;
           };
         };
     };
@@ -206,7 +210,6 @@
           echo "PWD: $PWD"
           echo "RAILS_ENV is unset by default. Set it with: export RAILS_ENV=<production|development|test>"
           echo "Example: export RAILS_ENV=development; bundle install; bundle exec rails server"
-          echo "For CI builds, use: nix build .#packages.x86_64-linux.railsApp"
           echo "Vendored gems required in vendor/cache. Run 'bundle package' to populate."
         '';
       };
