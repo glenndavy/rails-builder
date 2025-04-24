@@ -88,6 +88,7 @@
             mkdir -p $PGDATA
             initdb -D $PGDATA --no-locale --encoding=UTF8
             echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
+            createuser -h $TMPDIR $PGUSER --superuser
             pg_ctl -D $PGDATA -l $TMPDIR/pg.log start
             createdb -h $TMPDIR $PGDATABASE
             export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
