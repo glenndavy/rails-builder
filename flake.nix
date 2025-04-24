@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.30 *******************"
+            echo "***** BUILDER VERSION 0.31 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -142,17 +142,32 @@
         system, 
         railsApp, 
         dockerCmd ? [ "/app/vendor/bundle/ruby/3.2.0/bin/bundle" "exec" "puma" "-C" "/app/config/puma.rb" ], 
-        extraEnv ? []
+        extraEnv ? [],
+        debug ? false
       }: 
         let
           pkgs = import nixpkgs { inherit system; };
+          basePaths = [
+            railsApp
+            pkgs.bash
+            pkgs.ruby_3_2
+            pkgs.libyaml
+            pkgs.zlib
+            pkgs.openssl
+          ];
+          debugPaths = [
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.grep
+            pkgs.less
+          ];
         in
         pkgs.dockerTools.buildImage {
-          name = "rails-app";
+          name = if debug then "rails-app-debug" else "rails-app";
           tag = "latest";
           copyToRoot = pkgs.buildEnv {
             name = "image-root";
-            paths = [ railsApp pkgs.bash ];
+            paths = basePaths ++ (if debug then debugPaths else []);
             pathsToLink = [ "/bin" "/app" ];
           };
           config = {
