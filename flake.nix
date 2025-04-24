@@ -126,7 +126,7 @@
             # Ensure bin permissions
             chmod -R u+x $APP_DIR/vendor/bundle/ruby/3.2.0/bin
             # Run build commands
-            ${builtins.concatStringsSep "\n" (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
+            ${builtins.concatStringsSep "\n" (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv)}
           '';
           installPhase = ''
             mkdir -p $out/app
