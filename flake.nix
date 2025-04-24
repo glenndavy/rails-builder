@@ -158,7 +158,6 @@
           debugPaths = [
             pkgs.coreutils
             pkgs.findutils
-            pkgs.silversearcher
             pkgs.htop
             pkgs.agrep
             pkgs.busybox
