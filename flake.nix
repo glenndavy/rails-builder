@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.13 *******************"
+            echo "***** BUILDER VERSION 0.14 *******************"
             # Debug paths
             echo "TMPDIR: $TMPDIR"
             echo "PWD: $PWD"
@@ -156,8 +156,8 @@
             ExposedPorts = { "3000/tcp" = {}; };
             Env = [
               "RAILS_ENV=production"
-              ${if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then "" else "RAILS_SERVE_STATIC_FILES=true"}
-            ] ++ (builtins.attrValues (builtins.mapAttrs (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv));
+            ] ++ (if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then [] else ["RAILS_SERVE_STATIC_FILES=true"]) ++ 
+              (builtins.attrValues (builtins.mapAttrs (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv));
           };
         };
     };
