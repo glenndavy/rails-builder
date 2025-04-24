@@ -62,7 +62,7 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.18 *******************"
+            echo "***** BUILDER VERSION 0.19 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
             # Validate buildCommands
@@ -145,15 +145,10 @@
         system, 
         railsApp, 
         dockerCmd ? [ "/app/vendor/bundle/ruby/3.2.0/bin/bundle" "exec" "puma" "-C" "/app/config/puma.rb" ], 
-        extraEnv ? {}
+        extraEnv ? []
       }: 
         let
           pkgs = import nixpkgs { inherit system; };
-          envList = (if builtins.isAttrs extraEnv then (
-            pkgs.lib.mapAttrsToList (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv
-          ) else (
-            if builtins.isList extraEnv then extraEnv else []
-          ));
         in
         pkgs.dockerTools.buildImage {
           name = "rails-app";
@@ -165,7 +160,8 @@
             ExposedPorts = { "3000/tcp" = {}; };
             Env = [
               "RAILS_ENV=production"
-            ] ++ (if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then [] else ["RAILS_SERVE_STATIC_FILES=true"]) ++ envList;
+              "RAILS_SERVE_STATIC_FILES=true"
+            ] ++ extraEnv;
           };
         };
     };
