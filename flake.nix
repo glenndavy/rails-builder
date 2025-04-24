@@ -21,7 +21,7 @@
           # Pre-fetch Bundler 2.6.8
           bundlerGem = pkgs.fetchurl {
             url = "https://rubygems.org/downloads/bundler-2.6.8.gem";
-            sha256 = "sha256-vemZkXKWoWLklWSULcIxLtmo0y/C97SWyV9t88/Mh6k="; # Your SHA256
+            sha256 = "sha256-vemZkXKWoWLklWSULcIxLtmo0y/C97SWyV9t88/Mh6k=";
           };
           bundler = pkgs.stdenv.mkDerivation {
             name = "bundler-2.6.8";
@@ -41,9 +41,9 @@
         pkgs.stdenv.mkDerivation {
           name = "rails-app";
           inherit src;
-          buildInputs = [ ruby bundler pkgs.libyaml pkgs.openssl pkgs.nodejs pkgs.git pkgs.postgresql pkgs.redis pkgs.yarn pkgs.icu pkgs.libz pkgs.glib pkgs.libxml2 pkgs.libxslt pkgs.inetutils ];
+          buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ];
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.1 *******************"
+            echo "***** BUILDER VERSION 0.8 *******************"
             # Debug vendor/cache
             echo "Checking vendor/cache:"
             ls -l vendor/cache | grep -E "rails-8.0.2|propshaft-1.1.0" || echo "Missing gems in vendor/cache"
@@ -56,6 +56,7 @@
             export BUNDLE_USER_HOME=$TMPDIR/.bundle
             export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
             mkdir -p $HOME $GEM_HOME $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
+            chmod -R u+w $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
             # Debug environment
             echo "Bundler version:"
             bundle --version
@@ -65,12 +66,20 @@
             command -v rails || echo "rails not found"
             # Configure Bundler
             bundle config set --local path 'vendor/bundle'
+            bundle config set --local bin 'vendor/bundle/ruby/3.2.0/bin'
             bundle config set --local gemfile Gemfile
             bundle config set --local without 'development test'
-            bundle install --local --verbose
-            # Debug installed gems
+            # Run bundle install
+            echo "Running bundle install:"
+            bundle install --local --path vendor/bundle --verbose > bundle_install.log 2>&1 || (cat bundle_install.log; exit 1)
+            # Debug installed gems and bin
             echo "Installed gems:"
             ls -l vendor/bundle/ruby/3.2.0/gems | grep -E "rails-8.0.2|propshaft-1.1.0" || echo "Missing installed gems"
+            echo "Bin directory:"
+            ls -l vendor/bundle/ruby/3.2.0/bin | grep rails || echo "No rails executable"
+            # Ensure bin permissions
+            chmod -R u+x $PWD/vendor/bundle/ruby/3.2.0/bin
+            # Run rails
             bundle exec rails assets:precompile
           '';
           installPhase = ''
