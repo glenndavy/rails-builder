@@ -62,9 +62,11 @@
           inherit src;
           buildInputs = [ ruby bundler pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl ] ++ extraBuildInputs;
           buildPhase = ''
-            echo "***** BUILDER VERSION 0.15 *******************"
+            echo "***** BUILDER VERSION 0.16 *******************"
             # Validate extraEnv
             ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
+            # Validate buildCommands
+            ${if !builtins.isList buildCommands then "echo 'ERROR: buildCommands must be a list, got ${builtins.typeOf buildCommands}' >&2; exit 1" else ""}
             # Debug paths
             echo "TMPDIR: $TMPDIR"
             echo "PWD: $PWD"
@@ -126,7 +128,7 @@
             # Ensure bin permissions
             chmod -R u+x $APP_DIR/vendor/bundle/ruby/3.2.0/bin
             # Run build commands
-            ${builtins.concatStringsSep "\n" (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv)}
+            ${builtins.concatStringsSep "\n" buildCommands}
           '';
           installPhase = ''
             mkdir -p $out/app
@@ -148,36 +150,22 @@
         let
           pkgs = import nixpkgs { inherit system; };
         in
-        pkgs.stdenv.mkDerivation {
-          name = "rails-app-docker";
-          buildInputs = [ pkgs.dockerTools ];
-          buildPhase = ''
-            # Validate extraEnv
-            ${if !builtins.isAttrs extraEnv then "echo 'ERROR: extraEnv must be a set, got ${builtins.typeOf extraEnv}' >&2; exit 1" else ""}
-            # Create Docker image
-            ${pkgs.dockerTools.buildImage {
-              name = "rails-app";
-              tag = "latest";
-              contents = [ railsApp ];
-              config = {
-                Cmd = dockerCmd;
-                WorkingDir = "/app";
-                ExposedPorts = { "3000/tcp" = {}; };
-                Env = [
-                  "RAILS_ENV=production"
-                ] ++ (if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then [] else ["RAILS_SERVE_STATIC_FILES=true"]) ++ 
-                  (builtins.attrValues (builtins.mapAttrs (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv));
-              };
-            }}
-          '';
-          installPhase = ''
-            mkdir -p $out
-            cp -r . $out
-          '';
+        pkgs.dockerTools.buildImage {
+          name = "rails-app";
+          tag = "latest";
+          contents = [ railsApp ];
+          config = {
+            Cmd = dockerCmd;
+            WorkingDir = "/app";
+            ExposedPorts = { "3000/tcp" = {}; };
+            Env = [
+              "RAILS_ENV=production"
+            ] ++ (if builtins.hasAttr "RAILS_SERVE_STATIC_FILES" extraEnv then [] else ["RAILS_SERVE_STATIC_FILES=true"]) ++ 
+              (builtins.attrValues (builtins.mapAttrs (name: value: "${name}=${pkgs.lib.escapeShellArg value}") extraEnv));
+          };
         };
     };
 
-    # Development shell for testing different RAILS_ENV
     devShells = forAllSystems (system: {
       default = let
         pkgs = import nixpkgs {
