@@ -155,7 +155,7 @@
         '';
       };
 
-    dockerImago = {
+    dockerImage = {
       system,
       railsApp,
       dockerCmd,
