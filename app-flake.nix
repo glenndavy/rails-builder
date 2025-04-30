@@ -9,22 +9,6 @@
     system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
 
-    # Read and clean ruby_version from .ruby_version
-    ruby_version = if builtins.pathExists ./.ruby_version
-                   then builtins.replaceStrings ["ruby" "ruby-"] ["" ""] (builtins.readFile ./.ruby_version)
-                   else throw "Missing .ruby_version file. Please create it with the desired Ruby version.";
-
-    # Check for Gemfile.lock and extract bundler_version
-    bundler_version = if builtins.pathExists ./Gemfile.lock
-                      then let
-                        gemfileLock = builtins.readFile ./Gemfile.lock;
-                        lines = builtins.split "\n" gemfileLock;
-                        lastLine = builtins.elemAt lines (builtins.length lines - 1);
-                        version = builtins.match ".*([0-9.]+).*" lastLine;
-                      in
-                        if version != null then builtins.head version
-                        else throw "Could not parse bundler_version from Gemfile.lock. Ensure it ends with a valid version (e.g., 'BUNDLED WITH 2.6.8')."
-                      else throw "Missing Gemfile.lock file. Please commit Gemfile.lock to the repository.";
 
     # Create a Ruby environment with the specific version
     ruby = pkgs.ruby.overrideAttrs (old: {
@@ -32,7 +16,7 @@
     });
 
     # Common build inputs for native extensions
-    commonBuildInputs = with pkgs; [ libxml2 postgresql zlib ];
+    extraBuildInputs = with pkgs; [ ];
 
     # Function to build the Rails app with different gem strategies
     buildRailsApp = { gem_strategy }:
@@ -54,7 +38,7 @@
           railsBuilder.lib.buildRailsApp {
             inherit ruby gemset;
             src = ./.;
-            buildInputs = commonBuildInputs;
+            buildInputs = extraBuildInputs;
           }
       else if gem_strategy == "vendored" then
         let
@@ -88,7 +72,7 @@
             ruby = ruby;
             gems = null; # Use vendored gems
             src = ./.;
-            buildInputs = commonBuildInputs ++ [ bundlerEnv ];
+            buildInputs = extraBuildInputs ++ [ bundlerEnv ];
             BUNDLE_PATH = ./vendor/cache;
           }
       else
