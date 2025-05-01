@@ -19,6 +19,7 @@
       src,
       rubyVersionSpecified ? null,
     }: let
+      _ = builtins.trace "Resolved src path: ${toString src}" null;
       version =
         if rubyVersionSpecified != null
         then rubyVersionSpecified
@@ -31,19 +32,6 @@
       underscored = underscored;
     };
 
-    detectBundlerVersion = {src}:
-      if builtins.pathExists "${src}/Gemfile.lock"
-      then let
-        gemfileLock = builtins.readFile "${src}/Gemfile.lock";
-        lines = builtins.split "\n" gemfileLock;
-        lastLine = builtins.elemAt lines (builtins.length lines - 1);
-        version = builtins.match ".*([0-9.]+).*" lastLine;
-      in
-        if version != null
-        then builtins.head version
-        else throw "Could not parse bundler_version from Gemfile.lock."
-      else throw "Missing Gemfile.lock in ${src}.";
-
     buildRailsApp = {
       system,
       rubyVersionSpecified ? null,
@@ -54,10 +42,6 @@
       extraBuildInputs ? [],
       gem_strategy ? "vendored",
     }: let
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [nixpkgs-ruby.overlays.default];
-      };
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.underscored}";
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
@@ -97,7 +81,6 @@
             ''
             else throw "Invalid gem_strategy: ${gem_strategy}"
           }
-          # Add additional build steps here
         '';
         installPhase = ''
           mkdir -p $out/app
@@ -105,10 +88,18 @@
         '';
       };
   in {
-    lib = {
-      inherit detectRubyVersion detectBundlerVersion buildRailsApp;
-    };
     packages.${system} = {
+      default = buildRailsApp {
+        inherit system;
+        src = ./.;
+        gem_strategy = "vendored";
+      };
+      bundix = buildRailsApp {
+        inherit system;
+        src = ./.;
+        gem_strategy = "bundix";
+        gemset = import ./gemset.nix;
+      };
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ ! -f Gemfile.lock ]; then
           echo "Error: Gemfile.lock is missing."
@@ -125,15 +116,12 @@
         fi
         echo "Generated gemset.nix successfully."
       '';
-      default = throw "Run 'buildRailsApp' from a local flake.nix in your Rails app directory with 'src = ./.'. Example: nix build github:glenndavy/rails-builder#default requires a local flake.";
-      bundix = throw "Run 'buildRailsApp' from a local flake.nix in your Rails app directory with 'src = ./.'. Example: nix build github:glenndavy/rails-builder#bundix requires a local flake.";
     };
     devShells.${system} = {
-      default = throw "Run 'default' devShell from a local flake.nix or use 'bundix' devShell for generating gemset.nix.";
       bundix = pkgs.mkShell {
         buildInputs = [pkgs.bundix];
         shellHook = ''
-          echo "Run 'bundix --local' to generate gemset.nix in your Rails app directory."
+          echo "Run 'bundix' to generate gemset.nix."
         '';
       };
     };
