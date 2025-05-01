@@ -118,30 +118,24 @@
           echo "Error: vendor/cache is missing."
           exit 1
         fi
-        ${pkgs.bundix}/bin/bundix
+        ${pkgs.bundix}/bin/bundix --local
         if [ ! -f gemset.nix ]; then
           echo "Error: Failed to generate gemset.nix."
           exit 1
         fi
         echo "Generated gemset.nix successfully."
       '';
-      default = buildRailsApp {
-        inherit system;
-        src = ./.;
-        gem_strategy = "vendored";
-      };
-      bundix = buildRailsApp {
-        inherit system;
-        src = ./.;
-        gem_strategy = "bundix";
-        gemset = import ./gemset.nix;
-      };
+      default = throw "Run 'buildRailsApp' from a local flake.nix in your Rails app directory with 'src = ./.'. Example: nix build github:glenndavy/rails-builder#default requires a local flake.";
+      bundix = throw "Run 'buildRailsApp' from a local flake.nix in your Rails app directory with 'src = ./.'. Example: nix build github:glenndavy/rails-builder#bundix requires a local flake.";
     };
     devShells.${system} = {
       default = let
-        ruby_version = detectRubyVersion {src = ./.;};
+        ruby_version = {
+          dotted = "3.2.2";
+          underscored = "3_2_2";
+        }; # Fallback to avoid src dependency
         ruby = pkgs."ruby-${ruby_version.underscored}";
-        bundler_version = detectBundlerVersion {src = ./.;};
+        bundler_version = "2.6.8"; # Fallback, adjust as needed
         bundler = pkgs.stdenv.mkDerivation {
           name = "bundler-${bundler_version}";
           buildInputs = [ruby];
@@ -151,7 +145,7 @@
             export GEM_HOME=$out/bundler_gems
             export TMP_BIN=$TMPDIR/bin
             mkdir -p $HOME $GEM_HOME $TMP_BIN
-            gem install --no-document --local ${./vendor/cache + "/bundler-${bundler_version}.gem"} --install-dir $GEM_HOME --bindir $TMP_BIN
+            gem install --no-document bundler -v ${bundler_version} --install-dir $GEM_HOME --bindir $TMP_BIN
             mkdir -p $out/bin
             cp -r $TMP_BIN/* $out/bin/
           '';
