@@ -52,6 +52,7 @@
       railsEnv ? "production",
       extraEnv ? {},
       extraBuildInputs ? [],
+      gem_strategy ? "vendored",
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -68,18 +69,39 @@
         nativeBuildInputs =
           [ruby]
           ++ (
-            if gemset != null
+            if gemset != null && gem_strategy == "bundix"
             then [ruby.gems]
             else []
           );
         buildPhase = ''
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
-          # ... your buildPhase logic ...
+          cp -r . $APP_DIR
+          cd $APP_DIR
+          ${
+            if railsEnv == "production"
+            then "export RAILS_SERVE_STATIC_FILES=true"
+            else ""
+          }
+          ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
+          ${
+            if gem_strategy == "vendored"
+            then ''
+              bundle config set --local path vendor/bundle
+              bundle install
+            ''
+            else if gem_strategy == "bundix"
+            then ''
+              bundle config set --local path $out/gems
+              bundle install
+            ''
+            else throw "Invalid gem_strategy: ${gem_strategy}"
+          }
+          # Add additional build steps here
         '';
         installPhase = ''
           mkdir -p $out/app
-          cp -r $APP_DIR/. $out/app
+          cp -r . $out/app
         '';
       };
   in {
@@ -87,28 +109,22 @@
       inherit detectRubyVersion detectBundlerVersion buildRailsApp;
     };
     packages.${system} = {
-      generate-gemset = pkgs.writeFile {
-        name = "generate-gemset";
-        executable = true;
-        destination = "/bin/generate-gemset";
-        text = ''
-          #!/bin/bash
-          if [ ! -f Gemfile.lock ]; then
-            echo "Error: Gemfile.lock is missing."
-            exit 1
-          fi
-          if [ ! -d vendor/cache ]; then
-            echo "Error: vendor/cache is missing."
-            exit 1
-          fi
-          ${pkgs.bundix}/bin/bundix --local
-          if [ ! -f gemset.nix ]; then
-            echo "Error: Failed to generate gemset.nix."
-            exit 1
-          fi
-          echo "Generated gemset.nix successfully."
-        '';
-      };
+      generate-gemset = pkgs.writeShellScript "generate-gemset" ''
+        if [ ! -f Gemfile.lock ]; then
+          echo "Error: Gemfile.lock is missing."
+          exit 1
+        fi
+        if [ ! -d vendor/cache ]; then
+          echo "Error: vendor/cache is missing."
+          exit 1
+        fi
+        ${pkgs.bundix}/bin/bundix --local
+        if [ ! -f gemset.nix ]; then
+          echo "Error: Failed to generate gemset.nix."
+          exit 1
+        fi
+        echo "Generated gemset.nix successfully."
+      '';
       default = buildRailsApp {
         inherit system;
         src = ./.;
