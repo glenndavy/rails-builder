@@ -118,7 +118,7 @@
           echo "Error: vendor/cache is missing."
           exit 1
         fi
-        ${pkgs.bundix}/bin/bundix --local
+        ${pkgs.bundix}/bin/bundix
         if [ ! -f gemset.nix ]; then
           echo "Error: Failed to generate gemset.nix."
           exit 1
