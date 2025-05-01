@@ -6,27 +6,26 @@
   outputs = {
     self,
     nixpkgs,
-    nixpkgs-ruby,
   }: let
-    forAllSystems = fn:
-      nixpkgs.lib.genAttrs [
-        "x86_64-linux"
-        "aarch64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ] (system: fn system);
-  in
-    forAllSystems (system: let
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [nixpkgs-ruby.overlays.default];
+    system = "x86_64-linux";
+    pkgs = import nixpkgs {inherit system;};
+  in {
+    packages.${system} = {
+      hello-world = pkgs.writeFile {
+        name = "hello-world";
+        text = "Hello, world!";
       };
-    in {
-      packages.${system} = {
-        default = pkgs.writeFile {
-          name = "test";
-          text = "Hello, world!";
-        };
+      goodbye-world = pkgs.writeFile {
+        name = "goodbye-world";
+        text = "Goodbye, world!";
       };
-    });
+    };
+    devShells.${system}.default = pkgs.mkShell {
+      buildInputs = [pkgs.neovim];
+      shellHook = ''
+        echo "Welcome to the devShell with Neovim!"
+        nvim --version
+      '';
+    };
+  };
 }
