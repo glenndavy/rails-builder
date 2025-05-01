@@ -1,7 +1,6 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
   };
 
   outputs = {
