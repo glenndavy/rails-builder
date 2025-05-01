@@ -109,7 +109,7 @@
       inherit detectRubyVersion detectBundlerVersion buildRailsApp;
     };
     packages.${system} = {
-      generate-gemset = pkgs.writeShellScript "generate-gemset" ''
+      generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ ! -f Gemfile.lock ]; then
           echo "Error: Gemfile.lock is missing."
           exit 1
