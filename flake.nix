@@ -1,31 +1,33 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs = {
     self,
     nixpkgs,
   }: let
-    system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
-  in {
-    packages.${system} = {
-      hello-world = pkgs.writeFile {
-        name = "hello-world";
-        text = "Hello, world!";
+    forAllSystems = fn:
+      nixpkgs.lib.genAttrs [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ] (system: fn system);
+  in
+    forAllSystems (system: let
+      pkgs = import nixpkgs {inherit system;};
+    in {
+      packages.${system} = {
+        hello-world = pkgs.writeText "hello-world" "Hello, world!";
+        goodbye-world = pkgs.writeText "goodbye-world" "Goodbye, world!";
       };
-      goodbye-world = pkgs.writeFile {
-        name = "goodbye-world";
-        text = "Goodbye, world!";
+      devShells.${system}.default = pkgs.mkShell {
+        buildInputs = [pkgs.neovim];
+        shellHook = ''
+          echo "Welcome to the devShell with Neovim!"
+          nvim --version
+        '';
       };
-    };
-    devShells.${system}.default = pkgs.mkShell {
-      buildInputs = [pkgs.neovim];
-      shellHook = ''
-        echo "Welcome to the devShell with Neovim!"
-        nvim --version
-      '';
-    };
-  };
+    });
 }
