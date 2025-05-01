@@ -129,51 +129,11 @@
       bundix = throw "Run 'buildRailsApp' from a local flake.nix in your Rails app directory with 'src = ./.'. Example: nix build github:glenndavy/rails-builder#bundix requires a local flake.";
     };
     devShells.${system} = {
-      default = let
-        ruby_version = {
-          dotted = "3.2.2";
-          underscored = "3_2_2";
-        }; # Fallback to avoid src dependency
-        ruby = pkgs."ruby-${ruby_version.underscored}";
-        bundler_version = "2.6.8"; # Fallback, adjust as needed
-        bundler = pkgs.stdenv.mkDerivation {
-          name = "bundler-${bundler_version}";
-          buildInputs = [ruby];
-          dontUnpack = true;
-          installPhase = ''
-            export HOME=$TMPDIR
-            export GEM_HOME=$out/bundler_gems
-            export TMP_BIN=$TMPDIR/bin
-            mkdir -p $HOME $GEM_HOME $TMP_BIN
-            gem install --no-document bundler -v ${bundler_version} --install-dir $GEM_HOME --bindir $TMP_BIN
-            mkdir -p $out/bin
-            cp -r $TMP_BIN/* $out/bin/
-          '';
-        };
-      in
-        pkgs.mkShell {
-          buildInputs = [ruby pkgs.bundix pkgs.libyaml pkgs.postgresql pkgs.zlib pkgs.openssl];
-          shellHook = ''
-            export PATH=${bundler}/bin:$PWD/vendor/bundle/ruby/${ruby_version.dotted}/bin:$PATH
-            export HOME=$TMPDIR
-            export GEM_HOME=$TMPDIR/gems
-            export GEM_PATH=${bundler}/bundler_gems:$GEM_HOME:$PWD/vendor/bundle/ruby/${ruby_version.dotted}
-            export BUNDLE_PATH=$PWD/vendor/bundle
-            export BUNDLE_USER_HOME=$TMPDIR/.bundle
-            export BUNDLE_USER_CACHE=$TMPDIR/.bundle/cache
-            mkdir -p $HOME $GEM_HOME $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
-            chmod -R u+w $BUNDLE_PATH $BUNDLE_USER_HOME $BUNDLE_USER_CACHE
-            echo "TMPDIR: $TMPDIR"
-            echo "PWD: $PWD"
-            echo "RAILS_ENV is unset by default. Set it with: export RAILS_ENV=<production|development|test>"
-            echo "Example: export RAILS_ENV=development; bundle install; bundle exec rails server"
-            echo "Vendored gems required in vendor/cache. Run 'bundle package' to populate."
-          '';
-        };
+      default = throw "Run 'default' devShell from a local flake.nix or use 'bundix' devShell for generating gemset.nix.";
       bundix = pkgs.mkShell {
         buildInputs = [pkgs.bundix];
         shellHook = ''
-          echo "Run 'bundix --local' to generate gemset.nix."
+          echo "Run 'bundix --local' to generate gemset.nix in your Rails app directory."
         '';
       };
     };
