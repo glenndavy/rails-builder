@@ -1,4 +1,6 @@
 {
+  description = "Reusable Rails builder for Nix";
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
@@ -15,25 +17,57 @@
       overlays = [nixpkgs-ruby.overlays.default];
     };
 
+    bundlerGems = import ./bundler-hashes.nix;
+
     detectRubyVersion = {
       src,
       rubyVersionSpecified ? null,
     }: let
-      _ = builtins.trace "Resolved src path: ${toString src}" null;
       version =
         if rubyVersionSpecified != null
         then rubyVersionSpecified
-        else if builtins.pathExists "${src}/.ruby_version"
-        then builtins.replaceStrings ["ruby" "ruby-"] ["" ""] (builtins.readFile "${src}/.ruby_version")
-        else throw "Missing .ruby_version file in ${src}.";
+        else if builtins.pathExists "${src}/.ruby-version"
+        then builtins.replaceStrings ["ruby" "-" "\n" "\r"] ["" "" "" ""] (builtins.readFile "${src}/.ruby-version")
+        else throw "Missing .ruby-version file in ${src}.";
       underscored = builtins.replaceStrings ["."] ["_"] version;
     in {
       dotted = version;
       underscored = underscored;
     };
 
+    detectBundlerVersion = {src}: let
+      lockFile = "${src}/Gemfile.lock";
+      fileExists = builtins.pathExists lockFile;
+      version =
+        if fileExists
+        then let
+          rawContent = builtins.readFile lockFile;
+          allLines = builtins.split "\n" rawContent;
+          lines = builtins.filter (line: builtins.typeOf line == "string" && line != "") allLines;
+          lineCount = builtins.length lines;
+          bundledWithIndices = builtins.filter (i: (builtins.match "[[:space:]]*BUNDLED WITH[[:space:]]*" (builtins.elemAt lines i)) != null) (builtins.genList (i: i) lineCount);
+          versionLine =
+            if bundledWithIndices != [] && (builtins.head bundledWithIndices) + 1 < lineCount
+            then let
+              idx = (builtins.head bundledWithIndices) + 1;
+              line = builtins.elemAt lines idx;
+              lineType = builtins.typeOf line;
+            in
+              if lineType == "string"
+              then line
+              else throw "Version line is not a string: type is ${lineType}, value is ${toString line}"
+            else throw "BUNDLED WITH not found or no version line follows in Gemfile.lock.";
+          versionMatch = builtins.match "[[:space:]]*([0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?)[[:space:]]*" versionLine;
+        in
+          if versionMatch != null
+          then builtins.head versionMatch
+          else throw "Could not parse bundler_version from line after BUNDLED WITH: '${versionLine}'"
+        else throw "Gemfile.lock not found.";
+    in
+      version;
+
     buildRailsApp = {
-      system,
+      system ? "x86_64-linux",
       rubyVersionSpecified ? null,
       gemset ? null,
       src,
@@ -41,23 +75,66 @@
       extraEnv ? {},
       extraBuildInputs ? [],
       gem_strategy ? "vendored",
+      buildCommands ? null,
     }: let
-      rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
-      ruby = pkgs."ruby-${rubyVersion.underscored}";
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [nixpkgs-ruby.overlays.default];
+      };
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
+      rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
+      ruby = pkgs."ruby-${rubyVersion.dotted}";
+      bundlerVersion = detectBundlerVersion {inherit src;};
+      bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}");
+      bundler = pkgs.stdenv.mkDerivation {
+        name = "bundler-${bundlerVersion}";
+        buildInputs = [ruby];
+        src = pkgs.fetchurl {
+          url = bundlerGem.url;
+          sha256 = bundlerGem.sha256;
+        };
+        dontUnpack = true;
+        installPhase = ''
+          export HOME=$TMPDIR
+          export GEM_HOME=$out/lib/ruby/gems/${rubyVersion.dotted}
+          export GEM_PATH=$GEM_HOME
+          export PATH=$out/bin:$PATH
+          mkdir -p $GEM_HOME $out/bin
+          gem install --no-document --local $src --install-dir $GEM_HOME --bindir $out/bin
+        '';
+      };
+      effectiveBuildCommands =
+        if buildCommands == null
+        then ["${bundler}/bin/bundle exec vendor/bundle/bin/rails assets:precompile"]
+        else buildCommands;
     in
       pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
-        buildInputs = [ruby] ++ defaultBuildInputs ++ extraBuildInputs;
+        buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs =
           [ruby]
           ++ (
-            if gemset != null && gem_strategy == "bundix"
+            if gemset != null && gem_strategy == "bundix" && builtins.pathExists ./gemset.nix
             then [ruby.gems]
             else []
           );
         buildPhase = ''
+          export HOME=$TMPDIR
+          export GEM_HOME=$TMPDIR/gems
+          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+          export PATH=${bundler}/bin:vendor/bundle/bin:$PATH
+          export BUNDLE_PATH=vendor/bundle
+          export SECRET_KEY_BASE=dummy_secret_key_for_build
+          mkdir -p $GEM_HOME vendor/bundle/bin
+
+          echo "Using bundler version:"
+          ${bundler}/bin/bundle --version
+          echo "Checking vendor/cache contents:"
+          ls -l vendor/cache
+          echo "Gemfile.lock contents:"
+          cat Gemfile.lock
+
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
           cp -r . $APP_DIR
@@ -67,20 +144,53 @@
             then "export RAILS_SERVE_STATIC_FILES=true"
             else ""
           }
+          export PGDATA=$TMPDIR/pgdata
+          export PGHOST=$TMPDIR
+          export PGUSER=postgres
+          export PGDATABASE=rails_build
+          mkdir -p $PGDATA
+          initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
+          echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
+          pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
+          sleep 2
+          createdb -h $TMPDIR $PGDATABASE
+          export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
+
+          export RAILS_ENV=${railsEnv}
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
+
+          cd $APP_DIR
           ${
             if gem_strategy == "vendored"
             then ''
-              bundle config set --local path vendor/bundle
-              bundle install
+              ${bundler}/bin/bundle config set --local path vendor/bundle
+              ${bundler}/bin/bundle config set --local cache_path vendor/cache
+              ${bundler}/bin/bundle install --local --no-cache --binstubs vendor/bundle/bin
+              echo "Checking vendor/bundle contents:"
+              find vendor/bundle -type f
+              echo "Checking for rails executable:"
+              find vendor/bundle -type f -name rails
+              if [ -f "vendor/bundle/bin/rails" ]; then
+                echo "Rails executable found"
+                ${bundler}/bin/bundle exec vendor/bundle/bin/rails --version
+              else
+                echo "Rails executable not found"
+                exit 1
+              fi
+              echo "Testing bundle exec rails:"
+              ${bundler}/bin/bundle exec vendor/bundle/bin/rails --version
+              echo "Testing bundle exec rails assets:precompile:"
+              ${bundler}/bin/bundle exec vendor/bundle/bin/rails assets:precompile --dry-run
             ''
-            else if gem_strategy == "bundix"
+            else if gem_strategy == "bundix" && builtins.pathExists ./gemset.nix
             then ''
-              bundle config set --local path $out/gems
-              bundle install
+              ${bundler}/bin/bundle config set --local path $out/gems
+              ${bundler}/bin/bundle install --local --binstubs $out/gems/bin
             ''
-            else throw "Invalid gem_strategy: ${gem_strategy}"
+            else ""
           }
+          ${builtins.concatStringsSep "\n" effectiveBuildCommands}
+          pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
           mkdir -p $out/app
@@ -88,42 +198,31 @@
         '';
       };
   in {
-    packages.${system} = {
-      default = buildRailsApp {
-        inherit system;
-        src = ./.;
-        gem_strategy = "vendored";
-      };
-      bundix = buildRailsApp {
-        inherit system;
-        src = ./.;
-        gem_strategy = "bundix";
-        gemset = import ./gemset.nix;
-      };
-      generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
-        if [ ! -f Gemfile.lock ]; then
-          echo "Error: Gemfile.lock is missing."
-          exit 1
-        fi
-        if [ ! -d vendor/cache ]; then
-          echo "Error: vendor/cache is missing."
-          exit 1
-        fi
-        ${pkgs.bundix}/bin/bundix
-        if [ ! -f gemset.nix ]; then
-          echo "Error: Failed to generate gemset.nix."
-          exit 1
-        fi
-        echo "Generated gemset.nix successfully."
-      '';
+    lib.${system} = {
+      inherit detectRubyVersion detectBundlerVersion buildRailsApp;
     };
-    devShells.${system} = {
-      bundix = pkgs.mkShell {
-        buildInputs = [pkgs.bundix];
-        shellHook = ''
-          echo "Run 'bundix' to generate gemset.nix."
-        '';
-      };
+    packages.${system}.generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
+      if [ -z "$1" ]; then
+        echo "Error: Please provide a source directory path."
+        exit 1
+      fi
+      if [ ! -f "$1/Gemfile.lock" ]; then
+        echo "Error: Gemfile.lock is missing in $1."
+        exit 1
+      fi
+      cd "$1"
+      ${pkgs.bundix}/bin/bundix
+      if [ ! -f gemset.nix ]; then
+        echo "Error: Failed to generate gemset.nix."
+        exit 1
+      fi
+      echo "Generated gemset.nix successfully."
+    '';
+    devShells.${system}.bundix = pkgs.mkShell {
+      buildInputs = [pkgs.bundix];
+      shellHook = ''
+        echo "Run 'bundix' to generate gemset.nix."
+      '';
     };
   };
 }
