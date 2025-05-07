@@ -132,7 +132,6 @@
           export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
           export SECRET_KEY_BASE=dummy_secret_key_for_build
-          mkdir brunch
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin
 
           echo "Using bundler version:"
