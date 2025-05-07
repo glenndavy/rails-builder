@@ -147,25 +147,10 @@
           ${
             if gem_strategy == "vendored"
             then "ls -l vendor/cache"
-            else ''
-              ls -l gemset.nix || echo 'gemset.nix not found in source'
-              if [ -f ./gemset.nix ]; then
-                echo "gemset.nix exists in source"
-                cat gemset.nix
-              else
-                echo "gemset.nix does not exist in source"
-              fi
-              echo "Gemset null check: ${
-                if gemset != null
-                then "gemset provided"
-                else "gemset is null"
-              }"
-            ''
+            else "ls -l gemset.nix || echo 'gemset.nix not found in source'"
           }
           echo "Gemfile.lock contents:"
           cat Gemfile.lock
-          echo "Checking source directory:"
-          ls -l .
 
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
