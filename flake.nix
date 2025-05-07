@@ -247,11 +247,12 @@
       fi
       cd "$1"
       ${pkgs.bundix}/bin/bundix
-      if [ ! -f gemset.nix ]; then
+      if [ -f gemset.nix ]; then
+        echo "Generated gemset.nix successfully."
+      else
         echo "Error: Failed to generate gemset.nix."
         exit 1
       fi
-      echo "Generated gemset.nix successfully."
     '';
     devShells.${system}.bundix = pkgs.mkShell {
       buildInputs = [pkgs.bundix];
