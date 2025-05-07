@@ -16,7 +16,7 @@
       inherit system;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-
+    flake_version = "1";
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -121,7 +121,7 @@
         nativeBuildInputs =
           [ruby]
           ++ (
-            if gemset != null && gem_strategy == "bundix" && builtins.pathExists ./gemset.nix
+            if gemset != null && gem_strategy == "bundix"
             then [ruby.gems]
             else []
           );
@@ -151,6 +151,11 @@
           }
           echo "Gemfile.lock contents:"
           cat Gemfile.lock
+          echo "Gemset status: ${
+            if gemset != null
+            then "provided"
+            else "null"
+          }"
 
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
@@ -199,7 +204,7 @@
               echo "Testing bundle exec rails assets:precompile:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
-            else if gem_strategy == "bundix" && gemset != null && builtins.pathExists ./gemset.nix
+            else if gem_strategy == "bundix" && gemset != null
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle install --local --binstubs $out/app/vendor/bundle/bin
@@ -220,7 +225,7 @@
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else ''
-              echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset.nix for bundix"
+              echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset for bundix"
               exit 1
             ''
           }
@@ -247,18 +252,24 @@
       fi
       cd "$1"
       ${pkgs.bundix}/bin/bundix
-      if [ -f gemset.nix ]; then
-        echo "Generated gemset.nix successfully."
-      else
+      if [ ! -f gemset.nix ]; then
         echo "Error: Failed to generate gemset.nix."
         exit 1
       fi
+      echo "Generated gemset.nix successfully."
     '';
     devShells.${system}.bundix = pkgs.mkShell {
       buildInputs = [pkgs.bundix];
       shellHook = ''
         echo "Run 'bundix' to generate gemset.nix."
       '';
+    };
+    apps.${system}.flakeVersion = {
+      type = "app";
+      program = "${pkgs.writeScriptBin "flake-version" ''
+        #!${pkgs.runtimeShell}
+        echo "${flake_version}"
+      ''}/bin/flake-version";
     };
   };
 }
