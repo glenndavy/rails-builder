@@ -88,7 +88,7 @@
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
-        buildInputs = [ruby];
+        buildInputs = [pkgs.git ruby];
         src = pkgs.fetchurl {
           url = bundlerGem.url;
           sha256 = bundlerGem.sha256;
