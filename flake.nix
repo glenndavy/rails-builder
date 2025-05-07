@@ -101,6 +101,12 @@
           export PATH=$out/bin:$PATH
           mkdir -p $GEM_HOME $out/bin
           gem install --no-document --local $src --install-dir $GEM_HOME --bindir $out/bin
+          if [ -f "$out/bin/bundle" ]; then
+            echo "Bundler executable found"
+          else
+            echo "Bundler executable not found"
+            exit 1
+          fi
         '';
       };
       effectiveBuildCommands =
@@ -210,7 +216,10 @@
               echo "Testing bundle exec rails assets:precompile:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
-            else ""
+            else ''
+              echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset.nix for bundix"
+              exit 1
+            ''
           }
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
           pg_ctl -D $PGDATA stop
