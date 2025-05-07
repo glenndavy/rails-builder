@@ -16,7 +16,7 @@
       inherit system;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "2";
+    flake_version = "1";
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -76,9 +76,11 @@
       extraBuildInputs ? [],
       gem_strategy ? "vendored",
       buildCommands ? null,
+      nixpkgsConfig ? {}, # Accept nixpkgsConfig
     }: let
       pkgs = import nixpkgs {
         inherit system;
+        config = nixpkgsConfig; # Apply nixpkgsConfig
         overlays = [nixpkgs-ruby.overlays.default];
       };
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
@@ -156,6 +158,7 @@
             then "provided"
             else "null"
           }"
+          echo "Permitted insecure packages: ${builtins.toJSON pkgs.lib.lists.toList pkgs.config.permittedInsecurePackages}"
 
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
