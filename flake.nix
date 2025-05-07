@@ -105,7 +105,7 @@
       };
       effectiveBuildCommands =
         if buildCommands == null
-        then ["${bundler}/bin/bundle exec vendor/bundle/bin/rails assets:precompile"]
+        then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else buildCommands;
     in
       pkgs.stdenv.mkDerivation {
@@ -123,15 +123,23 @@
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
-          export PATH=${bundler}/bin:vendor/bundle/bin:$PATH
-          export BUNDLE_PATH=vendor/bundle
+          export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
+          export BUNDLE_PATH=$out/app/vendor/bundle
           export SECRET_KEY_BASE=dummy_secret_key_for_build
-          mkdir -p $GEM_HOME vendor/bundle/bin
+          mkdir -p $GEM_HOME $out/app/vendor/bundle/bin
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version
-          echo "Checking vendor/cache contents:"
-          ls -l vendor/cache
+          echo "Checking ${
+            if gem_strategy == "vendored"
+            then "vendor/cache"
+            else "gemset.nix"
+          } contents:"
+          ${
+            if gem_strategy == "vendored"
+            then "ls -l vendor/cache"
+            else "cat gemset.nix || echo 'No gemset.nix found'"
+          }
           echo "Gemfile.lock contents:"
           cat Gemfile.lock
 
@@ -163,29 +171,44 @@
           ${
             if gem_strategy == "vendored"
             then ''
-              ${bundler}/bin/bundle config set --local path vendor/bundle
+              ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
-              ${bundler}/bin/bundle install --local --no-cache --binstubs vendor/bundle/bin
-              echo "Checking vendor/bundle contents:"
-              find vendor/bundle -type f
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin
+              echo "Checking $out/app/vendor/bundle contents:"
+              find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
-              find vendor/bundle -type f -name rails
-              if [ -f "vendor/bundle/bin/rails" ]; then
+              find $out/app/vendor/bundle/bin -type f -name rails
+              if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
                 echo "Rails executable found"
-                ${bundler}/bin/bundle exec vendor/bundle/bin/rails --version
+                ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
               else
                 echo "Rails executable not found"
                 exit 1
               fi
               echo "Testing bundle exec rails:"
-              ${bundler}/bin/bundle exec vendor/bundle/bin/rails --version
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
               echo "Testing bundle exec rails assets:precompile:"
-              ${bundler}/bin/bundle exec vendor/bundle/bin/rails assets:precompile --dry-run
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
-            else if gem_strategy == "bundix" && builtins.pathExists ./gemset.nix
+            else if gem_strategy == "bundix" && gemset != null
             then ''
-              ${bundler}/bin/bundle config set --local path $out/gems
-              ${bundler}/bin/bundle install --local --binstubs $out/gems/bin
+              ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
+              ${bundler}/bin/bundle install --local --binstubs $out/app/vendor/bundle/bin
+              echo "Checking $out/app/vendor/bundle contents:"
+              find $out/app/vendor/bundle -type f
+              echo "Checking for rails executable:"
+              find $out/app/vendor/bundle/bin -type f -name rails
+              if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                echo "Rails executable found"
+                ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+              else
+                echo "Rails executable not found"
+                exit 1
+              fi
+              echo "Testing bundle exec rails:"
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+              echo "Testing bundle exec rails assets:precompile:"
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else ""
           }
