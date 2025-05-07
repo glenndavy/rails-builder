@@ -16,7 +16,7 @@
       inherit system;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "1";
+    flake_version = "2";
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -122,7 +122,7 @@
           [ruby]
           ++ (
             if gemset != null && gem_strategy == "bundix"
-            then [ruby.gems]
+            then [pkgs.bundler]
             else []
           );
         buildPhase = ''
