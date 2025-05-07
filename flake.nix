@@ -132,10 +132,14 @@
           export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
           export SECRET_KEY_BASE=dummy_secret_key_for_build
+          mkdir brunch
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin
 
           echo "Using bundler version:"
-          ${bundler}/bin/bundle --version
+          ${bundler}/bin/bundle --version || {
+            echo "Failed to run bundle command"
+            exit 1
+          }
           echo "Checking ${
             if gem_strategy == "vendored"
             then "vendor/cache"
@@ -196,7 +200,7 @@
               echo "Testing bundle exec rails assets:precompile:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
-            else if gem_strategy == "bundix" && gemset != null
+            else if gem_strategy == "bundix" && gemset != null && builtins.pathExists ./gemset.nix
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle install --local --binstubs $out/app/vendor/bundle/bin
