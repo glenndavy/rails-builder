@@ -26,7 +26,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "4"; # Incremented to 4
+    flake_version = "5"; # Incremented to 5
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -86,7 +86,7 @@
       extraBuildInputs ? [],
       gem_strategy ? "vendored",
       buildCommands ? null,
-      nixpkgsConfig ? nixpkgsConfig, # Use default nixpkgsConfig
+      nixpkgsConfig, # Require explicit nixpkgsConfig
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -313,6 +313,11 @@
                 inherit src nixpkgsConfig;
                 gem_strategy = "vendored";
               }).bundler
+              libyaml # Added for psych gem
+              zlib
+              openssl
+              libxml2
+              libxslt
             ]
           );
           shellHook = ''
@@ -347,6 +352,11 @@
               inherit src nixpkgsConfig;
               gem_strategy = "vendored";
             }).bundler
+            libyaml # Added for psych gem
+            zlib
+            openssl
+            libxml2
+            libxslt
           ];
           shellHook = ''
             export GEM_HOME=$PWD/.nix-gems

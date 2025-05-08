@@ -16,22 +16,26 @@
       inherit system;
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
-    flake_version = "10"; # Incremented to 10
+    nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
+    flake_version = "11"; # Incremented to 11
   in {
     packages.${system} = {
       default =
         (rails-builder.lib.${system}.buildRailsApp {
           src = ./.;
           gem_strategy = "vendored";
+          nixpkgsConfig = nixpkgsConfig;
         }).app;
-      bundix = rails-builder.lib.${system}.buildRailsApp {
-        src = ./.;
-        gem_strategy = "bundix";
-        gemset =
-          if builtins.pathExists ./gemset.nix
-          then import ./gemset.nix
-          else null;
-      };
+      bundix =
+        (rails-builder.lib.${system}.buildRailsApp {
+          src = ./.;
+          gem_strategy = "bundix";
+          gemset =
+            if builtins.pathExists ./gemset.nix
+            then import ./gemset.nix
+            else null;
+          nixpkgsConfig = nixpkgsConfig;
+        }).app;
       generate-gemset = rails-builder.packages.${system}.generate-gemset;
       debugOpenssl = rails-builder.packages.${system}.debugOpenssl;
     };
@@ -71,6 +75,19 @@
           #!${pkgs.runtimeShell}
           echo "${flake_version}"
         ''}/bin/flake-version";
+      };
+
+      bundix = {
+        type = "app";
+        program = "${(rails-builder.lib.${system}.buildRailsApp {
+          src = ./.;
+          gem_strategy = "bundix";
+          gemset =
+            if builtins.pathExists ./gemset.nix
+            then import ./gemset.nix
+            else null;
+          nixpkgsConfig = nixpkgsConfig;
+        }).app}/app";
       };
     };
   };
