@@ -42,8 +42,8 @@
 
     devShells.${system} = {
       bundix = rails-builder.devShells.${system}.bundix;
-      appDevShell = rails-builder.devShells.${system}.appDevShell {src = ./.;};
-      bootstrapDevShell = rails-builder.devShells.${system}.bootstrapDevShell {src = ./.;};
+      appDevShell = rails-builder.lib.${system}.mkAppDevShell {src = ./.;};
+      bootstrapDevShell = rails-builder.lib.${system}.mkBootstrapDevShell {src = ./.;};
     };
 
     apps.${system} = {
@@ -93,13 +93,6 @@
             else null;
           nixpkgsConfig = nixpkgsConfig;
         }).app}/app/bin/rails-app";
-      };
-    };
-
-    templates = {
-      default = {
-        path = ./.;
-        description = "A template for a Rails application with Nix flake support";
       };
     };
   };
