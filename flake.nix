@@ -12,7 +12,6 @@
     nixpkgs-ruby,
   }: let
     system = "x86_64-linux";
-    # Define config for insecure packages
     nixpkgsConfig = {
       permittedInsecurePackages = [
         "openssl-1.1.1w"
@@ -26,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "7"; # Incremented to 7
+    flake_version = "8"; # Incremented to 8
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -246,7 +245,6 @@
         installPhase = ''
           mkdir -p $out/app/bin
           cp -r . $out/app
-          # Create a wrapper script for rails-app
           cat > $out/app/bin/rails-app <<EOF
           #!${pkgs.runtimeShell}
           export GEM_HOME=\$HOME/.nix-gems
@@ -279,11 +277,12 @@
         fi
         cd "$1"
         ${pkgs.bundix}/bin/bundix
-        if [ ! -f gemset.nix ]; then
+        if [ -f gemset.nix ]; then
+          echo "Generated gemset.nix successfully."
+        else
           echo "Error: Failed to generate gemset.nix."
           exit 1
         fi
-        echo "Generated gemset.nix successfully."
       '';
       debugOpenssl = pkgs.writeShellScriptBin "debug-openssl" ''
         #!${pkgs.runtimeShell}
@@ -392,6 +391,12 @@
         #!${pkgs.runtimeShell}
         echo "${flake_version}"
       ''}/bin/flake-version";
+    };
+    templates = {
+      new-app = {
+        path = ./templates/new-app;
+        description = "A template for initializing a Rails application with Nix flake support";
+      };
     };
   };
 }
