@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "11"; # Incremented to 11
+    flake_version = "13"; # Incremented to 13
   in {
     packages.${system} = {
       default =
@@ -47,6 +47,14 @@
     };
 
     apps.${system} = {
+      default = {
+        type = "app";
+        program = "${(rails-builder.lib.${system}.buildRailsApp {
+          src = ./.;
+          gem_strategy = "vendored";
+          nixpkgsConfig = nixpkgsConfig;
+        }).app}/app/bin/rails-app";
+      };
       detectBundlerVersion = {
         type = "app";
         program = let
@@ -57,7 +65,6 @@
           '';
         in "${script}/bin/detect-bundler-version";
       };
-
       detectRubyVersion = {
         type = "app";
         program = let
@@ -68,7 +75,6 @@
           '';
         in "${script}/bin/detect-ruby-version";
       };
-
       flakeVersion = {
         type = "app";
         program = "${pkgs.writeShellScriptBin "flake-version" ''
@@ -76,7 +82,6 @@
           echo "${flake_version}"
         ''}/bin/flake-version";
       };
-
       bundix = {
         type = "app";
         program = "${(rails-builder.lib.${system}.buildRailsApp {
@@ -87,7 +92,7 @@
             then import ./gemset.nix
             else null;
           nixpkgsConfig = nixpkgsConfig;
-        }).app}/app";
+        }).app}/app/bin/rails-app";
       };
     };
   };

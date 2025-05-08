@@ -26,7 +26,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "6"; # Incremented to 6
+    flake_version = "7"; # Incremented to 7
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -45,9 +45,7 @@
       underscored = underscored;
     };
 
-    detectBundlerVersion = {
-      src,
-    }: let
+    detectBundlerVersion = {src}: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
       version =
@@ -96,9 +94,9 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
-      rubyVersion = detectRubyVersion { inherit src rubyVersionSpecified; };
+      rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
-      bundlerVersion = detectBundlerVersion { inherit src; };
+      bundlerVersion = detectBundlerVersion {inherit src;};
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
@@ -123,18 +121,21 @@
           fi
         '';
       };
-      effectiveBuildCommands = if buildCommands == null
+      effectiveBuildCommands =
+        if buildCommands == null
         then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else buildCommands;
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs = [ruby] ++ (
-          if gemset != null && gem_strategy == "bundix"
-          then [pkgs.bundler]
-          else []
-        );
+        nativeBuildInputs =
+          [ruby]
+          ++ (
+            if gemset != null && gem_strategy == "bundix"
+            then [pkgs.bundler]
+            else []
+          );
         buildPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
@@ -161,7 +162,11 @@
           }
           echo "Gemfile.lock contents:"
           cat Gemfile.lock
-          echo "Gemset status: ${if gemset != null then "provided" else "null"}"
+          echo "Gemset status: ${
+            if gemset != null
+            then "provided"
+            else "null"
+          }"
 
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
@@ -239,10 +244,10 @@
           pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
-          mkdir -p $out/app $out/bin
+          mkdir -p $out/app/bin
           cp -r . $out/app
           # Create a wrapper script for rails-app
-          cat > $out/bin/rails-app <<EOF
+          cat > $out/app/bin/rails-app <<EOF
           #!${pkgs.runtimeShell}
           export GEM_HOME=\$HOME/.nix-gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:\$GEM_HOME
@@ -251,7 +256,7 @@
           cd $out/app
           exec ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails "\$@"
           EOF
-          chmod +x $out/bin/rails-app
+          chmod +x $out/app/bin/rails-app
         '';
       };
     in {
@@ -263,7 +268,7 @@
       inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig;
     };
     packages.${system} = {
-      generate-gemset = pkgsDrivingSchool = pkgs.writeShellScriptBin "generate-gemset" ''
+      generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ -z "$1" ]; then
           echo "Error: Please provide a source directory path."
           exit 1
@@ -298,68 +303,88 @@
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
-      appDevShell = { src }: pkgs.mkShell {
-        buildInputs = with pkgs; (
-          if builtins.pathExists "${src}/vendor/cache"
-          then [
-            (pkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
-            (buildRailsApp { inherit src nixpkgsConfig; gem_strategy = "vendored"; }).bundler
-            (buildRailsApp { inherit src nixpkgsConfig; gem_strategy = "vendored"; }).app.buildInputs
-          ]
-          else [
-            (pkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
-            (buildRailsApp { inherit src nixpkgsConfig; gem_strategy = "vendored"; }).bundler
+      appDevShell = {src}:
+        pkgs.mkShell {
+          buildInputs = with pkgs; (
+            if builtins.pathExists "${src}/vendor/cache"
+            then [
+              (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+              (buildRailsApp {
+                inherit src nixpkgsConfig;
+                gem_strategy = "vendored";
+              }).bundler
+              (buildRailsApp {
+                inherit src nixpkgsConfig;
+                gem_strategy = "vendored";
+              }).app.buildInputs
+            ]
+            else [
+              (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+              (buildRailsApp {
+                inherit src nixpkgsConfig;
+                gem_strategy = "vendored";
+              }).bundler
+              libyaml
+              zlib
+              openssl
+              libxml2
+              libxslt
+            ]
+          );
+          shellHook = ''
+            export GEM_HOME=$PWD/.nix-gems
+            export GEM_PATH=${(buildRailsApp {
+              inherit src nixpkgsConfig;
+              gem_strategy = "vendored";
+            }).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+            export BUNDLE_PATH=$PWD/vendor/bundle
+            export PATH=$BUNDLE_PATH/bin:$PATH
+            mkdir -p $GEM_HOME $BUNDLE_PATH/bin
+            echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
+            echo "Ruby version: ''$(ruby --version)"
+            echo "Bundler version: ''$(bundle --version)"
+            ${
+              if builtins.pathExists "${src}/vendor/cache"
+              then ''
+                echo "vendor/cache detected. Binstubs are available in vendor/bundle/bin (e.g., vendor/bundle/bin/rails)."
+              ''
+              else ''
+                echo "vendor/cache not found. Run 'bundle install --path vendor/cache' to populate gems."
+              ''
+            }
+            echo "Welcome to the Rails dev shell!"
+          '';
+        };
+      bootstrapDevShell = {src}:
+        pkgs.mkShell {
+          buildInputs = with pkgs; [
+            (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+            (buildRailsApp {
+              inherit src nixpkgsConfig;
+              gem_strategy = "vendored";
+            }).bundler
             libyaml
             zlib
             openssl
             libxml2
             libxslt
-          ]
-        );
-        shellHook = ''
-          export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${(buildRailsApp { inherit src nixpkgsConfig; gem_strategy = "vendored"; }).bundler}/lib/ruby/gems/${(detectRubyVersion { inherit src; }).dotted}:$GEM_HOME
-          export BUNDLE_PATH=$PWD/vendor/bundle
-          export PATH=$BUNDLE_PATH/bin:$PATH
-          mkdir -p $GEM_HOME $BUNDLE_PATH/bin
-          echo "Detected Ruby version: ${(detectRubyVersion { inherit src; }).dotted}"
-          echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(bundle --version)"
-          ${
-            if builtins.pathExists "${src}/vendor/cache"
-            then ''
-              echo "vendor/cache detected. Binstubs are available in vendor/bundle/bin (e.g., vendor/bundle/bin/rails)."
-            ''
-            else ''
-              echo "vendor/cache not found. Run 'bundle install --path vendor/cache' to populate gems."
-            ''
-          }
-          echo "Welcome to the Rails dev shell!"
-        '';
-      };
-      bootstrapDevShell = { src }: pkgs.mkShell {
-        buildInputs = with pkgs; [
-          (pkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
-          (buildRailsApp { inherit src nixpkgsConfig; gem_strategy = "vendored"; }).bundler
-          libyaml
-          zlib
-          openssl
-          libxml2
-          libxslt
-        ];
-        shellHook = ''
-          export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${(buildRailsApp { inherit src nixpkgsConfig; gem_strategy = "vendored"; }).bundler}/lib/ruby/gems/${(detectRubyVersion { inherit src; }).dotted}:$GEM_HOME
-          export BUNDLE_PATH=$PWD/vendor/bundle
-          export PATH=$BUNDLE_PATH/bin:$PATH
-          mkdir -p $GEM_HOME $BUNDLE_PATH/bin
-          echo "Detected Ruby version: ${(detectRubyVersion { inherit src; }).dotted}"
-          echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(bundle --version)"
-          echo "Bootstrap shell for new project. Run 'bundle install --path vendor/cache' to populate gems."
-          echo "Welcome to the Rails bootstrap shell!"
-        '';
-      };
+          ];
+          shellHook = ''
+            export GEM_HOME=$PWD/.nix-gems
+            export GEM_PATH=${(buildRailsApp {
+              inherit src nixpkgsConfig;
+              gem_strategy = "vendored";
+            }).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+            export BUNDLE_PATH=$PWD/vendor/bundle
+            export PATH=$BUNDLE_PATH/bin:$PATH
+            mkdir -p $GEM_HOME $BUNDLE_PATH/bin
+            echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
+            echo "Ruby version: ''$(ruby --version)"
+            echo "Bundler version: ''$(bundle --version)"
+            echo "Bootstrap shell for new project. Run 'bundle install --path vendor/cache' to populate gems."
+            echo "Welcome to the Rails bootstrap shell!"
+          '';
+        };
     };
     apps.${system}.flakeVersion = {
       type = "app";
