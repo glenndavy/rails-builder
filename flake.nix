@@ -26,7 +26,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "5"; # Incremented to 5
+    flake_version = "5";
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -254,7 +254,7 @@
     };
   in {
     lib.${system} = {
-      inherit detectRubyVersion detectBundlerVersion buildRailsApp;
+      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig;
     };
     packages.${system} = {
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
@@ -313,7 +313,7 @@
                 inherit src nixpkgsConfig;
                 gem_strategy = "vendored";
               }).bundler
-              libyaml # Added for psych gem
+              libyaml
               zlib
               openssl
               libxml2
@@ -352,7 +352,7 @@
               inherit src nixpkgsConfig;
               gem_strategy = "vendored";
             }).bundler
-            libyaml # Added for psych gem
+            libyaml
             zlib
             openssl
             libxml2
