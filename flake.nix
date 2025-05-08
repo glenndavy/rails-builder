@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "10"; # Incremented to 10
+    flake_version = "11"; # Incremented to 11
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -356,7 +356,7 @@
           exit 1
         fi
         if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gemfile.lock is missing in $1."
+          echo "Error: Gin Gemfile.lock is missing in $1."
           exit 1
         fi
         cd "$1"
