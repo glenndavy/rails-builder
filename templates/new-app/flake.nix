@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "1"; # Initial version for new apps
+    flake_version = "16"; # Incremented to 16
   in {
     packages.${system} = {
       default =
@@ -81,6 +81,10 @@
           #!${pkgs.runtimeShell}
           echo "${flake_version}"
         ''}/bin/flake-version";
+      };
+      builderVersion = {
+        type = "app";
+        program = "${rails-builder.apps.${system}.flakeVersion.program}";
       };
       bundix = {
         type = "app";
