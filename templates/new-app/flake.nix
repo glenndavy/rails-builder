@@ -1,5 +1,5 @@
 {
-  description = "A Rails application template";
+  description = "Rails app in bank-statements";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
