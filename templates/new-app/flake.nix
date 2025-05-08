@@ -1,5 +1,5 @@
 {
-  description = "Rails app in bank-statements";
+  description = "A Rails application template";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "13"; # Incremented to 13
+    flake_version = "1"; # Initial version for new apps
   in {
     packages.${system} = {
       default =
@@ -93,6 +93,13 @@
             else null;
           nixpkgsConfig = nixpkgsConfig;
         }).app}/app/bin/rails-app";
+      };
+    };
+
+    templates = {
+      default = {
+        path = ./.;
+        description = "A template for a Rails application with Nix flake support";
       };
     };
   };
