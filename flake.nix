@@ -76,11 +76,11 @@
       extraBuildInputs ? [],
       gem_strategy ? "vendored",
       buildCommands ? null,
-      nixpkgsConfig ? {}, # Accept nixpkgsConfig
+      nixpkgsConfig ? {},
     }: let
       pkgs = import nixpkgs {
         inherit system;
-        config = nixpkgsConfig; # Apply nixpkgsConfig
+        config = nixpkgsConfig;
         overlays = [nixpkgs-ruby.overlays.default];
       };
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
@@ -115,8 +115,7 @@
         if buildCommands == null
         then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else buildCommands;
-    in
-      pkgs.stdenv.mkDerivation {
+      app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
@@ -203,7 +202,7 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              echo "Testing bundle exec rails assets:precompile:"
+              echo "Testing bucket exec rails assets:precompile:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else if gem_strategy == "bundix" && gemset != null
@@ -239,6 +238,10 @@
           cp -r . $out/app
         '';
       };
+    in {
+      inherit app;
+      bundler = bundler;
+    };
   in {
     lib.${system} = {
       inherit detectRubyVersion detectBundlerVersion buildRailsApp;
