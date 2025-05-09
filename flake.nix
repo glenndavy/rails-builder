@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "13"; # Incremented to 13
+    flake_version = "14"; # Incremented to 14
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -125,7 +125,10 @@
       effectiveBuildCommands =
         if buildCommands == null
         then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
-        else buildCommands;
+        else if builtins.isList buildCommands
+        then buildCommands
+        else [buildCommands]; # Convert single string to list
+    in {
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
@@ -241,7 +244,7 @@
               exit 1
             ''
           }
-          ${builtins.concatStringsSep "\n" (builtins.concatStringsSep "\n" effectiveBuildCommands)}
+          ${builtins.concatStringsSep "\n" effectiveBuildCommands}
           pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
@@ -259,8 +262,6 @@
           chmod +x $out/app/bin/rails-app
         '';
       };
-    in {
-      inherit app;
       bundler = bundler;
     };
 
