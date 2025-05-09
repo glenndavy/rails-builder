@@ -1,5 +1,5 @@
 {
-  description = "Rails app in bank-statements";
+  description = "A Rails application template";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,15 +17,18 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "16"; # Incremented to 16
+    flake_version = "1"; # Initial version for new apps
+
+    # Rails app derivation from buildRailsApp
+    railsApp =
+      (rails-builder.lib.${system}.buildRailsApp {
+        src = ./.;
+        gem_strategy = "vendored";
+        nixpkgsConfig = nixpkgsConfig;
+      }).app;
   in {
     packages.${system} = {
-      default =
-        (rails-builder.lib.${system}.buildRailsApp {
-          src = ./.;
-          gem_strategy = "vendored";
-          nixpkgsConfig = nixpkgsConfig;
-        }).app;
+      default = railsApp;
       bundix =
         (rails-builder.lib.${system}.buildRailsApp {
           src = ./.;
@@ -38,6 +41,15 @@
         }).app;
       generate-gemset = rails-builder.packages.${system}.generate-gemset;
       debugOpenssl = rails-builder.packages.${system}.debugOpenssl;
+      dockerImage = rails-builder.lib.${system}.mkDockerImage {
+        railsApp = railsApp;
+        name = "rails-app";
+      };
+      dockerImageDebug = rails-builder.lib.${system}.mkDockerImage {
+        railsApp = railsApp;
+        name = "rails-app";
+        debug = true;
+      };
     };
 
     devShells.${system} = {
@@ -49,11 +61,7 @@
     apps.${system} = {
       default = {
         type = "app";
-        program = "${(rails-builder.lib.${system}.buildRailsApp {
-          src = ./.;
-          gem_strategy = "vendored";
-          nixpkgsConfig = nixpkgsConfig;
-        }).app}/app/bin/rails-app";
+        program = "${railsApp}/app/bin/rails-app";
       };
       detectBundlerVersion = {
         type = "app";

@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "11"; # Incremented to 11
+    flake_version = "13"; # Incremented to 13
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -86,17 +86,19 @@
       gem_strategy ? "vendored",
       buildCommands ? null,
       nixpkgsConfig,
+      bundlerHashes ? ./bundler-hashes.nix,
     }: let
       pkgs = import nixpkgs {
         inherit system;
         config = nixpkgsConfig;
         overlays = [nixpkgs-ruby.overlays.default];
       };
+      bundlerGems = import bundlerHashes;
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {inherit src;};
-      bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}");
+      bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
         buildInputs = [ruby];
@@ -239,7 +241,7 @@
               exit 1
             ''
           }
-          ${builtins.concatStringsSep "\n" effectiveBuildCommands}
+          ${builtins.concatStringsSep "\n" (builtins.concatStringsSep "\n" effectiveBuildCommands)}
           pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
@@ -268,21 +270,12 @@
           if builtins.pathExists "${src}/vendor/cache"
           then [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
-            (buildRailsApp {
-              inherit src nixpkgsConfig;
-              gem_strategy = "vendored";
-            }).bundler
-            (buildRailsApp {
-              inherit src nixpkgsConfig;
-              gem_strategy = "vendored";
-            }).app.buildInputs
+            (buildRailsApp {inherit src nixpkgsConfig;}).bundler
+            (buildRailsApp {inherit src nixpkgsConfig;}).app.buildInputs
           ]
           else [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
-            (buildRailsApp {
-              inherit src nixpkgsConfig;
-              gem_strategy = "vendored";
-            }).bundler
+            (buildRailsApp {inherit src nixpkgsConfig;}).bundler
             libyaml
             zlib
             openssl
@@ -292,10 +285,7 @@
         );
         shellHook = ''
           export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            gem_strategy = "vendored";
-          }).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          export GEM_PATH=${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
           export BUNDLE_PATH=$PWD/vendor/bundle
           export PATH=$BUNDLE_PATH/bin:$PATH
           mkdir -p $GEM_HOME $BUNDLE_PATH/bin
@@ -319,10 +309,7 @@
       pkgs.mkShell {
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
-          (buildRailsApp {
-            inherit src nixpkgsConfig;
-            gem_strategy = "vendored";
-          }).bundler
+          (buildRailsApp {inherit src nixpkgsConfig;}).bundler
           libyaml
           zlib
           openssl
@@ -331,10 +318,7 @@
         ];
         shellHook = ''
           export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            gem_strategy = "vendored";
-          }).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          export GEM_PATH=${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
           export BUNDLE_PATH=$PWD/vendor/bundle
           export PATH=$BUNDLE_PATH/bin:$PATH
           mkdir -p $GEM_HOME $BUNDLE_PATH/bin
@@ -345,9 +329,98 @@
           echo "Welcome to the Rails bootstrap shell!"
         '';
       };
+
+    mkDockerImage = {
+      railsApp,
+      name,
+      debug ? false,
+      extraEnv ? [],
+    }: let
+      startScript = pkgs.writeShellScript "start" ''
+        #!/bin/bash
+        set -e
+
+        # Check if Procfile exists
+        if [ ! -f /app/Procfile ]; then
+          echo "Error: /app/Procfile not found. Please provide a Procfile with role commands."
+          exit 1
+        fi
+
+        # Check if EXECUTION_ROLE is set
+        if [ -z "$EXECUTION_ROLE" ]; then
+          echo "Error: EXECUTION_ROLE environment variable is not set. Please set it to a valid role (e.g., 'web', 'worker')."
+          exit 1
+        fi
+
+        # Read Procfile and find the command for EXECUTION_ROLE
+        command=$(grep "^$EXECUTION_ROLE:" /app/Procfile | sed "s/^$EXECUTION_ROLE:[[:space:]]*//" | head -n 1)
+
+        # Check if a command was found
+        if [ -z "$command" ]; then
+          echo "Error: No command found for EXECUTION_ROLE='$EXECUTION_ROLE' in /app/Procfile."
+          echo "Available roles:"
+          grep "^[a-zA-Z0-9_-]\+:" /app/Procfile | sed 's/^\(.*\):.*/\1/' | sort | uniq
+          exit 1
+        fi
+
+        # Execute the command
+        echo "Starting $EXECUTION_ROLE with command: $command"
+        cd /app
+        exec $command
+      '';
+      basePaths = [
+        railsApp
+        railsApp.buildInputs
+        pkgs.bash
+      ];
+      debugPaths = [
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.htop
+        pkgs.agrep
+        pkgs.busybox
+        pkgs.less
+      ];
+    in
+      pkgs.dockerTools.buildImage {
+        name =
+          if debug
+          then "${name}-debug"
+          else name;
+        tag = "latest";
+        copyToRoot = pkgs.buildEnv {
+          name = "image-root";
+          paths =
+            basePaths
+            ++ (
+              if debug
+              then debugPaths
+              else []
+            );
+          pathsToLink = ["/app" "/bin"];
+        };
+        config = {
+          Entrypoint = ["/bin/start"];
+          WorkingDir = "/app";
+          Env =
+            [
+              "PATH=/app/vendor/bundle/bin:/bin"
+              "GEM_HOME=/app/.nix-gems"
+              "GEM_PATH=/app/vendor/bundle:/app/.nix-gems"
+              "BUNDLE_PATH=/app/vendor/bundle"
+              "RAILS_ENV=production"
+              "RAILS_SERVE_STATIC_FILES=true"
+              "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
+            ]
+            ++ extraEnv;
+          ExposedPorts = {
+            "3000/tcp" = {};
+          };
+        };
+      };
   in {
     lib.${system} = {
-      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell mkBootstrapDevShell;
+      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell mkBootstrapDevShell mkDockerImage;
     };
     packages.${system} = {
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
@@ -356,7 +429,7 @@
           exit 1
         fi
         if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gin Gemfile.lock is missing in $1."
+          echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
         cd "$1"
