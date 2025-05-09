@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "23"; # Incremented to 23
+    flake_version = "24"; # Incremented to 24
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -152,6 +152,7 @@
           export GEM_HOME=$TMPDIR/gems
           unset GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          export BUNDLE_HOME=$TMPDIR/.bundle
           export BUNDLE_CONFIG=$TMPDIR/.bundle/config
           export BUNDLE_CACHE=$TMPDIR/.bundle/cache
           export BUNDLE_DISABLE_LOCAL_CONFIG=true
@@ -162,6 +163,10 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin $TMPDIR/.bundle
+          # Create dummy /.bundle/config to prevent writes
+          mkdir -p /.bundle
+          touch /.bundle/config
+          chmod 444 /.bundle/config
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -217,7 +222,7 @@
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
               ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin
+              ${bundler}/bin/bundle install --local --no-cache --no-global --binstubs $out/app/vendor/bundle/bin
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -238,7 +243,7 @@
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle install --local --binstubs $out/app/vendor/bundle/bin
+              ${bundler}/bin/bundle install --local --no-cache --no-global --binstubs $out/app/vendor/bundle/bin
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -271,6 +276,7 @@
           export GEM_HOME=\$HOME/.nix-gems
           unset GEM_PATH
           unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
+          export BUNDLE_HOME=\$HOME/.bundle
           export BUNDLE_CONFIG=\$HOME/.bundle/config
           export BUNDLE_CACHE=\$HOME/.bundle/cache
           export BUNDLE_PATH=$out/app/vendor/bundle
@@ -313,6 +319,7 @@
           unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
+          export BUNDLE_HOME=$HOME/.bundle
           export BUNDLE_CONFIG=$HOME/.bundle/config
           export BUNDLE_CACHE=$HOME/.bundle/cache
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
@@ -358,6 +365,7 @@
           unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
+          export BUNDLE_HOME=$HOME/.bundle
           export BUNDLE_CONFIG=$HOME/.bundle/config
           export BUNDLE_CACHE=$HOME/.bundle/cache
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
@@ -480,6 +488,7 @@
               "GEM_HOME=/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
               "BUNDLE_GEMFILE=/app/Gemfile"
+              "BUNDLE_HOME=/root/.bundle"
               "BUNDLE_CONFIG=/root/.bundle/config"
               "BUNDLE_CACHE=/root/.bundle/cache"
               "RAILS_ENV=production"
