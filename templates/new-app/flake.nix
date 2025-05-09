@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "1"; # Initial version for new apps
+    flake_version = "21"; # Aligned with bank-statements at 20, incremented for rails-builder state
 
     # Rails app derivation from buildRailsApp
     railsApp =

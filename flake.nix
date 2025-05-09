@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "14"; # Incremented to 14
+    flake_version = "15"; # Incremented to 15
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -94,7 +94,7 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      defaultBuildInputs = with pkgs; [nodejs libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
+      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {inherit src;};
@@ -127,7 +127,7 @@
         then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else if builtins.isList buildCommands
         then buildCommands
-        else [buildCommands]; # Convert single string to list
+        else [buildCommands];
     in {
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
@@ -282,6 +282,7 @@
             openssl
             libxml2
             libxslt
+            nodejs_20
           ]
         );
         shellHook = ''
@@ -316,6 +317,7 @@
           openssl
           libxml2
           libxslt
+          nodejs_20
         ];
         shellHook = ''
           export GEM_HOME=$PWD/.nix-gems
