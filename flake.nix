@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "30"; # Incremented to 30
+    flake_version = "31"; # Incremented to 31
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -156,6 +156,7 @@
           export BUNDLE_CONFIG=$TMPDIR/.bundle/config
           export BUNDLE_CACHE=$TMPDIR/.bundle/cache
           export BUNDLE_FROZEN=true
+          export BUNDLE_IGNORE_CONFIG=true
           export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
@@ -171,10 +172,6 @@
           BUNDLE_WITHOUT: "development test"
           BUNDLE_FROZEN: "true"
           EOF
-          # Copy project .bundle/config if it exists
-          if [ -f .bundle/config ]; then
-            cp .bundle/config $TMPDIR/.bundle/config
-          fi
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -240,7 +237,7 @@
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
               ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin --verbose
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -261,7 +258,7 @@
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin --verbose
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
