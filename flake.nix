@@ -152,7 +152,7 @@
           export GEM_HOME=$TMPDIR/gems
           unset GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export APP_PATH=$TMPDIR/app
+          export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
           export BUNDLE_USER_CONFIG=$APP_PATH/.bundle/config
           export BUNDLE_PATH=$APP_PATH/vendor/bundle
