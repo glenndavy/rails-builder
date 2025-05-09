@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "18"; # Incremented to 18
+    flake_version = "19"; # Incremented to 19
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -90,7 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
-      defaultBundlerVersion ? "2.6.8", # Added for bootstrap shell
+      defaultBundlerVersion ? "2.6.8",
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -110,7 +110,7 @@
         name = "bundler-${bundlerVersion}";
         buildInputs = [ruby];
         src = pkgs.fetchurl {
-          url = bund.busyboxlerGem.url;
+          url = bundlerGem.url;
           sha256 = bundlerGem.sha256;
         };
         dontUnpack = true;
@@ -453,7 +453,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ -f "$1/Gemfile.lock" ]; then
+        if [ ! -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi

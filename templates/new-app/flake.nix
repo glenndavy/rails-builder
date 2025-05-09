@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "21"; # Aligned with bank-statements at 20, incremented for rails-builder state
+    flake_version = "22"; # Incremented to 22
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -56,6 +56,27 @@
       bundix = rails-builder.devShells.${system}.bundix;
       appDevShell = rails-builder.lib.${system}.mkAppDevShell {src = ./.;};
       bootstrapDevShell = rails-builder.lib.${system}.mkBootstrapDevShell {src = ./.;};
+      rubyShell = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          (pkgs."ruby-${(rails-builder.lib.${system}.detectRubyVersion {src = ./.;}).dotted}")
+          libyaml
+          zlib
+          openssl
+          libxml2
+          libxslt
+          imagemagick
+          nodejs_20
+        ];
+        shellHook = ''
+          export GEM_HOME=$PWD/.nix-gems
+          export PATH=$GEM_HOME/bin:$PATH
+          mkdir -p $GEM_HOME
+          echo "Ruby version: ''$(ruby --version)"
+          echo "Node.js version: ''$(node --version)"
+          echo "Ruby shell with build inputs. Gems are installed in $GEM_HOME."
+          echo "Run 'gem install <gem>' to install gems, or use Ruby without Bundler."
+        '';
+      };
     };
 
     apps.${system} = {
