@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "24"; # Incremented to 24
+    flake_version = "25"; # Incremented to 25
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -155,7 +155,7 @@
           export BUNDLE_HOME=$TMPDIR/.bundle
           export BUNDLE_CONFIG=$TMPDIR/.bundle/config
           export BUNDLE_CACHE=$TMPDIR/.bundle/cache
-          export BUNDLE_DISABLE_LOCAL_CONFIG=true
+          export BUNDLE_IGNORE_CONFIG=true
           export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
@@ -163,10 +163,6 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin $TMPDIR/.bundle
-          # Create dummy /.bundle/config to prevent writes
-          mkdir -p /.bundle
-          touch /.bundle/config
-          chmod 444 /.bundle/config
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -222,7 +218,7 @@
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
               ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle install --local --no-cache --no-global --binstubs $out/app/vendor/bundle/bin
+              ${bundler}/bin/bundle install --local --no-cache --no-global --path $out/app/vendor/bundle --binstubs $out/app/vendor/bundle/bin
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -243,7 +239,7 @@
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle install --local --no-cache --no-global --binstubs $out/app/vendor/bundle/bin
+              ${bundler}/bin/bundle install --local --no-cache --no-global --path $out/app/vendor/bundle --binstubs $out/app/vendor/bundle/bin
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
