@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "15"; # Incremented to 15
+    flake_version = "16"; # Incremented to 16
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -143,9 +143,10 @@
         buildPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
-          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+          unset GEM_PATH # Prevent global gems interference
           export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
+          export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin
 
@@ -202,6 +203,7 @@
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
+              ${bundler}/bin/bundle config set --local without development test
               ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
@@ -222,6 +224,7 @@
             else if gem_strategy == "bundix" && gemset != null
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
+              ${bundler}/bin/bundle config set --local without development test
               ${bundler}/bin/bundle install --local --binstubs $out/app/vendor/bundle/bin
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
@@ -253,8 +256,9 @@
           cat > $out/app/bin/rails-app <<EOF
           #!${pkgs.runtimeShell}
           export GEM_HOME=\$HOME/.nix-gems
-          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:\$GEM_HOME
+          unset GEM_PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
+          export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundler}/bin:\$BUNDLE_PATH/bin:\$PATH
           cd $out/app
           exec ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails "\$@"
@@ -286,11 +290,14 @@
           ]
         );
         shellHook = ''
-          export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          unset GEM_HOME GEM_PATH # Clear global gem paths
           export BUNDLE_PATH=$PWD/vendor/bundle
-          export PATH=$BUNDLE_PATH/bin:$PATH
-          mkdir -p $GEM_HOME $BUNDLE_PATH/bin
+          export BUNDLE_GEMFILE=$PWD/Gemfile
+          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
+          mkdir -p .nix-gems $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -320,11 +327,14 @@
           nodejs_20
         ];
         shellHook = ''
-          export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          unset GEM_HOME GEM_PATH # Clear global gem paths
           export BUNDLE_PATH=$PWD/vendor/bundle
-          export PATH=$BUNDLE_PATH/bin:$PATH
-          mkdir -p $GEM_HOME $BUNDLE_PATH/bin
+          export BUNDLE_GEMFILE=$PWD/Gemfile
+          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
+          mkdir -p .nix-gems $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -409,8 +419,8 @@
             [
               "PATH=/app/vendor/bundle/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
-              "GEM_PATH=/app/vendor/bundle:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
+              "BUNDLE_GEMFILE=/app/Gemfile"
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
