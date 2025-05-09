@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "29"; # Incremented to 29
+    flake_version = "30"; # Incremented to 30
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -201,18 +201,15 @@
 
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
+          # Copy source to $APP_DIR
           cp -r . $APP_DIR
           cd $APP_DIR
-          # Ensure Gemfile and Gemfile.lock are in $APP_DIR
-          if [ -f Gemfile ]; then
-            cp Gemfile $APP_DIR/Gemfile
-          else
+          # Verify Gemfile and Gemfile.lock exist
+          if [ ! -f Gemfile ]; then
             echo "Gemfile not found in source"
             exit 1
           fi
-          if [ -f Gemfile.lock ]; then
-            cp Gemfile.lock $APP_DIR/Gemfile.lock
-          else
+          if [ ! -f Gemfile.lock ]; then
             echo "Gemfile.lock not found in source"
             exit 1
           fi
@@ -294,20 +291,20 @@
           cp -r . $out/app
           cat > $out/app/bin/rails-app <<EOF
           #!${pkgs.runtimeShell}
-          export GEM_HOME=\$HOME/.nix-gems
+          export GEM_HOME=/app/.nix-gems
           unset GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export BUNDLE_HOME=$out/app/.bundle
-          export BUNDLE_CONFIG=$out/app/.bundle/config
-          export BUNDLE_CACHE=$out/app/.bundle/cache
-          export BUNDLE_PATH=$out/app/vendor/bundle
+          export BUNDLE_HOME=/app/.bundle
+          export BUNDLE_CONFIG=/app/.bundle/config
+          export BUNDLE_CACHE=/app/.bundle/cache
+          export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundler}/bin:\$BUNDLE_PATH/bin:\$PATH
+          export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
-          mkdir -p $out/app/.bundle
-          cd $out/app
-          exec ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails "\$@"
+          mkdir -p /app/.bundle
+          cd /app
+          exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
           EOF
           chmod +x $out/app/bin/rails-app
         '';

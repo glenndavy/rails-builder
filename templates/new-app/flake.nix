@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "32"; # Incremented to 32
+    flake_version = "33"; # Incremented to 33
 
     # Rails app derivation from buildRailsApp
     railsApp =
