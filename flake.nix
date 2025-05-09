@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "31"; # Incremented to 31
+    flake_version = "33"; # Incremented to 33
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -152,26 +152,26 @@
           export GEM_HOME=$TMPDIR/gems
           unset GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export BUNDLE_HOME=$TMPDIR/.bundle
-          export BUNDLE_CONFIG=$TMPDIR/.bundle/config
-          export BUNDLE_CACHE=$TMPDIR/.bundle/cache
-          export BUNDLE_FROZEN=true
-          export BUNDLE_IGNORE_CONFIG=true
-          export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
+          export BUNDLE_USER_CONFIG=$TMPDIR/.bundle/config
           export BUNDLE_PATH=$out/app/vendor/bundle
+          export BUNDLE_FROZEN=true
+          export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin $TMPDIR/.bundle
-          # Pre-create .bundle/config with required settings
+          # Create read-only /.bundle to block creation
+          mkdir -p /.bundle
+          chmod 555 /.bundle
+          # Pre-create minimal .bundle/config
           cat > $TMPDIR/.bundle/config <<EOF
           ---
           BUNDLE_PATH: "$out/app/vendor/bundle"
-          BUNDLE_CACHE_PATH: "vendor/cache"
-          BUNDLE_WITHOUT: "development test"
           BUNDLE_FROZEN: "true"
           EOF
+          echo "Contents of $TMPDIR/.bundle/config:"
+          cat $TMPDIR/.bundle/config
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -237,6 +237,8 @@
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
               ${bundler}/bin/bundle config set --local without development test
+              echo "Bundler config before install:"
+              ${bundler}/bin/bundle config
               ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin --verbose
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
@@ -258,6 +260,8 @@
             then ''
               ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
+              echo "Bundler config before install:"
+              ${bundler}/bin/bundle config
               ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin --verbose
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
@@ -291,9 +295,7 @@
           export GEM_HOME=/app/.nix-gems
           unset GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export BUNDLE_HOME=/app/.bundle
-          export BUNDLE_CONFIG=/app/.bundle/config
-          export BUNDLE_CACHE=/app/.bundle/cache
+          export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
@@ -334,9 +336,7 @@
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
-          export BUNDLE_HOME=$PWD/.bundle
-          export BUNDLE_CONFIG=$PWD/.bundle/config
-          export BUNDLE_CACHE=$PWD/.bundle/cache
+          export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
@@ -380,9 +380,7 @@
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
-          export BUNDLE_HOME=$PWD/.bundle
-          export BUNDLE_CONFIG=$PWD/.bundle/config
-          export BUNDLE_CACHE=$PWD/.bundle/cache
+          export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
             defaultBundlerVersion = "2.6.8";
@@ -503,9 +501,7 @@
               "GEM_HOME=/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
               "BUNDLE_GEMFILE=/app/Gemfile"
-              "BUNDLE_HOME=/app/.bundle"
-              "BUNDLE_CONFIG=/app/.bundle/config"
-              "BUNDLE_CACHE=/app/.bundle/cache"
+              "BUNDLE_USER_CONFIG=/app/.bundle/config"
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
