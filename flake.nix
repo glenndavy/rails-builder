@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "16"; # Incremented to 16
+    flake_version = "17"; # Incremented to 17
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -44,7 +44,10 @@
       underscored = underscored;
     };
 
-    detectBundlerVersion = {src}: let
+    detectBundlerVersion = {
+      src,
+      defaultVersion ? "2.6.8", # Default to 2.6.8 if Gemfile.lock is missing
+    }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
       version =
@@ -71,7 +74,7 @@
           if versionMatch != null
           then builtins.head versionMatch
           else throw "Could not parse bundler_version from line after BUNDLED WITH: '${versionLine}'"
-        else throw "Gemfile.lock not found.";
+        else defaultVersion; # Use default if Gemfile.lock is missing
     in
       version;
 
@@ -143,7 +146,7 @@
         buildPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
-          unset GEM_PATH # Prevent global gems interference
+          unset GEM_PATH
           export PATH=${bundler}/bin:$out/app/vendor/bundle/bin:$PATH
           export BUNDLE_PATH=$out/app/vendor/bundle
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
@@ -166,7 +169,7 @@
             else "ls -l gemset.nix || echo 'gemset.nix not found in source'"
           }
           echo "Gemfile.lock contents:"
-          cat Gemfile.lock
+          cat Gemfile.lock || echo "Gemfile.lock not found, proceeding with installation"
           echo "Gemset status: ${
             if gemset != null
             then "provided"
@@ -290,7 +293,7 @@
           ]
         );
         shellHook = ''
-          unset GEM_HOME GEM_PATH # Clear global gem paths
+          unset GEM_HOME GEM_PATH
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
@@ -318,7 +321,10 @@
       pkgs.mkShell {
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
-          (buildRailsApp {inherit src nixpkgsConfig;}).bundler
+          (buildRailsApp {
+            inherit src nixpkgsConfig;
+            defaultVersion = "2.6.8";
+          }).bundler
           libyaml
           zlib
           openssl
@@ -327,18 +333,20 @@
           nodejs_20
         ];
         shellHook = ''
-          unset GEM_HOME GEM_PATH # Clear global gem paths
+          unset GEM_HOME GEM_PATH
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
-          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
+          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
+            inherit src nixpkgsConfig;
+            defaultVersion = "2.6.8";
+          }).bundler}/bin:$PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${pkgs.bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
-          echo "Bootstrap shell for new project. Run 'bundle install --path vendor/cache' to populate gems."
+          echo "Bootstrap shell for new project. Run 'bundle lock' to generate Gemfile.lock, then 'bundle install --path vendor/cache' to populate gems."
           echo "Welcome to the Rails bootstrap shell!"
         '';
       };
