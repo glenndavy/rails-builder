@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "26"; # Incremented to 26
+    flake_version = "27"; # Incremented to 27
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -40,7 +40,7 @@
         else throw "Missing .ruby-version file in ${src}.";
       underscored = builtins.replaceStrings ["."] ["_"] version;
     in {
-      dotted = fd version;
+      dotted = version; # Fixed typo: was 'fd version'
       underscored = underscored;
     };
 
@@ -163,12 +163,14 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin $TMPDIR/.bundle
-          # Copy project .bundle/config if it exists
-          if [ -f .bundle/config ]; then
-            cp .bundle/config $TMPDIR/.bundle/config
-          else
-            touch $TMPDIR/.bundle/config
-          fi
+          # Pre-create .bundle/config with required settings
+          cat > $TMPDIR/.bundle/config <<EOF
+          ---
+          BUNDLE_PATH: "$out/app/vendor/bundle"
+          BUNDLE_CACHE_PATH: "vendor/cache"
+          BUNDLE_WITHOUT: "development test"
+          BUNDLE_FROZEN: "true"
+          EOF
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -272,7 +274,7 @@
           #!${pkgs.runtimeShell}
           export GEM_HOME=\$HOME/.nix-gems
           unset GEM_PATH
-          unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
+          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_HOME=\$HOME/.bundle
           export BUNDLE_CONFIG=\$HOME/.bundle/config
           export BUNDLE_CACHE=\$HOME/.bundle/cache
