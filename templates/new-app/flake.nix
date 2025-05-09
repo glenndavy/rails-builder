@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "30"; # Incremented to 30
+    flake_version = "32"; # Incremented to 32
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -39,21 +39,43 @@
             else null;
           nixpkgsConfig = nixpkgsConfig;
         }).app;
-      generate-gemset = rails-builder.packages.${system}.generate-gemset;
-      debugOpenssl = rails-builder.packages.${system}.debugOpenssl;
-      dockerImage = rails-builder.lib.${system}.mkDockerImage {
-        railsApp = railsApp;
-        name = "rails-app";
-      };
-      dockerImageDebug = rails-builder.lib.${system}.mkDockerImage {
-        railsApp = railsApp;
-        name = "rails-app";
-        debug = true;
-      };
+      generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
+        if [ -z "$1" ]; then
+          echo "Error: Please provide a source directory path."
+          exit 1
+        fi
+        if [ ! -f "$1/Gemfile.lock" ]; then
+          echo "Error: Gemfile.lock is missing in $1."
+          exit 1
+        fi
+        cd "$1"
+        ${pkgs.bundix}/bin/bundix
+        if [ -f gemset.nix ]; then
+          echo "Generated gemset.nix successfully."
+        else
+          echo "Error: Failed to generate gemset.nix."
+          exit 1
+        fi
+      '';
+      debugOpenssl = pkgs.writeShellScriptBin "debug-openssl" ''
+        #!${pkgs.runtimeShell}
+        echo "OpenSSL versions available:"
+        nix eval --raw nixpkgs#openssl.outPath
+        nix eval --raw nixpkgs#openssl_1_1.outPath 2>/dev/null || echo "openssl_1_1 not found"
+        echo "Permitted insecure packages:"
+        echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
+        echo "Checking if openssl-1.1.1w is allowed:"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl-1.1.1w is blocked"
+      '';
     };
 
     devShells.${system} = {
-      bundix = rails-builder.devShells.${system}.bundix;
+      bundix = pkgs.mkShell {
+        buildInputs = [pkgs.bundix];
+        shellHook = ''
+          echo "Run 'bundix' to generate gemset.nix."
+        '';
+      };
       appDevShell = rails-builder.lib.${system}.mkAppDevShell {src = ./.;};
       bootstrapDevShell = rails-builder.lib.${system}.mkBootstrapDevShell {src = ./.;};
       rubyShell = rails-builder.lib.${system}.mkRubyShell {src = ./.;};
