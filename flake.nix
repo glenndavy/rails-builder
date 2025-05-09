@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "17"; # Incremented to 17
+    flake_version = "18"; # Incremented to 18
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -46,7 +46,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.6.8", # Default to 2.6.8 if Gemfile.lock is missing
+      defaultVersion ? "2.6.8",
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -74,7 +74,7 @@
           if versionMatch != null
           then builtins.head versionMatch
           else throw "Could not parse bundler_version from line after BUNDLED WITH: '${versionLine}'"
-        else defaultVersion; # Use default if Gemfile.lock is missing
+        else defaultVersion;
     in
       version;
 
@@ -90,6 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
+      defaultBundlerVersion ? "2.6.8", # Added for bootstrap shell
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -100,13 +101,16 @@
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
-      bundlerVersion = detectBundlerVersion {inherit src;};
+      bundlerVersion = detectBundlerVersion {
+        inherit src;
+        defaultVersion = defaultBundlerVersion;
+      };
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
         buildInputs = [ruby];
         src = pkgs.fetchurl {
-          url = bundlerGem.url;
+          url = bund.busyboxlerGem.url;
           sha256 = bundlerGem.sha256;
         };
         dontUnpack = true;
@@ -323,7 +327,7 @@
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
           (buildRailsApp {
             inherit src nixpkgsConfig;
-            defaultVersion = "2.6.8";
+            defaultBundlerVersion = "2.6.8";
           }).bundler
           libyaml
           zlib
@@ -338,7 +342,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
-            defaultVersion = "2.6.8";
+            defaultBundlerVersion = "2.6.8";
           }).bundler}/bin:$PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
@@ -449,7 +453,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ ! -f "$1/Gemfile.lock" ]; then
+        if [ -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
