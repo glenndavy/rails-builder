@@ -94,7 +94,7 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
+      defaultBuildInputs = with pkgs; [nodejs libyaml postgresql zlib openssl libxml2 libxslt imagemagick];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {inherit src;};
