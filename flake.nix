@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "19"; # Incremented to 19
+    flake_version = "20"; # Incremented to 20
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -98,7 +98,7 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20];
+      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 rubygems];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {
@@ -108,7 +108,7 @@
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
-        buildInputs = [ruby];
+        buildInputs = [ruby rubygems];
         src = pkgs.fetchurl {
           url = bundlerGem.url;
           sha256 = bundlerGem.sha256;
@@ -139,9 +139,9 @@
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
-        buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
+        buildInputs = [ruby bundler rubygems] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs =
-          [ruby]
+          [ruby rubygems]
           ++ (
             if gemset != null && gem_strategy == "bundix"
             then [pkgs.bundler]
@@ -155,6 +155,8 @@
           export BUNDLE_PATH=$out/app/vendor/bundle
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
+          export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
+          export RUBYOPT="-r logger"
           mkdir -p $GEM_HOME $out/app/vendor/bundle/bin
 
           echo "Using bundler version:"
@@ -267,6 +269,8 @@
           export BUNDLE_PATH=$out/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundler}/bin:\$BUNDLE_PATH/bin:\$PATH
+          export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
+          export RUBYOPT="-r logger"
           cd $out/app
           exec ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails "\$@"
           EOF
@@ -294,6 +298,7 @@
             libxml2
             libxslt
             nodejs_20
+            rubygems
           ]
         );
         shellHook = ''
@@ -301,6 +306,8 @@
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
+          export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+          export RUBYOPT="-r logger"
           mkdir -p .nix-gems $BUNDLE_PATH/bin
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
@@ -335,23 +342,52 @@
           libxml2
           libxslt
           nodejs_20
+          rubygems
         ];
         shellHook = ''
-          unset GEM_HOME GEM_PATH
-          export BUNDLE_PATH=$PWD/vendor/bundle
-          export BUNDLE_GEMFILE=$PWD/Gemfile
-          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
+                 unset GEM_HOME GEM_PATH
+                 export BUNDLE_PATH=$PWD/vendor/bundle
+                 export BUNDLE_GEMFILE=$PWD/Gemfile
+                 export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
             defaultBundlerVersion = "2.6.8";
           }).bundler}/bin:$PATH
-          mkdir -p .nix-gems $BUNDLE_PATH/bin
-          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
+                 export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+                 export RUBYOPT="-r logger"
+                 mkdir -p .nix-gems $BUNDLE_PATH/bin
+                 ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          paseo  ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+                 echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
+                 echo "Ruby version: ''$(ruby --version)"
+                 echo "Bundler version: ''$(bundle --version)"
+                 echo "Bootstrap shell for new project. Run 'bundle lock' to generate Gemfile.lock, then 'bundle install --path vendor/cache' to populate gems."
+                 echo "Welcome to the Rails bootstrap shell!"
+        '';
+      };
+
+    mkRubyShell = {src}:
+      pkgs.mkShell {
+        buildInputs = with pkgs; [
+          (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+          libyaml
+          zlib
+          openssl
+          libxml2
+          libxslt
+          imagemagick
+          nodejs_20
+          rubygems
+        ];
+        shellHook = ''
+          export GEM_HOME=$PWD/.nix-gems
+          export PATH=$GEM_HOME/bin:$PATH
+          export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+          export RUBYOPT="-r logger"
+          mkdir -p $GEM_HOME
           echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(bundle --version)"
-          echo "Bootstrap shell for new project. Run 'bundle lock' to generate Gemfile.lock, then 'bundle install --path vendor/cache' to populate gems."
-          echo "Welcome to the Rails bootstrap shell!"
+          echo "Node.js version: ''$(node --version)"
+          echo "Ruby shell with build inputs. Gems are installed in $GEM_HOME."
+          echo "Run 'gem install <gem>' to install gems, or use Ruby without Bundler."
         '';
       };
 
@@ -436,6 +472,8 @@
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
+              "RUBYLIB=${railsApp.buildInputs [0]}/lib/ruby/${(detectRubyVersion {src = ./.;}).dotted}"
+              "RUBYOPT=-r logger"
             ]
             ++ extraEnv;
           ExposedPorts = {
@@ -445,7 +483,7 @@
       };
   in {
     lib.${system} = {
-      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell mkBootstrapDevShell mkDockerImage;
+      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell mkBootstrapDevShell mkRubyShell mkDockerImage;
     };
     packages.${system} = {
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
