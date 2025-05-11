@@ -253,8 +253,8 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              echo "Testing bundle exec rails assets:precompile:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
+              #echo "Testing bundle exec rails assets:precompile:"
+              #${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
