@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "39"; # Incremented to 38
+    flake_version = "39"; # Incremented to 39
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -98,7 +98,7 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20];
+      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 pkg-config];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {
@@ -114,7 +114,7 @@
           sha256 = bundlerGem.sha256;
         };
         dontUnpack = true;
-        dontPatchShebangs = true; # Disable shebang patching for bundler derivation
+        dontPatchShebangs = true;
         installPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$out/lib/ruby/gems/${rubyVersion.dotted}
@@ -138,7 +138,9 @@
         '';
       };
       effectiveBuildCommands =
-        if buildCommands == null
+        if buildCommands == true
+        then [] # Skip assets:precompile if buildCommands is true
+        else if buildCommands == null
         then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else if builtins.isList buildCommands
         then buildCommands
@@ -155,7 +157,7 @@
             then [pkgs.bundler]
             else []
           );
-        dontPatchShebangs = true; # Disable shebang patching for app derivation
+        dontPatchShebangs = true;
         buildPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
@@ -171,6 +173,7 @@
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
+          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
           # Pre-create minimal .bundle/config
           cat > $APP_DIR/.bundle/config <<EOF
@@ -349,6 +352,7 @@
           export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
+          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p /app/.bundle
           cd /app
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
@@ -374,11 +378,13 @@
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             (buildRailsApp {inherit src nixpkgsConfig;}).bundler
             libyaml
+            postgresql
             zlib
             openssl
             libxml2
             libxslt
             nodejs_20
+            pkg-config
           ]
         );
         shellHook = ''
@@ -390,10 +396,11 @@
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
+          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${pkgs.bundler}/bin/bundle config set --local without development test
+          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -419,11 +426,13 @@
             defaultBundlerVersion = "2.5.17";
           }).bundler
           libyaml
+          postgresql
           zlib
           openssl
           libxml2
           libxslt
           nodejs_20
+          pkg-config
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -437,9 +446,10 @@
           }).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
+          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -453,23 +463,36 @@
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
           libyaml
+          postgresql
           zlib
           openssl
           libxml2
           libxslt
           imagemagick
           nodejs_20
+          pkg-config
         ];
         shellHook = ''
-          export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:$PATH
+          unset GEM_HOME GEM_PATH
+          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          export BUNDLE_PATH=$PWD/vendor/bundle
+          export BUNDLE_GEMFILE=$PWD/Gemfile
+          export BUNDLE_USER_CONFIG=$PWD/.bundle/config
+          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
+            inherit src nixpkgsConfig;
+            defaultBundlerVersion = "2.5.17";
+          }).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
-          mkdir -p $GEM_HOME
+          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
+          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
-          echo "Node.js version: ''$(node --version)"
-          echo "Ruby shell with build inputs. Gems are installed in $GEM_HOME."
-          echo "Run 'gem install <gem>' to install gems, or use Ruby without Bundler."
+          echo "Bundler version: ''$(bundle --version)"
+          echo "Bootstrap shell for new project. Run 'bundle lock' to generate Gemfile.lock, then 'bundle install --path vendor/cache' to populate gems."
+          echo "Welcome to the Rails bootstrap shell!"
         '';
       };
 
@@ -557,6 +580,7 @@
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
               "RUBYLIB=${railsApp.buildInputs [0]}/lib/ruby/${(detectRubyVersion {src = ./.;}).dotted}"
               "RUBYOPT=-r logger"
+              "LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH"
             ]
             ++ extraEnv;
           ExposedPorts = {
