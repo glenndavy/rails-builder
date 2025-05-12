@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "49"; # Incremented to 49
+    flake_version = "51"; # Incremented to 49
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -382,6 +382,7 @@
           else [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             (buildRailsApp {inherit src nixpkgsConfig;}).bundler
+            git
             libyaml
             postgresql
             zlib
