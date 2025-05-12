@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "36"; # Incremented to 36
+    flake_version = "38"; # Incremented to 38
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -44,7 +44,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ -f "$1/Gemfile.lock" ]; then
+        if [ ! -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
