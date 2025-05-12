@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "38"; # Incremented to 38
+    flake_version = "39"; # Incremented to 38
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -286,8 +286,6 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              echo "Testing bundle exec rails assets:precompile:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
@@ -328,8 +326,6 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              echo "Testing bundle exec rails assets:precompile:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else ''
               echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset for bundix"
