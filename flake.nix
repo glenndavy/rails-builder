@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "52"; # Incremented to 49
+    flake_version = "53"; # Incremented to 53
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -108,7 +108,7 @@
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
-        buildInputs = [pkgs.git ruby];
+        buildInputs = [ruby pkgs.git];
         src = pkgs.fetchurl {
           url = bundlerGem.url;
           sha256 = bundlerGem.sha256;
@@ -153,9 +153,9 @@
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
-        buildInputs = [pkgs.git ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
+        buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs =
-          [ruby]
+          [ruby pkgs.git] # Add git to nativeBuildInputs
           ++ (
             if gemset != null && gem_strategy == "bundix"
             then [pkgs.bundler]
@@ -187,6 +187,10 @@
           EOF
           echo "Contents of $APP_DIR/.bundle/config:"
           cat $APP_DIR/.bundle/config
+
+          echo "Checking for git availability:"
+          which git || echo "Git not found in PATH"
+          git --version || echo "Failed to run git"
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -262,13 +266,23 @@
               ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
               echo "Bundler config before install:"
               ${bundler}/bin/bundle config
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
+              echo "Listing vendor/cache contents:"
+              ls -l vendor/cache || echo "vendor/cache directory not found"
+              echo "Listing gem dependencies from Gemfile.lock:"
+              ${bundler}/bin/bundle list || echo "Failed to list dependencies"
+              echo "Attempting bundle install:"
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
+                exit 1
+              }
               echo "Checking $APP_DIR/vendor/bundle contents before copy:"
               find $APP_DIR/vendor/bundle -type f
               echo "Checking for rails gem in vendor/cache:"
               ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
               echo "Checking for pg gem in vendor/cache:"
               ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
+              echo "Checking for attr_encrypted gem in vendor/cache:"
+              ls -l vendor/cache | grep attr_encrypted || echo "attr_encrypted gem not found in vendor/cache"
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
               # Manually patch shebangs in binstubs
@@ -304,7 +318,9 @@
               ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
               echo "Bundler config before install:"
               ${bundler}/bin/bundle config
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
+              echo "Listing gemset.nix:"
+              ls -l gemset.nix || echo "gemset.nix not found"
+              ${bundler}/bin/bundle install --verbose --binstubs $APP_DIR/vendor/bundle/bin
               echo "Checking $APP_DIR/vendor/bundle contents before copy:"
               find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
@@ -378,6 +394,7 @@
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             (buildRailsApp {inherit src nixpkgsConfig;}).bundler
             (buildRailsApp {inherit src nixpkgsConfig;}).app.buildInputs
+            git # Add git for Git-sourced gems
           ]
           else [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -394,11 +411,16 @@
           ]
         );
         shellHook = ''
+          # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          export HOME=$PWD/.nix-home
+          mkdir -p $HOME
+          export GEM_HOME=$PWD/.nix-gems
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
+          export BUNDLE_IGNORE_CONFIG=1 # Ignore ~/.bundle/config
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
@@ -410,6 +432,9 @@
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
+          echo "GEM_HOME: $GEM_HOME"
+          echo "BUNDLE_PATH: $BUNDLE_PATH"
+          echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
           ${
             if builtins.pathExists "${src}/vendor/cache"
             then ''
@@ -442,11 +467,16 @@
           pkg-config
         ];
         shellHook = ''
+          # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          export HOME=$PWD/.nix-home
+          mkdir -p $HOME
+          export GEM_HOME=$PWD/.nix-gems
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
+          export BUNDLE_IGNORE_CONFIG=1 # Ignore ~/.bundle/config
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
             defaultBundlerVersion = "2.5.17";
@@ -461,6 +491,9 @@
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
+          echo "GEM_HOME: $GEM_HOME"
+          echo "BUNDLE_PATH: $BUNDLE_PATH"
+          echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
           echo "Bootstrap shell for new project. Run 'bundle lock' to generate Gemfile.lock, then 'bundle install --path vendor/cache' to populate gems."
           echo "Welcome to the Rails bootstrap shell!"
         '';
@@ -482,6 +515,11 @@
           pkg-config
         ];
         shellHook = ''
+          # Reset environment to prevent leakage from ~/.local or user settings
+          unset GEM_HOME GEM_PATH
+          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          export HOME=$PWD/.nix-home
+          mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
           export PATH=$GEM_HOME/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
@@ -490,6 +528,7 @@
           mkdir -p $GEM_HOME
           echo "Ruby version: ''$(ruby --version)"
           echo "Node.js version: ''$(node --version)"
+          echo "GEM_HOME: $GEM_HOME"
           echo "Ruby shell with build inputs. Gems are installed in $GEM_HOME."
           echo "Run 'gem install <gem>' to install gems, or use Ruby without Bundler."
         '';
@@ -642,6 +681,11 @@
       bundix = pkgs.mkShell {
         buildInputs = [pkgs.bundix];
         shellHook = ''
+          # Reset environment to prevent leakage from ~/.local or user settings
+          unset GEM_HOME GEM_PATH
+          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          export HOME=$PWD/.nix-home
+          mkdir -p $HOME
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
