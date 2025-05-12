@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "51"; # Incremented to 49
+    flake_version = "52"; # Incremented to 49
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -108,7 +108,7 @@
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
-        buildInputs = [ruby];
+        buildInputs = [pkgs.git ruby];
         src = pkgs.fetchurl {
           url = bundlerGem.url;
           sha256 = bundlerGem.sha256;
@@ -153,7 +153,7 @@
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src extraBuildInputs;
-        buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
+        buildInputs = [pkgs.git ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs =
           [ruby]
           ++ (
@@ -431,6 +431,7 @@
             inherit src nixpkgsConfig;
             defaultBundlerVersion = "2.5.17";
           }).bundler
+          git
           libyaml
           postgresql
           zlib
@@ -469,6 +470,7 @@
       pkgs.mkShell {
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+          git
           libyaml
           postgresql
           zlib
