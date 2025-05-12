@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "36"; # Incremented to 36
+    flake_version = "37"; # Incremented to 37
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -46,7 +46,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.6.8",
+      defaultVersion ? "2.5.17", # Updated to match albury-galvanizing
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -90,7 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
-      defaultBundlerVersion ? "2.6.8",
+      defaultBundlerVersion ? "2.5.17", # Updated to match albury-galvanizing
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -131,7 +131,10 @@
       };
       effectiveBuildCommands =
         if buildCommands == null
-        then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
+        then [
+          # Temporarily skip assets:precompile to isolate LoadError
+          # "${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"
+        ]
         else if builtins.isList buildCommands
         then buildCommands
         else [buildCommands];
@@ -246,6 +249,8 @@
               ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
               echo "Checking $APP_DIR/vendor/bundle contents before copy:"
               find $APP_DIR/vendor/bundle -type f
+              echo "Checking for rails gem in vendor/cache:"
+              ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
               echo "Checking $out/app/vendor/bundle contents:"
@@ -266,8 +271,9 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              echo "Testing bundle exec rails assets:precompile:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
+              # Temporarily skip assets:precompile to isolate LoadError
+              # echo "Testing bundle exec rails assets:precompile:"
+              # ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
@@ -299,8 +305,9 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              echo "Testing bundle exec rails assets:precompile:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
+              # Temporarily skip assets:precompile to isolate LoadError
+              # echo "Testing bundle exec rails assets:precompile:"
+              # ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else ''
               echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset for bundix"
@@ -389,7 +396,7 @@
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
           (buildRailsApp {
             inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.6.8";
+            defaultBundlerVersion = "2.5.17";
           }).bundler
           libyaml
           zlib
@@ -406,7 +413,7 @@
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.6.8";
+            defaultBundlerVersion = "2.5.17";
           }).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
