@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "43"; # Incremented to 43
+    flake_version = "44"; # Incremented to 44
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -493,6 +493,7 @@
       name,
       debug ? false,
       extraEnv ? [],
+      ruby, # Add ruby parameter to access ruby derivation directly
     }: let
       startScript = pkgs.writeShellScript "start" ''
         #!/bin/bash
@@ -540,6 +541,7 @@
         pkgs.busybox
         pkgs.less
       ];
+      rubyVersion = detectRubyVersion {src = ./.;};
     in
       pkgs.dockerTools.buildImage {
         name =
@@ -571,7 +573,7 @@
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
-              "RUBYLIB=${railsApp.buildInputs [0]}/lib/ruby/${(detectRubyVersion {src = ./.;}).dotted}"
+              "RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}"
               "RUBYOPT=-r logger"
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
             ]
@@ -612,7 +614,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl-1.1.1w is blocked"
       '';
     };
     devShells.${system} = {

@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "44"; # Incremented to 44 due to flakeVersion fix
+    flake_version = "45"; # Incremented to 45 due to dockerImage fix
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -27,6 +27,8 @@
         nixpkgsConfig = nixpkgsConfig;
         buildCommands = true; # Skip assets:precompile
       }).app;
+    rubyVersion = rails-builder.lib.${system}.detectRubyVersion {src = ./.;};
+    ruby = pkgs."ruby-${rubyVersion.dotted}";
   in {
     packages.${system} = {
       default = railsApp;
@@ -43,6 +45,7 @@
       dockerImage = rails-builder.lib.${system}.mkDockerImage {
         railsApp = railsApp;
         name = "rails-app";
+        ruby = ruby; # Pass ruby derivation
       };
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ -z "$1" ]; then
@@ -70,7 +73,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl-1.1.1w is blocked"
       '';
     };
 
