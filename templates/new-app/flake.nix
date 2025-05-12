@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "42"; # Incremented to 42 due to dockerImage addition
+    flake_version = "43"; # Incremented to 43 due to flakeVersion optimization
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -93,23 +93,17 @@
       };
       detectBundlerVersion = {
         type = "app";
-        program = let
-          version = rails-builder.lib.${system}.detectBundlerVersion {src = ./.;};
-          script = pkgs.writeShellScriptBin "detect-bundler-version" ''
-            #!${pkgs.runtimeShell}
-            echo "${version}"
-          '';
-        in "${script}/bin/detect-bundler-version";
+        program = "${pkgs.writeShellScriptBin "detect-bundler-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${(rails-builder.lib.${system}.detectBundlerVersion {src = ./.;})}"
+        ''}/bin/detect-bundler-version";
       };
       detectRubyVersion = {
         type = "app";
-        program = let
-          version = (rails-builder.lib.${system}.detectRubyVersion {src = ./.;}).dotted;
-          script = pkgs.writeShellScriptBin "detect-ruby-version" ''
-            #!${pkgs.runtimeShell}
-            echo "${version}"
-          '';
-        in "${script}/bin/detect-ruby-version";
+        program = "${pkgs.writeShellScriptBin "detect-ruby-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${(rails-builder.lib.${system}.detectRubyVersion {src = ./.;}).dotted}"
+        ''}/bin/detect-ruby-version";
       };
       flakeVersion = {
         type = "app";
