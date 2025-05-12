@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "40"; # Incremented to 40
+    flake_version = "42"; # Incremented to 42 due to dockerImage addition
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -25,6 +25,7 @@
         src = ./.;
         gem_strategy = "vendored";
         nixpkgsConfig = nixpkgsConfig;
+        buildCommands = true; # Skip assets:precompile
       }).app;
   in {
     packages.${system} = {
@@ -39,6 +40,10 @@
             else null;
           nixpkgsConfig = nixpkgsConfig;
         }).app;
+      dockerImage = rails-builder.lib.${system}.mkDockerImage {
+        railsApp = railsApp;
+        name = "rails-app";
+      };
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ -z "$1" ]; then
           echo "Error: Please provide a source directory path."

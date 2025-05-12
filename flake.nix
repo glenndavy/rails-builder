@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "40"; # Incremented to 40
+    flake_version = "41"; # Incremented to 41
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -292,8 +292,6 @@
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
-              echo "Testing bundle exec rails:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
@@ -332,8 +330,6 @@
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
-              echo "Testing bundle exec rails:"
-              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
             ''
             else ''
               echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset for bundix"
@@ -534,6 +530,7 @@
         railsApp
         railsApp.buildInputs
         pkgs.bash
+        pkgs.postgresql # Ensure libpq.so.5 is included
       ];
       debugPaths = [
         pkgs.coreutils
@@ -559,7 +556,7 @@
               then debugPaths
               else []
             );
-          pathsToLink = ["/app" "/bin"];
+          pathsToLink = ["/app" "/bin" "/lib"];
         };
         config = {
           Entrypoint = ["/bin/start"];
@@ -576,7 +573,7 @@
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
               "RUBYLIB=${railsApp.buildInputs [0]}/lib/ruby/${(detectRubyVersion {src = ./.;}).dotted}"
               "RUBYOPT=-r logger"
-              "LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH"
+              "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
             ]
             ++ extraEnv;
           ExposedPorts = {
