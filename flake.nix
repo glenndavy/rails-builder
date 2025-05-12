@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "48"; # Incremented to 48
+    flake_version = "49"; # Incremented to 49
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -114,7 +114,6 @@
           sha256 = bundlerGem.sha256;
         };
         dontUnpack = true;
-        dontPatchShebangs = true;
         installPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$out/lib/ruby/gems/${rubyVersion.dotted}
@@ -131,9 +130,14 @@
           # Manually patch Executable.bundler template
           if [ -f "$GEM_HOME/gems/bundler-${bundlerVersion}/lib/bundler/templates/Executable.bundler" ]; then
             sed -i 's|#!/usr/bin/env <%= .* %>|#!/usr/bin/env ruby|' "$GEM_HOME/gems/bundler-${bundlerVersion}/lib/bundler/templates/Executable.bundler"
-            echo "Patched Executable.bundler shebang"
+            echo "Patched Executable.bundler template"
           else
             echo "Executable.bundler template not found"
+          fi
+          # Patch shebang in bin/bundle
+          if [ -f "$out/bin/bundle" ]; then
+            sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/bin/bundle"
+            echo "Patched shebang in bin/bundle"
           fi
         '';
       };
@@ -271,7 +275,7 @@
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 for file in $out/app/vendor/bundle/bin/*; do
                   if [ -f "$file" ]; then
-                    sed -i 's|#!/usr/bin/env ruby|#!/nix/store/850vd1s8da2q71hsxagzs3zvmylzwq3y-ruby-3.3.0/bin/ruby|' "$file"
+                    sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
                   fi
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
@@ -309,7 +313,7 @@
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 for file in $out/app/vendor/bundle/bin/*; do
                   if [ -f "$file" ]; then
-                    sed -i 's|#!/usr/bin/env ruby|#!/nix/store/850vd1s8da2q71hsxagzs3zvmylzwq3y-ruby-3.3.0/bin/ruby|' "$file"
+                    sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
                   fi
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
@@ -360,7 +364,7 @@
           EOF
           chmod +x $out/app/bin/rails-app
           # Manually patch shebangs in bin/rails-app
-          sed -i 's|#!/usr/bin/env ruby|#!/nix/store/850vd1s8da2q71hsxagzs3zvmylzwq3y-ruby-3.3.0/bin/ruby|' $out/app/bin/rails-app
+          sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/app/bin/rails-app"
         '';
       };
       bundler = bundler;

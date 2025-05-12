@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "49"; # Incremented to 49 due to dockerImage fix
+    flake_version = "50"; # Incremented to 50 due to bundler fix
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -52,7 +52,7 @@
         railsApp = railsApp;
         name = "rails-app";
         ruby = ruby;
-        bundler = bundler;
+        bundler = bundler; # Add bundler argument
       };
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ -z "$1" ]; then
