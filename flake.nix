@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "45"; # Incremented to 45
+    flake_version = "48"; # Incremented to 48
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -493,7 +493,8 @@
       name,
       debug ? false,
       extraEnv ? [],
-      ruby, # Add ruby parameter to access ruby derivation directly
+      ruby, # Use ruby parameter from buildRailsApp
+      bundler, # Use bundler from buildRailsApp
     }: let
       startScript = pkgs.writeShellScript "start" ''
         #!/bin/bash
@@ -541,7 +542,20 @@
         pkgs.busybox
         pkgs.less
       ];
-      rubyVersion = detectRubyVersion {src = ./.;};
+      # Derive rubyVersion from ruby derivation name
+      rubyVersion = let
+        match = builtins.match "ruby-([0-9.]+)" ruby.name;
+      in {
+        dotted =
+          if match != null
+          then builtins.head match
+          else throw "Cannot derive Ruby version from ${ruby.name}";
+        underscored = builtins.replaceStrings ["."] ["_"] (
+          if match != null
+          then builtins.head match
+          else throw "Cannot derive Ruby version from ${ruby.name}"
+        );
+      };
     in
       pkgs.dockerTools.buildImage {
         name =

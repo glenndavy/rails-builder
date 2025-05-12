@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "46"; # Incremented to 46 due to dockerImage fix
+    flake_version = "49"; # Incremented to 49 due to dockerImage fix
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -29,6 +29,12 @@
       }).app;
     rubyVersion = rails-builder.lib.${system}.detectRubyVersion {src = ./.;};
     ruby = pkgs."ruby-${rubyVersion.dotted}";
+    bundler =
+      (rails-builder.lib.${system}.buildRailsApp {
+        src = ./.;
+        gem_strategy = "vendored";
+        nixpkgsConfig = nixpkgsConfig;
+      }).bundler;
   in {
     packages.${system} = {
       default = railsApp;
@@ -45,7 +51,8 @@
       dockerImage = rails-builder.lib.${system}.mkDockerImage {
         railsApp = railsApp;
         name = "rails-app";
-        ruby = ruby; # Pass ruby derivation
+        ruby = ruby;
+        bundler = bundler;
       };
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ -z "$1" ]; then
