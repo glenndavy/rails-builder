@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "39"; # Incremented to 39
+    flake_version = "40"; # Incremented to 40
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -225,6 +225,9 @@
           # Clear output path to avoid conflicts
           rm -rf $out/app/vendor/bundle
           mkdir -p $out/app/vendor/bundle
+          # Verify libpq availability
+          echo "Checking for libpq.so:"
+          find ${pkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
           ${
             if railsEnv == "production"
             then "export RAILS_SERVE_STATIC_FILES=true"
@@ -260,6 +263,8 @@
               find $APP_DIR/vendor/bundle -type f
               echo "Checking for rails gem in vendor/cache:"
               ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
+              echo "Checking for pg gem in vendor/cache:"
+              ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
               # Manually patch shebangs in binstubs
@@ -399,8 +404,8 @@
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${bundler}/bin/bundle config set --local without development test
+          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -449,7 +454,8 @@
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -473,26 +479,16 @@
           pkg-config
         ];
         shellHook = ''
-          unset GEM_HOME GEM_PATH
-          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export BUNDLE_PATH=$PWD/vendor/bundle
-          export BUNDLE_GEMFILE=$PWD/Gemfile
-          export BUNDLE_USER_CONFIG=$PWD/.bundle/config
-          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.5.17";
-          }).bundler}/bin:$PATH
+          export GEM_HOME=$PWD/.nix-gems
+          export PATH=$GEM_HOME/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
-          mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
+          mkdir -p $GEM_HOME
           echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(bundle --version)"
-          echo "Bootstrap shell for new project. Run 'bundle lock' to generate Gemfile.lock, then 'bundle install --path vendor/cache' to populate gems."
-          echo "Welcome to the Rails bootstrap shell!"
+          echo "Node.js version: ''$(node --version)"
+          echo "Ruby shell with build inputs. Gems are installed in $GEM_HOME."
+          echo "Run 'gem install <gem>' to install gems, or use Ruby without Bundler."
         '';
       };
 
