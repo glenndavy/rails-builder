@@ -17,7 +17,7 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "43"; # Incremented to 43 due to flakeVersion optimization
+    flake_version = "44"; # Incremented to 44 due to flakeVersion fix
 
     # Rails app derivation from buildRailsApp
     railsApp =
@@ -70,7 +70,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl-1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
       '';
     };
 
@@ -114,7 +114,10 @@
       };
       builderVersion = {
         type = "app";
-        program = "${rails-builder.apps.${system}.flakeVersion.program}";
+        program = "${pkgs.writeShellScriptBin "builder-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${rails-builder.flake_version}"
+        ''}/bin/builder-version";
       };
       bundix = {
         type = "app";

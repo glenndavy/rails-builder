@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "42"; # Incremented to 42
+    flake_version = "43"; # Incremented to 43
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -346,14 +346,14 @@
           #!${pkgs.runtimeShell}
           export GEM_HOME=/app/.nix-gems
           unset GEM_PATH
-          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+          unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:\$LD_LIBRARY_PATH
           mkdir -p /app/.bundle
           cd /app
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
@@ -612,7 +612,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl-1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
       '';
     };
     devShells.${system} = {
