@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "37"; # Incremented to 37
+    flake_version = "38"; # Incremented to 38
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -46,7 +46,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.5.17", # Updated to match albury-galvanizing
+      defaultVersion ? "2.5.17",
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -90,7 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
-      defaultBundlerVersion ? "2.5.17", # Updated to match albury-galvanizing
+      defaultBundlerVersion ? "2.5.17",
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -114,6 +114,7 @@
           sha256 = bundlerGem.sha256;
         };
         dontUnpack = true;
+        dontPatchShebangs = true; # Disable shebang patching for bundler derivation
         installPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$out/lib/ruby/gems/${rubyVersion.dotted}
@@ -127,14 +128,18 @@
             echo "Bundler executable not found"
             exit 1
           fi
+          # Manually patch Executable.bundler template
+          if [ -f "$GEM_HOME/gems/bundler-${bundlerVersion}/lib/bundler/templates/Executable.bundler" ]; then
+            sed -i 's|#!/usr/bin/env <%= .* %>|#!/usr/bin/env ruby|' "$GEM_HOME/gems/bundler-${bundlerVersion}/lib/bundler/templates/Executable.bundler"
+            echo "Patched Executable.bundler shebang"
+          else
+            echo "Executable.bundler template not found"
+          fi
         '';
       };
       effectiveBuildCommands =
         if buildCommands == null
-        then [
-          # Temporarily skip assets:precompile to isolate LoadError
-          # "${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"
-        ]
+        then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else if builtins.isList buildCommands
         then buildCommands
         else [buildCommands];
@@ -150,6 +155,7 @@
             then [pkgs.bundler]
             else []
           );
+        dontPatchShebangs = true; # Disable shebang patching for app derivation
         buildPhase = ''
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
@@ -253,6 +259,15 @@
               ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
+              # Manually patch shebangs in binstubs
+              if [ -d "$out/app/vendor/bundle/bin" ]; then
+                for file in $out/app/vendor/bundle/bin/*; do
+                  if [ -f "$file" ]; then
+                    sed -i 's|#!/usr/bin/env ruby|#!/nix/store/850vd1s8da2q71hsxagzs3zvmylzwq3y-ruby-3.3.0/bin/ruby|' "$file"
+                  fi
+                done
+                echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
+              fi
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -271,9 +286,8 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              # Temporarily skip assets:precompile to isolate LoadError
-              # echo "Testing bundle exec rails assets:precompile:"
-              # ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
+              echo "Testing bundle exec rails assets:precompile:"
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
@@ -287,6 +301,15 @@
               find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
+              # Manually patch shebangs in binstubs
+              if [ -d "$out/app/vendor/bundle/bin" ]; then
+                for file in $out/app/vendor/bundle/bin/*; do
+                  if [ -f "$file" ]; then
+                    sed -i 's|#!/usr/bin/env ruby|#!/nix/store/850vd1s8da2q71hsxagzs3zvmylzwq3y-ruby-3.3.0/bin/ruby|' "$file"
+                  fi
+                done
+                echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
+              fi
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -305,9 +328,8 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              # Temporarily skip assets:precompile to isolate LoadError
-              # echo "Testing bundle exec rails assets:precompile:"
-              # ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
+              echo "Testing bundle exec rails assets:precompile:"
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else ''
               echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset for bundix"
@@ -336,6 +358,8 @@
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
           EOF
           chmod +x $out/app/bin/rails-app
+          # Manually patch shebangs in bin/rails-app
+          sed -i 's|#!/usr/bin/env ruby|#!/nix/store/850vd1s8da2q71hsxagzs3zvmylzwq3y-ruby-3.3.0/bin/ruby|' $out/app/bin/rails-app
         '';
       };
       bundler = bundler;
