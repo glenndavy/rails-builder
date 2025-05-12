@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "35"; # Incremented to 35
+    flake_version = "36"; # Incremented to 36
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -166,7 +166,7 @@
           # Pre-create minimal .bundle/config
           cat > $APP_DIR/.bundle/config <<EOF
           ---
-          BUNDLE_PATH: "$out/app/vendor/bundle"
+          BUNDLE_PATH: "$APP_DIR/vendor/bundle"
           BUNDLE_FROZEN: "true"
           EOF
           echo "Contents of $APP_DIR/.bundle/config:"
@@ -240,20 +240,28 @@
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
               ${bundler}/bin/bundle config set --local without development test
+              ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
               echo "Bundler config before install:"
               ${bundler}/bin/bundle config
               ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
+              echo "Checking $APP_DIR/vendor/bundle contents before copy:"
+              find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
-              cp -r $APP_DIR/vendor/bundle $out/app/vendor/bundle
+              cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
-              find $out/app/vendor/bundle/bin -type f -name rails
-              if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
-                echo "Rails executable found"
-                ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+              if [ -d "$out/app/vendor/bundle/bin" ]; then
+                find $out/app/vendor/bundle/bin -type f -name rails
+                if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                  echo "Rails executable found"
+                  ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                else
+                  echo "Rails executable not found"
+                  exit 1
+                fi
               else
-                echo "Rails executable not found"
+                echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
               echo "Testing bundle exec rails:"
@@ -265,20 +273,28 @@
             then ''
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
+              ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
               echo "Bundler config before install:"
               ${bundler}/bin/bundle config
               ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
+              echo "Checking $APP_DIR/vendor/bundle contents before copy:"
+              find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
-              cp -r $APP_DIR/vendor/bundle $out/app/vendor/bundle
+              cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
-              find $out/app/vendor/bundle/bin -type f -name rails
-              if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
-                echo "Rails executable found"
-                ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+              if [ -d "$out/app/vendor/bundle/bin" ]; then
+                find $out/app/vendor/bundle/bin -type f -name rails
+                if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                  echo "Rails executable found"
+                  ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                else
+                  echo "Rails executable not found"
+                  exit 1
+                fi
               else
-                echo "Rails executable not found"
+                echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
               echo "Testing bundle exec rails:"
