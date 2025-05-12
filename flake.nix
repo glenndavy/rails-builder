@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "34"; # Incremented to 33
+    flake_version = "35"; # Incremented to 35
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -163,16 +163,13 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
-          # Create read-only /.bundle to block creation
-          #mkdir -p /.bundle
-          #chmod 555 /.bundle
           # Pre-create minimal .bundle/config
           cat > $APP_DIR/.bundle/config <<EOF
           ---
-          BUNDLE_PATH: "$APP_DIR/vendor/bundle"
+          BUNDLE_PATH: "$out/app/vendor/bundle"
           BUNDLE_FROZEN: "true"
           EOF
-          echo "Contents of $APPD_IR/.bundle/config:"
+          echo "Contents of $APP_DIR/.bundle/config:"
           cat $APP_DIR/.bundle/config
 
           echo "Using bundler version:"
@@ -210,6 +207,12 @@
             echo "Gemfile.lock not found in source"
             exit 1
           fi
+          # Check for existing files in output path
+          echo "Existing files in $out/app/vendor/bundle:"
+          find $out/app/vendor/bundle -type f 2>/dev/null || echo "No existing files"
+          # Clear output path to avoid conflicts
+          rm -rf $out/app/vendor/bundle
+          mkdir -p $out/app/vendor/bundle
           ${
             if railsEnv == "production"
             then "export RAILS_SERVE_STATIC_FILES=true"
@@ -234,12 +237,14 @@
           ${
             if gem_strategy == "vendored"
             then ''
-              ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
+              ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
               ${bundler}/bin/bundle config set --local without development test
               echo "Bundler config before install:"
               ${bundler}/bin/bundle config
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin --verbose
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
+              echo "Copying gems to output path:"
+              cp -r $APP_DIR/vendor/bundle $out/app/vendor/bundle
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
@@ -253,16 +258,18 @@
               fi
               echo "Testing bundle exec rails:"
               ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              #echo "Testing bundle exec rails assets:precompile:"
-              #${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
+              echo "Testing bundle exec rails assets:precompile:"
+              ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile --dry-run
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
-              ${bundler}/bin/bundle config set --local path $out/app/vendor/bundle
+              ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
               echo "Bundler config before install:"
               ${bundler}/bin/bundle config
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $out/app/vendor/bundle/bin --verbose
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose
+              echo "Copying gems to output path:"
+              cp -r $APP_DIR/vendor/bundle $out/app/vendor/bundle
               echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
