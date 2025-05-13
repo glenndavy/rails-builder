@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "68"; # Incremented to 68
+    flake_version = "69"; # Incremented to 69
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -225,6 +225,8 @@
           }
           echo "Gemfile.lock contents:"
           cat Gemfile.lock || echo "Gemfile.lock not found in source"
+          echo "Activated gems before bundle install:"
+          gem list || echo "Failed to list gems"
 
           # Copy source to $APP_DIR
           cp -r . $APP_DIR
@@ -345,6 +347,8 @@
               env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
               echo "RubyGems environment:"
               gem env
+              echo "Activated gems after bundle install:"
+              gem list || echo "Failed to list gems"
               echo "Bundler executable path:"
               ls -l ${bundler}/bin/bundle
               echo "Attempting bundle install:"
