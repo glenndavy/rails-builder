@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "54"; # Incremented to 54
+    flake_version = "55"; # Incremented to 55
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -155,7 +155,7 @@
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs =
-          [ruby pkgs.git] # Add git to nativeBuildInputs
+          [ruby pkgs.git]
           ++ (
             if gemset != null && gem_strategy == "bundix"
             then [pkgs.bundler]
@@ -301,7 +301,7 @@
                 find $out/app/vendor/bundle/bin -type f -name rails
                 if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
                   echo "Rails executable found"
-                  ${bundler}/bin/bundle exec nécessaires $out/app/vendor/bundle/bin/rails --version
+                  ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
                 else
                   echo "Rails executable not found"
                   exit 1
@@ -400,7 +400,7 @@
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             (buildRailsApp {inherit src nixpkgsConfig;}).bundler
             (buildRailsApp {inherit src nixpkgsConfig;}).app.buildInputs
-            git # Add git for Git-sourced gems
+            git
           ]
           else [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -417,7 +417,6 @@
           ]
         );
         shellHook = ''
-          # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
@@ -426,7 +425,7 @@
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
-          export BUNDLE_IGNORE_CONFIG=1 # Ignore ~/.bundle/config
+          export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
@@ -473,7 +472,6 @@
           pkg-config
         ];
         shellHook = ''
-          # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
@@ -482,7 +480,7 @@
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
-          export BUNDLE_IGNORE_CONFIG=1 # Ignore ~/.bundle/config
+          export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
             defaultBundlerVersion = "2.5.17";
@@ -492,8 +490,8 @@
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${bundler}/bin/bundle config set --local without development test
+          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${pkgs.bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -521,7 +519,6 @@
           pkg-config
         ];
         shellHook = ''
-          # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
@@ -659,7 +656,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ ! -f "$1/Gemfile.lock" ]; then
+        if [ -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
@@ -687,7 +684,6 @@
       bundix = pkgs.mkShell {
         buildInputs = [pkgs.bundix pkgs.git];
         shellHook = ''
-          # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
