@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "61"; # Incremented to 61
+    flake_version = "62"; # Incremented to 62
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -154,13 +154,7 @@
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs =
-          [ruby pkgs.git]
-          ++ (
-            if gemset != null && gem_strategy == "bundix"
-            then [] # Remove pkgs.bundler to avoid system-wide version
-            else []
-          );
+        nativeBuildInputs = [ruby pkgs.git pkgs.coreutils]; # Add coreutils for mkdir
         dontPatchShebangs = true;
         buildPhase = ''
           export HOME=$TMPDIR
@@ -673,7 +667,7 @@
           exit 1
         fi
         if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gemfile.lock/Resources/secretlink/flake.nix is missing in $1."
+          echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
         cd "$1"
