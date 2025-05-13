@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "57"; # Incremented to 57
+    flake_version = "58"; # Incremented to 58
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -269,6 +269,10 @@
               ls -l vendor/cache || echo "vendor/cache directory not found"
               echo "Listing gem dependencies from Gemfile.lock:"
               ${bundler}/bin/bundle list || echo "Failed to list dependencies"
+              echo "Bundler environment:"
+              env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
+              echo "RubyGems environment:"
+              gem env
               echo "Attempting bundle install:"
               ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
                 echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
@@ -312,6 +316,8 @@
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
+              # Clear any existing gems to avoid contamination
+              rm -rf $APP_DIR/vendor/bundle/*
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
               ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
@@ -325,6 +331,8 @@
               env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
               echo "RubyGems environment:"
               gem env
+              echo "Bundler executable path:"
+              ls -l ${bundler}/bin/bundle
               echo "Attempting bundle install:"
               ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
                 echo "Bundle install failed, please check gemset.nix for correctness"
