@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "64"; # Incremented to 64
+    flake_version = "66"; # Incremented to 66
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -206,6 +206,11 @@
           echo "Checking gemset status: ${
             if gemset != null
             then "provided"
+            else "null"
+          }"
+          echo "Gemset contents: ${
+            if gemset != null
+            then builtins.toString gemset
             else "null"
           }"
           echo "Checking ${
@@ -547,7 +552,7 @@
           export GEM_HOME=$PWD/.nix-gems
           export PATH=$GEM_HOME/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
-          export RUBYOPT ANIM="-r logger"
+          export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p $GEM_HOME
           echo "Ruby version: ''$(ruby --version)"
