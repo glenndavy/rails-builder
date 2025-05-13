@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "66"; # Incremented to 66
+    flake_version = "67"; # Incremented to 67
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -208,9 +208,9 @@
             then "provided"
             else "null"
           }"
-          echo "Gemset contents: ${
+          echo "Gemset gem names: ${
             if gemset != null
-            then builtins.toString gemset
+            then builtins.concatStringsSep ", " (builtins.attrNames gemset)
             else "null"
           }"
           echo "Checking ${
