@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "63"; # Incremented to 63
+    flake_version = "64"; # Incremented to 64
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -202,6 +202,12 @@
           }
           echo "Bundler executable path:"
           ls -l ${bundler}/bin/bundle
+          echo "Checking gem_strategy: ${gem_strategy}"
+          echo "Checking gemset status: ${
+            if gemset != null
+            then "provided"
+            else "null"
+          }"
           echo "Checking ${
             if gem_strategy == "vendored"
             then "vendor/cache"
@@ -214,11 +220,6 @@
           }
           echo "Gemfile.lock contents:"
           cat Gemfile.lock || echo "Gemfile.lock not found in source"
-          echo "Gemset status: ${
-            if gemset != null
-            then "provided"
-            else "null"
-          }"
 
           # Copy source to $APP_DIR
           cp -r . $APP_DIR
@@ -546,7 +547,7 @@
           export GEM_HOME=$PWD/.nix-gems
           export PATH=$GEM_HOME/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
-          export RUBYOPT="-r logger"
+          export RUBYOPT ANIM="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p $GEM_HOME
           echo "Ruby version: ''$(ruby --version)"
