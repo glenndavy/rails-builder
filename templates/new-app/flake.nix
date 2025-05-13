@@ -1,5 +1,5 @@
 {
-  description = "A Rails application template";
+  description = "Rails application";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,13 +17,14 @@
       overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-    flake_version = "50"; # Incremented to 50 due to bundler fix
+    flake_version = "50"; # Matches new-app
 
     # Rails app derivation from buildRailsApp
     railsApp =
       (rails-builder.lib.${system}.buildRailsApp {
         src = ./.;
-        gem_strategy = "vendored";
+        gem_strategy = "bundix";
+        gemset = import ./gemset.nix;
         nixpkgsConfig = nixpkgsConfig;
         buildCommands = true; # Skip assets:precompile
       }).app;
@@ -32,27 +33,19 @@
     bundler =
       (rails-builder.lib.${system}.buildRailsApp {
         src = ./.;
-        gem_strategy = "vendored";
+        gem_strategy = "bundix";
+        gemset = import ./gemset.nix;
         nixpkgsConfig = nixpkgsConfig;
       }).bundler;
   in {
     packages.${system} = {
       default = railsApp;
-      bundix =
-        (rails-builder.lib.${system}.buildRailsApp {
-          src = ./.;
-          gem_strategy = "bundix";
-          gemset =
-            if builtins.pathExists ./gemset.nix
-            then import ./gemset.nix
-            else null;
-          nixpkgsConfig = nixpkgsConfig;
-        }).app;
+      bundix = railsApp;
       dockerImage = rails-builder.lib.${system}.mkDockerImage {
         railsApp = railsApp;
         name = "rails-app";
         ruby = ruby;
-        bundler = bundler; # Add bundler argument
+        bundler = bundler;
       };
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
         if [ -z "$1" ]; then
@@ -85,12 +78,7 @@
     };
 
     devShells.${system} = {
-      bundix = pkgs.mkShell {
-        buildInputs = [pkgs.bundix];
-        shellHook = ''
-          echo "Run 'bundix' to generate gemset.nix."
-        '';
-      };
+      bundix = rails-builder.devShells.${system}.bundix;
       appDevShell = rails-builder.lib.${system}.mkAppDevShell {src = ./.;};
       bootstrapDevShell = rails-builder.lib.${system}.mkBootstrapDevShell {src = ./.;};
       rubyShell = rails-builder.lib.${system}.mkRubyShell {src = ./.;};
@@ -131,15 +119,7 @@
       };
       bundix = {
         type = "app";
-        program = "${(rails-builder.lib.${system}.buildRailsApp {
-          src = ./.;
-          gem_strategy = "bundix";
-          gemset =
-            if builtins.pathExists ./gemset.nix
-            then import ./gemset.nix
-            else null;
-          nixpkgsConfig = nixpkgsConfig;
-        }).app}/app/bin/rails-app";
+        program = "${railsApp}/app/bin/rails-app";
       };
     };
   };
