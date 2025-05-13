@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "67"; # Incremented to 67
+    flake_version = "68"; # Incremented to 68
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -268,6 +268,8 @@
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
 
           cd $APP_DIR
+          # Relax compiler flags for native extensions
+          export CFLAGS="-Wno-error=incompatible-pointer-types"
           ${
             if gem_strategy == "vendored"
             then ''
@@ -435,6 +437,7 @@
             openssl
             libxml2
             libxslt
+            imagemagick
             nodejs_20
             pkg-config
             coreutils
