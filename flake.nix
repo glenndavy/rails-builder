@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "55"; # Incremented to 55
+    flake_version = "57"; # Incremented to 57
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -189,8 +189,7 @@
           cat $APP_DIR/.bundle/config
 
           echo "Checking for git availability:"
-          which git || echo "Git not found in PATH"
-          git --version || echo "Failed to run git"
+          git --version || echo "Git not found"
 
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
@@ -322,6 +321,10 @@
               ls -l gemset.nix || echo "gemset.nix not found"
               echo "Listing gem dependencies from Gemfile.lock:"
               ${bundler}/bin/bundle list || echo "Failed to list dependencies"
+              echo "Bundler environment:"
+              env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
+              echo "RubyGems environment:"
+              gem env
               echo "Attempting bundle install:"
               ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
                 echo "Bundle install failed, please check gemset.nix for correctness"
@@ -656,7 +659,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ -f "$1/Gemfile.lock" ]; then
+        if [ ! -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
