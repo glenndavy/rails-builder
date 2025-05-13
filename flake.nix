@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "53"; # Incremented to 53
+    flake_version = "54"; # Incremented to 54
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -301,7 +301,7 @@
                 find $out/app/vendor/bundle/bin -type f -name rails
                 if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
                   echo "Rails executable found"
-                  ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                  ${bundler}/bin/bundle exec nécessaires $out/app/vendor/bundle/bin/rails --version
                 else
                   echo "Rails executable not found"
                   exit 1
@@ -320,7 +320,13 @@
               ${bundler}/bin/bundle config
               echo "Listing gemset.nix:"
               ls -l gemset.nix || echo "gemset.nix not found"
-              ${bundler}/bin/bundle install --verbose --binstubs $APP_DIR/vendor/bundle/bin
+              echo "Listing gem dependencies from Gemfile.lock:"
+              ${bundler}/bin/bundle list || echo "Failed to list dependencies"
+              echo "Attempting bundle install:"
+              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                echo "Bundle install failed, please check gemset.nix for correctness"
+                exit 1
+              }
               echo "Checking $APP_DIR/vendor/bundle contents before copy:"
               find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
@@ -486,8 +492,8 @@
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${pkgs.bundler}/bin/bundle config set --local without development test
+          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(bundle --version)"
@@ -679,7 +685,7 @@
     };
     devShells.${system} = {
       bundix = pkgs.mkShell {
-        buildInputs = [pkgs.bundix];
+        buildInputs = [pkgs.bundix pkgs.git];
         shellHook = ''
           # Reset environment to prevent leakage from ~/.local or user settings
           unset GEM_HOME GEM_PATH
