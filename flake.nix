@@ -166,7 +166,7 @@
           export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
           export BUNDLE_PATH=$APP_DIR/vendor/bundle
           export BUNDLE_FROZEN=true
-          export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin
+          export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:$PATH
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
