@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "62"; # Incremented to 62
+    flake_version = "63"; # Incremented to 63
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -154,9 +154,19 @@
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs = [ruby pkgs.git pkgs.coreutils]; # Add coreutils for mkdir
+        nativeBuildInputs = [ruby pkgs.git pkgs.coreutils]; # Ensure coreutils for mkdir
         dontPatchShebangs = true;
         buildPhase = ''
+          # Debug stdenv environment
+          echo "Initial PATH: $PATH"
+          echo "Checking for mkdir:"
+          command -v mkdir || echo "mkdir not found"
+          echo "Checking for coreutils:"
+          ls -l ${pkgs.coreutils}/bin/mkdir || echo "coreutils not found"
+
+          # Explicitly set PATH to include coreutils
+          export PATH=${pkgs.coreutils}/bin:$PATH
+
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
           unset GEM_PATH
