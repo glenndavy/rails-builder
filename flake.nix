@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "58"; # Incremented to 58
+    flake_version = "59"; # Incremented to 59
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -158,7 +158,7 @@
           [ruby pkgs.git]
           ++ (
             if gemset != null && gem_strategy == "bundix"
-            then [pkgs.bundler]
+            then [] # Remove pkgs.bundler to avoid system-wide version
             else []
           );
         dontPatchShebangs = true;
@@ -172,7 +172,7 @@
           export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
           export BUNDLE_PATH=$APP_DIR/vendor/bundle
           export BUNDLE_FROZEN=true
-          export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:$PATH
+          export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
@@ -196,6 +196,8 @@
             echo "Failed to run bundle command"
             exit 1
           }
+          echo "Bundler executable path:"
+          ls -l ${bundler}/bin/bundle
           echo "Checking ${
             if gem_strategy == "vendored"
             then "vendor/cache"
