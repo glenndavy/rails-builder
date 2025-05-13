@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "59"; # Incremented to 59
+    flake_version = "61"; # Incremented to 61
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -98,7 +98,7 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 pkg-config];
+      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 pkg-config coreutils];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {
@@ -427,6 +427,7 @@
             libxslt
             nodejs_20
             pkg-config
+            coreutils
           ]
         );
         shellHook = ''
@@ -483,6 +484,7 @@
           libxslt
           nodejs_20
           pkg-config
+          coreutils
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -530,6 +532,7 @@
           imagemagick
           nodejs_20
           pkg-config
+          coreutils
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -670,7 +673,7 @@
           exit 1
         fi
         if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gemfile.lock is missing in $1."
+          echo "Error: Gemfile.lock/Resources/secretlink/flake.nix is missing in $1."
           exit 1
         fi
         cd "$1"
@@ -695,12 +698,24 @@
     };
     devShells.${system} = {
       bundix = pkgs.mkShell {
-        buildInputs = [pkgs.bundix pkgs.git];
+        buildInputs = with pkgs; [
+          bundix
+          git
+          (pkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}")
+          (buildRailsApp {
+            src = ./.;
+            inherit nixpkgsConfig;
+          }).bundler
+        ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
+          export PATH=${(buildRailsApp {
+            src = ./.;
+            inherit nixpkgsConfig;
+          }).bundler}/bin:$PATH
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
@@ -714,6 +729,8 @@
         ''}/bin/flake-version";
       };
     };
+    # Expose flake_version for downstream flakes
+    flake_version = flake_version;
     templates = {
       new-app = {
         path = ./templates/new-app;
