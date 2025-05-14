@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "73"; # Incremented to 73
+    flake_version = "74"; # Incremented to 74
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -460,12 +460,14 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
+          # Install flake's bundler into GEM_HOME to override default gem
+          ${bundler}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''${bundler}/bin/bundle --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "GEM_HOME: $GEM_HOME"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
@@ -515,12 +517,14 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
+          # Install flake's bundler into GEM_HOME to override default gem
+          ${bundler}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''${bundler}/bin/bundle --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "GEM_HOME: $GEM_HOME"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
