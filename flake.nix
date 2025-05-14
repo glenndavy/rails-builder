@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "70"; # Incremented to 70
+    flake_version = "71"; # Incremented to 71
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -46,7 +46,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.4.13", # Match Gemfile.lock
+      defaultVersion ? "2.5.17", # Fallback if Gemfile.lock is missing
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -90,7 +90,6 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
-      defaultBundlerVersion ? "2.4.13",
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -101,10 +100,7 @@
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 pkg-config coreutils];
       rubyVersion = detectRubyVersion { inherit src rubyVersionSpecified; };
       ruby = pkgs."ruby-${rubyVersion.dotted}";
-      bundlerVersion = detectBundlerVersion {
-        inherit src;
-        defaultVersion = defaultBundlerVersion;
-      };
+      bundlerVersion = detectBundlerVersion { inherit src; };
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
@@ -406,7 +402,7 @@
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
+          export RUBYLIB=${ruby}/lib/ruby ${({rubyVersion.dotted})
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:\$LD_LIBRARY_PATH
           mkdir -p /app/.bundle
@@ -484,14 +480,11 @@
         '';
       };
 
-    mkBootstrap kifDevShell = {src}:
+    mkBootstrapDevShell = {src}:
       pkgs.mkShell {
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
-          (buildRailsApp {
-            inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.4.13";
-          }).bundler
+          (buildRailsApp {inherit src nixpkgsConfig;}).bundler
           git
           libyaml
           postgresql
@@ -513,26 +506,14 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.4.13";
-          }).bundler}/bin:$PATH
+          export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          ${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.4.13";
-          }).bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.4.13";
-          }).bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${(buildRailsApp {
-            inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.4.13";
-          }).bundler}/bin/bundle config set --local without development test
+          ${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
@@ -691,7 +672,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ ! -f "$1/Gemfile.lock" ]; then
+        if [ -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
