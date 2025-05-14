@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "69"; # Incremented to 69
+    flake_version = "70"; # Incremented to 70
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -46,7 +46,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.5.17",
+      defaultVersion ? "2.4.13", # Match Gemfile.lock
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -90,7 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
-      defaultBundlerVersion ? "2.5.17",
+      defaultBundlerVersion ? "2.4.13",
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -99,7 +99,7 @@
       };
       bundlerGems = import bundlerHashes;
       defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 pkg-config coreutils];
-      rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
+      rubyVersion = detectRubyVersion { inherit src rubyVersionSpecified; };
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {
         inherit src;
@@ -462,12 +462,12 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${pkgs.bundler}/bin/bundle config set --local without development test
+          ${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${(buildRailsApp {inherit src nixpkgsConfig;}).bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(bundle --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "GEM_HOME: $GEM_HOME"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
@@ -484,13 +484,13 @@
         '';
       };
 
-    mkBootstrapDevShell = {src}:
+    mkBootstrap kifDevShell = {src}:
       pkgs.mkShell {
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
           (buildRailsApp {
             inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.5.17";
+            defaultBundlerVersion = "2.4.13";
           }).bundler
           git
           libyaml
@@ -515,18 +515,27 @@
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${(buildRailsApp {
             inherit src nixpkgsConfig;
-            defaultBundlerVersion = "2.5.17";
+            defaultBundlerVersion = "2.4.13";
           }).bundler}/bin:$PATH
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          ${pkgs.bundler}/bin/bundle config set --local path $BUNDLE_PATH
-          ${pkgs.bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
-          ${pkgs.bundler}/bin/bundle config set --local without development test
+          ${(buildRailsApp {
+            inherit src nixpkgsConfig;
+            defaultBundlerVersion = "2.4.13";
+          }).bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${(buildRailsApp {
+            inherit src nixpkgsConfig;
+            defaultBundlerVersion = "2.4.13";
+          }).bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${(buildRailsApp {
+            inherit src nixpkgsConfig;
+            defaultBundlerVersion = "2.4.13";
+          }).bundler}/bin/bundle config set --local without development test
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(bundle --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "GEM_HOME: $GEM_HOME"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
@@ -628,15 +637,8 @@
       rubyVersion = let
         match = builtins.match "ruby-([0-9.]+)" ruby.name;
       in {
-        dotted =
-          if match != null
-          then builtins.head match
-          else throw "Cannot derive Ruby version from ${ruby.name}";
-        underscored = builtins.replaceStrings ["."] ["_"] (
-          if match != null
-          then builtins.head match
-          else throw "Cannot derive Ruby version from ${ruby.name}"
-        );
+        dotted = if match != null then builtins.head match else throw "Cannot derive Ruby version from ${ruby.name}";
+        underscored = builtins.replaceStrings ["."] ["_"] (if match != null then builtins.head match else throw "Cannot derive Ruby version from ${ruby.name}");
       };
     in
       pkgs.dockerTools.buildImage {
@@ -718,21 +720,15 @@
         buildInputs = with pkgs; [
           bundix
           git
-          (pkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}")
-          (buildRailsApp {
-            src = ./.;
-            inherit nixpkgsConfig;
-          }).bundler
+          (pkgs."ruby-${(detectRubyVersion { src = ./.; }).dotted}")
+          (buildRailsApp { src = ./.; inherit nixpkgsConfig; }).bundler
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
-          export PATH=${(buildRailsApp {
-            src = ./.;
-            inherit nixpkgsConfig;
-          }).bundler}/bin:$PATH
+          export PATH=${(buildRailsApp { src = ./.; inherit nixpkgsConfig; }).bundler}/bin:$PATH
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
