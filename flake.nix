@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "74"; # Incremented to 74
+    flake_version = "75"; # Incremented to 75
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -419,6 +419,7 @@
 
     mkAppDevShell = {src}: let
       bundler = (buildRailsApp {inherit src nixpkgsConfig;}).bundler;
+      ruby = pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
     in
       pkgs.mkShell {
         buildInputs = with pkgs; (
@@ -456,12 +457,12 @@
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${bundler}/bin:$PATH
-          export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           # Install flake's bundler into GEM_HOME to override default gem
-          ${bundler}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
+          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
@@ -486,6 +487,7 @@
 
     mkBootstrapDevShell = {src}: let
       bundler = (buildRailsApp {inherit src nixpkgsConfig;}).bundler;
+      ruby = pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
     in
       pkgs.mkShell {
         buildInputs = with pkgs; [
@@ -513,12 +515,12 @@
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${bundler}/bin:$PATH
-          export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           # Install flake's bundler into GEM_HOME to override default gem
-          ${bundler}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
+          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
