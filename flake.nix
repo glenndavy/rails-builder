@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "93"; # Incremented to 93
+    flake_version = "94"; # Incremented to 94
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
