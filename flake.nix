@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "92"; # Incremented to 92
+    flake_version = "93"; # Incremented to 93
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -706,6 +706,7 @@
             then pkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
@@ -732,7 +733,7 @@
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
           export PATH=$GEM_HOME/bin:$PATH
-          export RUBYLIB=${effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
