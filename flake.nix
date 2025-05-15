@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "85"; # Incremented to 85
+    flake_version = "86"; # Incremented to 86
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -135,7 +135,7 @@
         pkg-config
         coreutils
         gcc
-        shared-mime-info # For MIME database
+        shared-mime-info
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
@@ -213,7 +213,9 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -447,6 +449,7 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:\$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           mkdir -p /app/.bundle
           cd /app
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
@@ -526,7 +529,9 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -616,7 +621,9 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -691,7 +698,9 @@
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -797,6 +806,7 @@
               "RUBYOPT=-r logger"
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
               "XDG_DATA_DIRS=/share:$XDG_DATA_DIRS"
+              "FREEDESKTOP_MIME_TYPES_PATH=/share/mime/packages/freedesktop.org.xml"
             ]
             ++ extraEnv;
           ExposedPorts = {
@@ -865,6 +875,7 @@
             historicalNixpkgs = null;
           }).bundler}/bin:$PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
