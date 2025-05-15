@@ -20,6 +20,8 @@
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
     };
+    # Define gccVersion per app
+    gccVersion = "8"; # e.g., "8" for gcc8, null for default
   in {
     packages.${system} = {
       buildRailsApp =
@@ -28,7 +30,7 @@
           gem_strategy = "bundix";
           gemset = ./gemset.nix;
           nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
-          gccVersion = "8"; # Specify GCC version (e.g., "8" for gcc8)
+          gccVersion = gccVersion;
         }).app;
 
       default = self.packages.${system}.buildRailsApp;
@@ -41,12 +43,16 @@
           (rails-builder.lib.${system}.buildRailsApp {
             src = ./.;
             nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
+            gccVersion = gccVersion;
           }).bundler;
       };
     };
 
     devShells.${system} = {
-      default = rails-builder.lib.${system}.mkAppDevShell {src = ./.;};
+      default = rails-builder.lib.${system}.mkAppDevShell {
+        src = ./.;
+        gccVersion = gccVersion;
+      };
       bundix = rails-builder.devShells.${system}.bundix;
     };
 

@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "77"; # Incremented to 77
+    flake_version = "78"; # Incremented to 78
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -90,7 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
-      gccVersion ? null, # New parameter for GCC version (e.g., "8" for gcc8)
+      gccVersion ? null,
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -98,7 +98,6 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      # Select GCC based on gccVersion
       gcc =
         if gccVersion != null
         then pkgs."gcc${gccVersion}"
@@ -114,7 +113,7 @@
         nodejs_20
         pkg-config
         coreutils
-        gcc # Include selected GCC
+        gcc
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
@@ -191,7 +190,6 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
-          # Set CC and CXX to use specified GCC version
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -422,8 +420,11 @@
       bundler = bundler;
     };
 
-    mkAppDevShell = {src}: let
-      bundler = (buildRailsApp {inherit src nixpkgsConfig;}).bundler;
+    mkAppDevShell = {
+      src,
+      gccVersion ? null,
+    }: let
+      bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion;}).bundler;
       ruby = pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
       gcc =
         if gccVersion != null
@@ -436,7 +437,7 @@
           then [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             bundler
-            (buildRailsApp {inherit src nixpkgsConfig;}).app.buildInputs
+            (buildRailsApp {inherit src nixpkgsConfig gccVersion;}).app.buildInputs
             git
             gcc
           ]
@@ -504,8 +505,11 @@
         '';
       };
 
-    mkBootstrapDevShell = {src}: let
-      bundler = (buildRailsApp {inherit src nixpkgsConfig;}).bundler;
+    mkBootstrapDevShell = {
+      src,
+      gccVersion ? null,
+    }: let
+      bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion;}).bundler;
       ruby = pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
       gcc =
         if gccVersion != null
@@ -567,7 +571,10 @@
         '';
       };
 
-    mkRubyShell = {src}: let
+    mkRubyShell = {
+      src,
+      gccVersion ? null,
+    }: let
       gcc =
         if gccVersion != null
         then pkgs."gcc${gccVersion}"
@@ -752,6 +759,7 @@
           (buildRailsApp {
             src = ./.;
             inherit nixpkgsConfig;
+            gccVersion = null;
           }).bundler
         ];
         shellHook = ''
@@ -762,6 +770,7 @@
           export PATH=${(buildRailsApp {
             src = ./.;
             inherit nixpkgsConfig;
+            gccVersion = null;
           }).bundler}/bin:$PATH
           echo "Run 'bundix' to generate gemset.nix."
         '';
