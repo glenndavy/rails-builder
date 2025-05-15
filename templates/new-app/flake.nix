@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11"; # For gcc8
+    nixpkgs-historical.url = "github:NixOS/nixpkgs/nixos-unstable"; # Adjusted for dentalportal
     rails-builder = {
       url = "github:glenndavy/rails-builder";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -23,11 +23,9 @@
       config = rails-builder.lib.${system}.nixpkgsConfig;
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
-    packageOverrides = {
-      gcc = historicalPkgs.gcc8; # Override with gcc8 from 23.11
-    };
-    gccVersion = null; # Not used since packageOverrides.gcc is defined
-    flake_version = "1.0.0"; # App-specific version
+    packageOverrides = {};
+    gccVersion = null;
+    flake_version = "1.0.1"; # App-specific version
   in {
     packages.${system} = {
       buildRailsApp =
@@ -74,6 +72,20 @@
           echo "App flake_version: ${flake_version}"
           echo "Rails-builder flake_version: ${rails-builder.flake_version}"
         ''}/bin/flake-version";
+      };
+      detectBundlerVersion = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "detect-bundler-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${rails-builder.lib.${system}.detectBundlerVersion {src = ./.;}}"
+        ''}/bin/detect-bundler-version";
+      };
+      detectRailsVersion = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "detect-rails-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${rails-builder.lib.${system}.detectRailsVersion {src = ./.;}}"
+        ''}/bin/detect-rails-version";
       };
     };
 

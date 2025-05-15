@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "94"; # Incremented to 94
+    flake_version = "95"; # Incremented to 95
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -74,6 +74,31 @@
           if versionMatch != null
           then builtins.head versionMatch
           else throw "Could not parse bundler_version from line after BUNDLED WITH: '${versionLine}'"
+        else defaultVersion;
+    in
+      version;
+
+    detectRailsVersion = {
+      src,
+      defaultVersion ? "6.0.0",
+    }: let
+      lockFile = "${src}/Gemfile.lock";
+      fileExists = builtins.pathExists lockFile;
+      version =
+        if fileExists
+        then let
+          rawContent = builtins.readFile lockFile;
+          allLines = builtins.split "\n" rawContent;
+          lines = builtins.filter (line: builtins.typeOf line == "string" && line != "") allLines;
+          railsLine = builtins.filter (line: (builtins.match "[[:space:]]*rails \\(([0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?)\\)" line) != null) lines;
+          versionMatch =
+            if railsLine != []
+            then builtins.match "[[:space:]]*rails \\(([0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?)\\)" (builtins.head railsLine)
+            else null;
+        in
+          if versionMatch != null
+          then builtins.head versionMatch
+          else defaultVersion
         else defaultVersion;
     in
       version;
@@ -536,7 +561,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=$BUNDLE_PATH/bin:${bundler}/bin:$PATH
+          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -637,7 +662,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=$BUNDLE_PATH/bin:${bundler}/bin:$PATH
+          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -865,7 +890,7 @@
       };
   in {
     lib.${system} = {
-      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell mkBootstrapDevShell mkRubyShell mkDockerImage;
+      inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell mkBootstrapDevShell mkRubyShell mkDockerImage detectRailsVersion;
     };
     packages.${system} = {
       generate-gemset = pkgs.writeShellScriptBin "generate-gemset" ''
@@ -937,6 +962,20 @@
           #!${pkgs.runtimeShell}
           echo "${flake_version}"
         ''}/bin/flake-version";
+      };
+      detectBundlerVersion = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "detect-bundler-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${detectBundlerVersion {src = ./.;}}"
+        ''}/bin/detect-bundler-version";
+      };
+      detectRailsVersion = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "detect-rails-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${detectRailsVersion {src = ./.;}}"
+        ''}/bin/detect-rails-version";
       };
     };
     flake_version = flake_version;
