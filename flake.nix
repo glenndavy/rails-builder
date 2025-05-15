@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "87"; # Incremented to 87
+    flake_version = "90"; # Incremented to 90
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -136,7 +136,7 @@
         coreutils
         gcc
         shared-mime-info
-        tzdata # Added for timezone data
+        tzdata
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
@@ -219,6 +219,12 @@
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           echo "TZDIR set to: $TZDIR"
+          echo "Timezone data contents:"
+          ls -l $TZDIR || echo "Failed to list TZDIR contents"
+          echo "Sample timezone file check:"
+          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
+          echo "Testing tzinfo with TZDIR:"
+          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -540,6 +546,12 @@
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           echo "TZDIR set to: $TZDIR"
+          echo "Timezone data contents:"
+          ls -l $TZDIR || echo "Failed to list TZDIR contents"
+          echo "Sample timezone file check:"
+          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
+          echo "Testing tzinfo with TZDIR:"
+          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -635,6 +647,12 @@
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           echo "TZDIR set to: $TZDIR"
+          echo "Timezone data contents:"
+          ls -l $TZDIR || echo "Failed to list TZDIR contents"
+          echo "Sample timezone file check:"
+          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
+          echo "Testing tzinfo with TZDIR:"
+          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -715,6 +733,12 @@
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
           echo "TZDIR set to: $TZDIR"
+          echo "Timezone data contents:"
+          ls -l $TZDIR || echo "Failed to list TZDIR contents"
+          echo "Sample timezone file check:"
+          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
+          echo "Testing tzinfo with TZDIR:"
+          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -822,7 +846,7 @@
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
               "XDG_DATA_DIRS=/share:$XDG_DATA_DIRS"
               "FREEDESKTOP_MIME_TYPES_PATH=/share/mime/packages/freedesktop.org.xml"
-              "TZDIR=${pkgs.tzdata}/share/zoneinfo"
+              "TZDIR=${effectivePkgs.tzdata}/share/zoneinfo"
             ]
             ++ extraEnv;
           ExposedPorts = {
