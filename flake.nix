@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "80"; # Incremented to 80
+    flake_version = "82"; # Incremented to 82
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -86,13 +86,17 @@
       railsEnv ? "production",
       extraEnv ? {},
       extraBuildInputs ? [],
-      gem_strategy ? "vendored",
+      gem_strategy ? (
+        if builtins.pathExists "${src}/gemset.nix"
+        then "bundix"
+        else "vendored"
+      ), # Auto-detect strategy
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
       gccVersion ? null,
-      packageOverrides ? {}, # New parameter for package overrides (e.g., { gcc = historicalPkgs.gcc8; })
-      historicalNixpkgs ? null, # Optional historical nixpkgs for overrides
+      packageOverrides ? {},
+      historicalNixpkgs ? null,
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -103,7 +107,7 @@
         if historicalNixpkgs != null
         then import historicalNixpkgs {inherit system;}
         else pkgs;
-      effectivePkgs = pkgs // packageOverrides; # Merge overrides with default pkgs
+      effectivePkgs = pkgs // packageOverrides;
       gcc =
         if packageOverrides ? gcc
         then packageOverrides.gcc
@@ -113,6 +117,10 @@
             then pkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
+      effectiveGemset =
+        if gem_strategy == "bundix" && gemset == null && builtins.pathExists "${src}/gemset.nix"
+        then import "${src}/gemset.nix"
+        else gemset;
       defaultBuildInputs = with effectivePkgs; [
         libyaml
         postgresql
@@ -222,17 +230,25 @@
           }
           echo "Bundler executable path:"
           ls -l ${bundler}/bin/bundle
-          echo "Checking gem_strategy: ${gem_strategy}"
-          echo "Checking gemset status: ${
-            if gemset != null
-            then "provided"
-            else "null"
-          }"
-          echo "Gemset gem names: ${
-            if gemset != null
-            then builtins.concatStringsSep ", " (builtins.attrNames gemset)
-            else "null"
-          }"
+          echo "Using gem strategy: ${gem_strategy}"
+          ${
+            if gem_strategy == "bundix"
+            then ''
+              echo "Checking gemset status: ${
+                if effectiveGemset != null && builtins.isAttrs effectiveGemset
+                then "provided"
+                else "null or invalid"
+              }"
+              echo "Gemset gem names: ${
+                if effectiveGemset != null && builtins.isAttrs effectiveGemset
+                then builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
+                else "none"
+              }"
+            ''
+            else ''
+              echo "Vendored strategy: gemset not required"
+            ''
+          }
           echo "Checking ${
             if gem_strategy == "vendored"
             then "vendor/cache"
@@ -240,7 +256,7 @@
           } contents:"
           ${
             if gem_strategy == "vendored"
-            then "ls -l vendor/cache"
+            then "ls -l vendor/cache || echo 'vendor/cache directory not found'"
             else "ls -l gemset.nix || echo 'gemset.nix not found in source'"
           }
           echo "Gemfile.lock contents:"
@@ -343,7 +359,7 @@
                 exit 1
               fi
             ''
-            else if gem_strategy == "bundix" && gemset != null
+            else if gem_strategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
               rm -rf $APP_DIR/vendor/bundle/*
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
@@ -398,7 +414,7 @@
               fi
             ''
             else ''
-              echo "Error: Invalid gem_strategy '${gem_strategy}' or missing gemset for bundix"
+              echo "Error: Invalid gem_strategy '${gem_strategy}' or missing/invalid gemset for bundix"
               exit 1
             ''
           }
