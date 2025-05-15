@@ -21,11 +21,12 @@
     pkgs = import nixpkgs {
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
+      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.1"; # App-specific version
+    flake_version = "1.0.2";
   in {
     packages.${system} = {
       buildRailsApp =
@@ -42,7 +43,10 @@
       dockerImage = rails-builder.lib.${system}.mkDockerImage {
         railsApp = self.packages.${system}.buildRailsApp;
         name = "rails-app";
-        ruby = pkgs."ruby-${(rails-builder.lib.${system}.detectRubyVersion {src = ./.;}).dotted}";
+        ruby = let
+          rubyVersion = rails-builder.lib.${system}.detectRubyVersion {src = ./.;};
+        in
+          pkgs."ruby_${rubyVersion.underscored}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs");
         bundler =
           (rails-builder.lib.${system}.buildRailsApp {
             src = ./.;
@@ -87,8 +91,13 @@
           echo "${rails-builder.lib.${system}.detectRailsVersion {src = ./.;}}"
         ''}/bin/detect-rails-version";
       };
+      detectRubyVersion = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "detect-ruby-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${rails-builder.lib.${system}.detectRubyVersion {src = ./.;}.dotted}"
+        ''}/bin/detect-ruby-version";
+      };
     };
-
-    flake_version = flake_version;
   };
 }
