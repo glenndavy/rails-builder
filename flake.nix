@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "86"; # Incremented to 86
+    flake_version = "87"; # Incremented to 87
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -136,6 +136,7 @@
         coreutils
         gcc
         shared-mime-info
+        tzdata # Added for timezone data
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
@@ -214,8 +215,10 @@
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "TZDIR set to: $TZDIR"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -450,6 +453,7 @@
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:\$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           mkdir -p /app/.bundle
           cd /app
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
@@ -495,6 +499,7 @@
             git
             gcc
             shared-mime-info
+            tzdata
           ]
           else [
             (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -512,6 +517,7 @@
             coreutils
             gcc
             shared-mime-info
+            tzdata
           ]
         );
         shellHook = ''
@@ -530,8 +536,10 @@
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "TZDIR set to: $TZDIR"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -605,6 +613,7 @@
           coreutils
           gcc
           shared-mime-info
+          tzdata
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -622,8 +631,10 @@
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "TZDIR set to: $TZDIR"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -686,6 +697,7 @@
           coreutils
           gcc
           shared-mime-info
+          tzdata
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -699,8 +711,10 @@
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "TZDIR set to: $TZDIR"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -749,6 +763,7 @@
         pkgs.bash
         pkgs.postgresql
         pkgs.shared-mime-info
+        pkgs.tzdata
       ];
       debugPaths = [
         pkgs.coreutils
@@ -807,6 +822,7 @@
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
               "XDG_DATA_DIRS=/share:$XDG_DATA_DIRS"
               "FREEDESKTOP_MIME_TYPES_PATH=/share/mime/packages/freedesktop.org.xml"
+              "TZDIR=/share/zoneinfo"
             ]
             ++ extraEnv;
           ExposedPorts = {
@@ -876,6 +892,7 @@
           }).bundler}/bin:$PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export TZDIR=${pkgs.tzdata}/share/zoneinfo
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
