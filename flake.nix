@@ -21,11 +21,11 @@
       ];
     };
     pkgs = import nixpkgs {
-      inherit system;
+      inherit voici system;
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "83"; # Incremented to 83
+    flake_version = "84"; # Incremented to 84
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -122,7 +122,7 @@
         if gem_strategy == "bundix" && gemset == null && gemsetExists
         then import "${src}/gemset.nix"
         else gemset;
-      effectiveGemStrategy = gem_strategy; # For debugging
+      effectiveGemStrategy = gem_strategy;
       defaultBuildInputs = with effectivePkgs; [
         libyaml
         postgresql
@@ -135,6 +135,7 @@
         pkg-config
         coreutils
         gcc
+        shared-mime-info # Added for MIME database
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
@@ -211,6 +212,8 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -443,6 +446,7 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:\$LD_LIBRARY_PATH
+          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           mkdir -p /app/.bundle
           cd /app
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
@@ -487,6 +491,7 @@
             (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).app.buildInputs
             git
             gcc
+            shared-mime-info # Added for MIME database
           ]
           else [
             (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -503,6 +508,7 @@
             pkg-config
             coreutils
             gcc
+            shared-mime-info # Added for MIME database
           ]
         );
         shellHook = ''
@@ -519,6 +525,8 @@
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -591,6 +599,7 @@
           pkg-config
           coreutils
           gcc
+          shared-mime-info # Added for MIME database
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -606,6 +615,8 @@
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -667,6 +678,7 @@
           pkg-config
           coreutils
           gcc
+          shared-mime-info # Added for MIME database
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -678,6 +690,8 @@
           export RUBYLIB=${effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -725,6 +739,7 @@
         railsApp.buildInputs
         pkgs.bash
         pkgs.postgresql
+        pkgs.shared-mime-info # Added for MIME database
       ];
       debugPaths = [
         pkgs.coreutils
@@ -763,7 +778,7 @@
               then debugPaths
               else []
             );
-          pathsToLink = ["/app" "/bin" "/lib"];
+          pathsToLink = ["/app" "/bin" "/lib" "/share"];
         };
         config = {
           Entrypoint = ["/bin/start"];
@@ -781,6 +796,7 @@
               "RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}"
               "RUBYOPT=-r logger"
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
+              "XDG_DATA_DIRS=/share:$XDG_DATA_DIRS"
             ]
             ++ extraEnv;
           ExposedPorts = {
@@ -848,6 +864,7 @@
             packageOverrides = {};
             historicalNixpkgs = null;
           }).bundler}/bin:$PATH
+          export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           echo "Run 'bundix' to generate gemset.nix."
         '';
       };
