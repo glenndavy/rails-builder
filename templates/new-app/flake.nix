@@ -27,6 +27,7 @@
       gcc = historicalPkgs.gcc8; # Override with gcc8 from 23.11
     };
     gccVersion = null; # Not used since packageOverrides.gcc is defined
+    flake_version = "1.0.0"; # App-specific version
   in {
     packages.${system} = {
       buildRailsApp =
@@ -66,13 +67,16 @@
     };
 
     apps.${system} = {
-      builderVersion = {
+      flakeVersion = {
         type = "app";
-        program = "${pkgs.writeShellScriptBin "builder-version" ''
+        program = "${pkgs.writeShellScriptBin "flake-version" ''
           #!${pkgs.runtimeShell}
-          echo "${rails-builder.flake_version}"
-        ''}/bin/builder-version";
+          echo "App flake_version: ${flake_version}"
+          echo "Rails-builder flake_version: ${rails-builder.flake_version}"
+        ''}/bin/flake-version";
       };
     };
+
+    flake_version = flake_version;
   };
 }
