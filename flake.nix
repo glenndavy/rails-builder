@@ -21,11 +21,11 @@
       ];
     };
     pkgs = import nixpkgs {
-      inherit voici system;
+      inherit system;
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "84"; # Incremented to 84
+    flake_version = "85"; # Incremented to 85
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -135,7 +135,7 @@
         pkg-config
         coreutils
         gcc
-        shared-mime-info # Added for MIME database
+        shared-mime-info # For MIME database
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
@@ -491,7 +491,7 @@
             (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).app.buildInputs
             git
             gcc
-            shared-mime-info # Added for MIME database
+            shared-mime-info
           ]
           else [
             (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -508,7 +508,7 @@
             pkg-config
             coreutils
             gcc
-            shared-mime-info # Added for MIME database
+            shared-mime-info
           ]
         );
         shellHook = ''
@@ -599,7 +599,7 @@
           pkg-config
           coreutils
           gcc
-          shared-mime-info # Added for MIME database
+          shared-mime-info
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -678,7 +678,7 @@
           pkg-config
           coreutils
           gcc
-          shared-mime-info # Added for MIME database
+          shared-mime-info
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -739,7 +739,7 @@
         railsApp.buildInputs
         pkgs.bash
         pkgs.postgresql
-        pkgs.shared-mime-info # Added for MIME database
+        pkgs.shared-mime-info
       ];
       debugPaths = [
         pkgs.coreutils
