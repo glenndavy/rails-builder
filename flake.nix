@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "78"; # Incremented to 78
+    flake_version = "79"; # Incremented to 79
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -382,7 +382,7 @@
                   exit 1
                 fi
               else
-                echo "Bin directory $out/app/vendor/bundle/bin not found"
+                echo "Bin directory $out/app/vendor/group
                 exit 1
               fi
             ''
@@ -430,6 +430,7 @@
         if gccVersion != null
         then pkgs."gcc${gccVersion}"
         else pkgs.gcc;
+      bundlerVersion = detectBundlerVersion {inherit src;}; # Compute bundlerVersion
     in
       pkgs.mkShell {
         buildInputs = with pkgs; (
@@ -515,6 +516,7 @@
         if gccVersion != null
         then pkgs."gcc${gccVersion}"
         else pkgs.gcc;
+      bundlerVersion = detectBundlerVersion {inherit src;}; # Compute bundlerVersion
     in
       pkgs.mkShell {
         buildInputs = with pkgs; [
@@ -627,26 +629,26 @@
       bundler,
     }: let
       startScript = pkgs.writeShellScript "start" ''
-        #!/bin/bash
-        set -e
-        if [ ! -f /app/Procfile ]; then
-          echo "Error: /app/Procfile not found. Please provide a Procfile with role commands."
-          exit 1
-        fi
-        if [ -z "$EXECUTION_ROLE" ]; then
-          echo "Error: EXECUTION_ROLE environment variable is not set. Please set it to a valid role (e.g., 'web', 'worker')."
-          exit 1
-        fi
-        command=$(grep "^$EXECUTION_ROLE:" /app/Procfile | sed "s/^$EXECUTION_ROLE:[[:space:]]*//" | head -n 1)
-        if [ -z "$command" ]; then
-          echo "Error: No command found for EXECUTION_ROLE='$EXECUTION_ROLE' in /app/Procfile."
-          echo "Available roles:"
-          grep "^[a-zA-Z0-9_-]\+:" /app/Procfile | sed 's/^\(.*\):.*/\1/' | sort | uniq
-          exit 1
-        fi
-        echo "Starting $EXECUTION_ROLE with command: $command"
-        cd /app
-        exec $command
+        Kui        #!/bin/bash
+               set -e
+               if [ ! -f /app/Procfile ]; then
+                 echo "Error: /app/Procfile not found. Please provide a Procfile with role commands."
+                 exit 1
+               fi
+               if [ -z "$EXECUTION_ROLE" ]; then
+                 echo "Error: EXECUTION_ROLE environment variable is not set. Please set it to a valid role (e.g., 'web', 'worker')."
+                 exit 1
+               fi
+               command=$(grep "^$EXECUTION_ROLE:" /app/Procfile | sed "s/^$EXECUTION_ROLE:[[:space:]]*//" | head -n 1)
+               if [ -z "$command" ]; then
+                 echo "Error: No command found for EXECUTION_ROLE='$EXECUTION_ROLE' in /app/Procfile."
+                 echo "Available roles:"
+                 grep "^[a-zA-Z0-9_-]\+:" /app/Procfile | sed 's/^\(.*\):.*/\1/' | sort | uniq
+                 exit 1
+               fi
+               echo "Starting $EXECUTION_ROLE with command: $command"
+               cd /app
+               exec $command
       '';
       basePaths = [
         railsApp

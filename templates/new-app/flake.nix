@@ -21,7 +21,7 @@
       config = rails-builder.lib.${system}.nixpkgsConfig;
     };
     # Define gccVersion per app
-    gccVersion = "8"; # e.g., "8" for gcc8, null for default
+    gccVersion = null; # e.g., "8" for gcc8, null for default
   in {
     packages.${system} = {
       buildRailsApp =
