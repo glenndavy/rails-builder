@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "91"; # Incremented to 91
+    flake_version = "92"; # Incremented to 92
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -86,7 +86,11 @@
       railsEnv ? "production",
       extraEnv ? {},
       extraBuildInputs ? [],
-      gem_strategy ? (if builtins.pathExists "${src}/gemset.nix" then "bundix" else "vendored"),
+      gem_strategy ? (
+        if builtins.pathExists "${src}/gemset.nix"
+        then "bundix"
+        else "vendored"
+      ),
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
@@ -99,11 +103,25 @@
         config = nixpkgsConfig;
         overlays = [nixpkgs-ruby.overlays.default];
       };
-      historicalPkgs = if historicalNixpkgs != null then import historicalNixpkgs { inherit system; } else pkgs;
+      historicalPkgs =
+        if historicalNixpkgs != null
+        then import historicalNixpkgs {inherit system;}
+        else pkgs;
       effectivePkgs = pkgs // packageOverrides;
-      gcc = if packageOverrides ? gcc then packageOverrides.gcc else (if gccVersion != null then pkgs."gcc${gccVersion}" else pkgs.gcc);
+      gcc =
+        if packageOverrides ? gcc
+        then packageOverrides.gcc
+        else
+          (
+            if gccVersion != null
+            then pkgs."gcc${gccVersion}"
+            else pkgs.gcc
+          );
       gemsetExists = builtins.pathExists "${src}/gemset.nix";
-      effectiveGemset = if gem_strategy == "bundix" && gemset == null && gemsetExists then import "${src}/gemset.nix" else gemset;
+      effectiveGemset =
+        if gem_strategy == "bundix" && gemset == null && gemsetExists
+        then import "${src}/gemset.nix"
+        else gemset;
       effectiveGemStrategy = gem_strategy;
       defaultBuildInputs = with effectivePkgs; [
         libyaml
@@ -120,9 +138,9 @@
         shared-mime-info
         tzdata
       ];
-      rubyVersion = detectRubyVersion { inherit src rubyVersionSpecified; };
+      rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
-      bundlerVersion = detectBundlerVersion { inherit src; };
+      bundlerVersion = detectBundlerVersion {inherit src;};
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix or provide custom bundlerHashes.");
       bundler = effectivePkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
@@ -229,7 +247,11 @@
           echo "Bundler executable path:"
           ls -l ${bundler}/bin/bundle
           echo "Detected gem strategy: ${effectiveGemStrategy}"
-          echo "Checking for gemset.nix: ${if gemsetExists then "found" else "not found"}"
+          echo "Checking for gemset.nix: ${
+            if gemsetExists
+            then "found"
+            else "not found"
+          }"
           ${
             if effectiveGemStrategy == "bundix"
             then ''
@@ -449,28 +471,44 @@
       bundler = bundler;
     };
 
-    mkAppDevShell = { src, gccVersion ? null, packageOverrides ? {}, historicalNixpkgs ? null }: let
+    mkAppDevShell = {
+      src,
+      gccVersion ? null,
+      packageOverrides ? {},
+      historicalNixpkgs ? null,
+    }: let
       effectivePkgs = pkgs // packageOverrides;
-      historicalPkgs = if historicalNixpkgs != null then import historicalNixpkgs { inherit system; } else pkgs;
-      bundler = (buildRailsApp { inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs; }).bundler;
-      ruby = effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}";
-      gcc = if packageOverrides ? gcc then packageOverrides.gcc else (if gccVersion != null then pkgs."gcc${gccVersion}" else pkgs.gcc);
-      bundlerVersion = detectBundlerVersion { inherit src; };
+      historicalPkgs =
+        if historicalNixpkgs != null
+        then import historicalNixpkgs {inherit system;}
+        else pkgs;
+      bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      gcc =
+        if packageOverrides ? gcc
+        then packageOverrides.gcc
+        else
+          (
+            if gccVersion != null
+            then pkgs."gcc${gccVersion}"
+            else pkgs.gcc
+          );
+      bundlerVersion = detectBundlerVersion {inherit src;};
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; (
           if builtins.pathExists "${src}/vendor/cache"
           then [
-            (effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
+            (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             bundler
-            (buildRailsApp { inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs; }).app.buildInputs
+            (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).app.buildInputs
             git
             gcc
             shared-mime-info
             tzdata
           ]
           else [
-            (effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
+            (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
             bundler
             git
             libyaml
@@ -499,7 +537,7 @@
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${bundler}/bin:$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion { inherit src; }).dotted}
+          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -528,7 +566,7 @@
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
-          echo "Detected Ruby version: ${(detectRubyVersion { inherit src; }).dotted}"
+          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "GEM_HOME: $GEM_HOME"
@@ -547,17 +585,33 @@
         '';
       };
 
-    mkBootstrapDevShell = { src, gccVersion ? null, packageOverrides ? {}, historicalNixpkgs ? null }: let
+    mkBootstrapDevShell = {
+      src,
+      gccVersion ? null,
+      packageOverrides ? {},
+      historicalNixpkgs ? null,
+    }: let
       effectivePkgs = pkgs // packageOverrides;
-      historicalPkgs = if historicalNixpkgs != null then import historicalNixpkgs { inherit system; } else pkgs;
-      bundler = (buildRailsApp { inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs; }).bundler;
-      ruby = effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}";
-      gcc = if packageOverrides ? gcc then packageOverrides.gcc else (if gccVersion != null then pkgs."gcc${gccVersion}" else pkgs.gcc);
-      bundlerVersion = detectBundlerVersion { inherit src; };
+      historicalPkgs =
+        if historicalNixpkgs != null
+        then import historicalNixpkgs {inherit system;}
+        else pkgs;
+      bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      gcc =
+        if packageOverrides ? gcc
+        then packageOverrides.gcc
+        else
+          (
+            if gccVersion != null
+            then pkgs."gcc${gccVersion}"
+            else pkgs.gcc
+          );
+      bundlerVersion = detectBundlerVersion {inherit src;};
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
+          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
           bundler
           git
           libyaml
@@ -584,7 +638,7 @@
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=$BUNDLE_PATH/bin:${bundler}/bin:$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion { inherit src; }).dotted}
+          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -610,7 +664,16 @@
           }
           echo "Verifying installed gems in GEM_HOME:"
           ${ruby}/bin/gem list --local --gempath $GEM_HOME
-          ${Parece
+          ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
+          ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
+          ${bundler}/bin/bundle config set --local without development test
+          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
+          echo "Ruby version: ''$(ruby --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
+          echo "GEM_HOME: $GEM_HOME"
+          echo "BUNDLE_PATH: $BUNDLE_PATH"
+          echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
+          ${
             if builtins.pathExists "${src}/vendor/cache"
             then ''
               echo "vendor/cache detected. Binstubs are available in vendor/bundle/bin (e.g., vendor/bundle/bin/rails)."
@@ -619,18 +682,34 @@
               echo "vendor/cache not found. Run 'bundle install --path vendor/cache' to populate gems."
             ''
           }
-          echo "Welcome to the Rails dev shell!"
+          echo "Welcome to the Rails bootstrap shell!"
         '';
       };
 
-    mkRubyShell = { src, gccVersion ? null, packageOverrides ? {}, historicalNixpkgs ? null }: let
+    mkRubyShell = {
+      src,
+      gccVersion ? null,
+      packageOverrides ? {},
+      historicalNixpkgs ? null,
+    }: let
       effectivePkgs = pkgs // packageOverrides;
-      historicalPkgs = if historicalNixpkgs != null then import historicalNixpkgs { inherit system; } else pkgs;
-      gcc = if packageOverrides ? gcc then packageOverrides.gcc else (if gccVersion != null then pkgs."gcc${gccVersion}" else pkgs.gcc);
+      historicalPkgs =
+        if historicalNixpkgs != null
+        then import historicalNixpkgs {inherit system;}
+        else pkgs;
+      gcc =
+        if packageOverrides ? gcc
+        then packageOverrides.gcc
+        else
+          (
+            if gccVersion != null
+            then pkgs."gcc${gccVersion}"
+            else pkgs.gcc
+          );
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}")
+          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
           git
           libyaml
           postgresql
@@ -653,7 +732,7 @@
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
           export PATH=$GEM_HOME/bin:$PATH
-          export RUBYLIB=${effectivePkgs."ruby-${(detectRubyVersion { inherit src; }).dotted}"}/lib/ruby/${(detectRubyVersion { inherit src; }).dotted}
+          export RUBYLIB=${effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -729,8 +808,15 @@
       rubyVersion = let
         match = builtins.match "ruby-([0-9.]+)" ruby.name;
       in {
-        dotted = if match != null then builtins.head match else throw "Cannot derive Ruby version from ${ruby.name}";
-        underscored = builtins.replaceStrings ["."] ["_"] (if match != null then builtins.head match else throw "Cannot derive Ruby version from ${ruby.name}");
+        dotted =
+          if match != null
+          then builtins.head match
+          else throw "Cannot derive Ruby version from ${ruby.name}";
+        underscored = builtins.replaceStrings ["."] ["_"] (
+          if match != null
+          then builtins.head match
+          else throw "Cannot derive Ruby version from ${ruby.name}"
+        );
       };
     in
       pkgs.dockerTools.buildImage {
@@ -815,15 +901,27 @@
         buildInputs = with pkgs; [
           bundix
           git
-          (pkgs."ruby-${(detectRubyVersion { src = ./.; }).dotted}")
-          (buildRailsApp { src = ./.; inherit nixpkgsConfig; gccVersion = null; packageOverrides = {}; historicalNixpkgs = null; }).bundler
+          (pkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}")
+          (buildRailsApp {
+            src = ./.;
+            inherit nixpkgsConfig;
+            gccVersion = null;
+            packageOverrides = {};
+            historicalNixpkgs = null;
+          }).bundler
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
-          export PATH=${(buildRailsApp { src = ./.; inherit nixpkgsConfig; gccVersion = null; packageOverrides = {}; historicalNixpkgs = null; }).bundler}/bin:$PATH
+          export PATH=${(buildRailsApp {
+            src = ./.;
+            inherit nixpkgsConfig;
+            gccVersion = null;
+            packageOverrides = {};
+            historicalNixpkgs = null;
+          }).bundler}/bin:$PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
