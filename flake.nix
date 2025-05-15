@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "82"; # Incremented to 82
+    flake_version = "83"; # Incremented to 83
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -90,7 +90,7 @@
         if builtins.pathExists "${src}/gemset.nix"
         then "bundix"
         else "vendored"
-      ), # Auto-detect strategy
+      ),
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
@@ -117,10 +117,12 @@
             then pkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
+      gemsetExists = builtins.pathExists "${src}/gemset.nix";
       effectiveGemset =
-        if gem_strategy == "bundix" && gemset == null && builtins.pathExists "${src}/gemset.nix"
+        if gem_strategy == "bundix" && gemset == null && gemsetExists
         then import "${src}/gemset.nix"
         else gemset;
+      effectiveGemStrategy = gem_strategy; # For debugging
       defaultBuildInputs = with effectivePkgs; [
         libyaml
         postgresql
@@ -230,9 +232,14 @@
           }
           echo "Bundler executable path:"
           ls -l ${bundler}/bin/bundle
-          echo "Using gem strategy: ${gem_strategy}"
+          echo "Detected gem strategy: ${effectiveGemStrategy}"
+          echo "Checking for gemset.nix: ${
+            if gemsetExists
+            then "found"
+            else "not found"
+          }"
           ${
-            if gem_strategy == "bundix"
+            if effectiveGemStrategy == "bundix"
             then ''
               echo "Checking gemset status: ${
                 if effectiveGemset != null && builtins.isAttrs effectiveGemset
@@ -250,12 +257,12 @@
             ''
           }
           echo "Checking ${
-            if gem_strategy == "vendored"
+            if effectiveGemStrategy == "vendored"
             then "vendor/cache"
             else "gemset.nix"
           } contents:"
           ${
-            if gem_strategy == "vendored"
+            if effectiveGemStrategy == "vendored"
             then "ls -l vendor/cache || echo 'vendor/cache directory not found'"
             else "ls -l gemset.nix || echo 'gemset.nix not found in source'"
           }
@@ -303,7 +310,7 @@
           cd $APP_DIR
           export CFLAGS="-Wno-error=incompatible-pointer-types"
           ${
-            if gem_strategy == "vendored"
+            if effectiveGemStrategy == "vendored"
             then ''
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local cache_path vendor/cache
@@ -359,7 +366,7 @@
                 exit 1
               fi
             ''
-            else if gem_strategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
+            else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
               rm -rf $APP_DIR/vendor/bundle/*
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
@@ -414,7 +421,7 @@
               fi
             ''
             else ''
-              echo "Error: Invalid gem_strategy '${gem_strategy}' or missing/invalid gemset for bundix"
+              echo "Error: Invalid gem_strategy '${effectiveGemStrategy}' or missing/invalid gemset for bundix"
               exit 1
             ''
           }
