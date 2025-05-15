@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11"; # Example historical nixpkgs with gcc8
     rails-builder = {
       url = "github:glenndavy/rails-builder";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -12,6 +13,7 @@
   outputs = {
     self,
     nixpkgs,
+    nixpkgs-historical,
     rails-builder,
     ...
   }: let
@@ -20,8 +22,12 @@
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
     };
-    # Define gccVersion per app
-    gccVersion = null; # e.g., "8" for gcc8, null for default
+    historicalPkgs = import nixpkgs-historical {inherit system;};
+    # Define package overrides
+    packageOverrides = {
+      gcc = historicalPkgs.gcc8; # Override gcc with gcc8 from nixpkgs 23.11
+    };
+    gccVersion = null; # Optional, use if not overriding with historical nixpkgs
   in {
     packages.${system} = {
       buildRailsApp =
@@ -31,6 +37,8 @@
           gemset = ./gemset.nix;
           nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
           gccVersion = gccVersion;
+          packageOverrides = packageOverrides;
+          historicalNixpkgs = nixpkgs-historical;
         }).app;
 
       default = self.packages.${system}.buildRailsApp;
@@ -44,6 +52,8 @@
             src = ./.;
             nixpkgsConfig = rails-builder.lib.${system}.nixpkgsConfig;
             gccVersion = gccVersion;
+            packageOverrides = packageOverrides;
+            historicalNixpkgs = nixpkgs-historical;
           }).bundler;
       };
     };
@@ -52,6 +62,8 @@
       default = rails-builder.lib.${system}.mkAppDevShell {
         src = ./.;
         gccVersion = gccVersion;
+        packageOverrides = packageOverrides;
+        historicalNixpkgs = nixpkgs-historical;
       };
       bundix = rails-builder.devShells.${system}.bundix;
     };
