@@ -822,7 +822,7 @@
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
               "XDG_DATA_DIRS=/share:$XDG_DATA_DIRS"
               "FREEDESKTOP_MIME_TYPES_PATH=/share/mime/packages/freedesktop.org.xml"
-              "TZDIR=/share/zoneinfo"
+              "TZDIR=${pkgs.tzdata}/share/zoneinfo"
             ]
             ++ extraEnv;
           ExposedPorts = {
