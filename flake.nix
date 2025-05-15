@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "75"; # Incremented to 75
+    flake_version = "77"; # Incremented to 77
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -46,7 +46,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.5.17", # Fallback if Gemfile.lock is missing
+      defaultVersion ? "2.5.17",
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -90,6 +90,7 @@
       buildCommands ? null,
       nixpkgsConfig,
       bundlerHashes ? ./bundler-hashes.nix,
+      gccVersion ? null, # New parameter for GCC version (e.g., "8" for gcc8)
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -97,11 +98,28 @@
         overlays = [nixpkgs-ruby.overlays.default];
       };
       bundlerGems = import bundlerHashes;
-      defaultBuildInputs = with pkgs; [libyaml postgresql zlib openssl libxml2 libxslt imagemagick nodejs_20 pkg-config coreutils];
+      # Select GCC based on gccVersion
+      gcc =
+        if gccVersion != null
+        then pkgs."gcc${gccVersion}"
+        else pkgs.gcc;
+      defaultBuildInputs = with pkgs; [
+        libyaml
+        postgresql
+        zlib
+        openssl
+        libxml2
+        libxslt
+        imagemagick
+        nodejs_20
+        pkg-config
+        coreutils
+        gcc # Include selected GCC
+      ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = pkgs."ruby-${rubyVersion.dotted}";
       bundlerVersion = detectBundlerVersion {inherit src;};
-      bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix in rails-builder or provide a custom bundlerHashes.");
+      bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix or provide custom bundlerHashes.");
       bundler = pkgs.stdenv.mkDerivation {
         name = "bundler-${bundlerVersion}";
         buildInputs = [ruby pkgs.git];
@@ -123,14 +141,12 @@
             echo "Bundler executable not found"
             exit 1
           fi
-          # Manually patch Executable.bundler template
           if [ -f "$GEM_HOME/gems/bundler-${bundlerVersion}/lib/bundler/templates/Executable.bundler" ]; then
             sed -i 's|#!/usr/bin/env <%= .* %>|#!/usr/bin/env ruby|' "$GEM_HOME/gems/bundler-${bundlerVersion}/lib/bundler/templates/Executable.bundler"
             echo "Patched Executable.bundler template"
           else
             echo "Executable.bundler template not found"
           fi
-          # Patch shebang in bin/bundle
           if [ -f "$out/bin/bundle" ]; then
             sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/bin/bundle"
             echo "Patched shebang in bin/bundle"
@@ -139,7 +155,7 @@
       };
       effectiveBuildCommands =
         if buildCommands == true
-        then [] # Skip assets:precompile if buildCommands is true
+        then []
         else if buildCommands == null
         then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else if builtins.isList buildCommands
@@ -150,17 +166,14 @@
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs = [ruby pkgs.git pkgs.coreutils]; # Ensure coreutils for mkdir
+        nativeBuildInputs = [ruby pkgs.git pkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
-          # Debug stdenv environment
           echo "Initial PATH: $PATH"
           echo "Checking for mkdir:"
           command -v mkdir || echo "mkdir not found"
           echo "Checking for coreutils:"
           ls -l ${pkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-
-          # Explicitly set PATH to include coreutils
           export PATH=${pkgs.coreutils}/bin:$PATH
 
           export HOME=$TMPDIR
@@ -178,8 +191,11 @@
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          # Set CC and CXX to use specified GCC version
+          export CC=${gcc}/bin/gcc
+          export CXX=${gcc}/bin/g++
+          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
-          # Pre-create minimal .bundle/config
           cat > $APP_DIR/.bundle/config <<EOF
           ---
           BUNDLE_PATH: "$APP_DIR/vendor/bundle"
@@ -190,7 +206,6 @@
 
           echo "Checking for git availability:"
           git --version || echo "Git not found"
-
           echo "Using bundler version:"
           ${bundler}/bin/bundle --version || {
             echo "Failed to run bundle command"
@@ -224,10 +239,8 @@
           echo "Activated gems before bundle install:"
           gem list || echo "Failed to list gems"
 
-          # Copy source to $APP_DIR
           cp -r . $APP_DIR
           cd $APP_DIR
-          # Verify Gemfile and Gemfile.lock exist
           if [ ! -f Gemfile ]; then
             echo "Gemfile not found in source"
             exit 1
@@ -236,13 +249,10 @@
             echo "Gemfile.lock not found in source"
             exit 1
           fi
-          # Check for existing files in output path
           echo "Existing files in $out/app/vendor/bundle:"
           find $out/app/vendor/bundle -type f 2>/dev/null || echo "No existing files"
-          # Clear output path to avoid conflicts
           rm -rf $out/app/vendor/bundle
           mkdir -p $out/app/vendor/bundle
-          # Verify libpq availability
           echo "Checking for libpq.so:"
           find ${pkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
           ${
@@ -266,7 +276,6 @@
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
 
           cd $APP_DIR
-          # Relax compiler flags for native extensions
           export CFLAGS="-Wno-error=incompatible-pointer-types"
           ${
             if gem_strategy == "vendored"
@@ -300,7 +309,6 @@
               ls -l vendor/cache | grep attr_encrypted || echo "attr_encrypted gem not found in vendor/cache"
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
-              # Manually patch shebangs in binstubs
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 for file in $out/app/vendor/bundle/bin/*; do
                   if [ -f "$file" ]; then
@@ -328,7 +336,6 @@
             ''
             else if gem_strategy == "bundix" && gemset != null
             then ''
-              # Clear any existing gems to avoid contamination
               rm -rf $APP_DIR/vendor/bundle/*
               ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundler}/bin/bundle config set --local without development test
@@ -356,7 +363,6 @@
               find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
-              # Manually patch shebangs in binstubs
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 for file in $out/app/vendor/bundle/bin/*; do
                   if [ -f "$file" ]; then
@@ -410,7 +416,6 @@
           exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
           EOF
           chmod +x $out/app/bin/rails-app
-          # Manually patch shebangs in bin/rails-app
           sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/app/bin/rails-app"
         '';
       };
@@ -420,6 +425,10 @@
     mkAppDevShell = {src}: let
       bundler = (buildRailsApp {inherit src nixpkgsConfig;}).bundler;
       ruby = pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      gcc =
+        if gccVersion != null
+        then pkgs."gcc${gccVersion}"
+        else pkgs.gcc;
     in
       pkgs.mkShell {
         buildInputs = with pkgs; (
@@ -429,6 +438,7 @@
             bundler
             (buildRailsApp {inherit src nixpkgsConfig;}).app.buildInputs
             git
+            gcc
           ]
           else [
             (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -444,6 +454,7 @@
             nodejs_20
             pkg-config
             coreutils
+            gcc
           ]
         );
         shellHook = ''
@@ -460,9 +471,17 @@
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export CC=${gcc}/bin/gcc
+          export CXX=${gcc}/bin/g++
+          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          # Install flake's bundler into GEM_HOME to override default gem
-          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
+          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin || {
+            echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+            exit 1
+          }
+          echo "Verifying installed gems in GEM_HOME:"
+          ${ruby}/bin/gem list --local --gempath $GEM_HOME
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
@@ -488,6 +507,10 @@
     mkBootstrapDevShell = {src}: let
       bundler = (buildRailsApp {inherit src nixpkgsConfig;}).bundler;
       ruby = pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      gcc =
+        if gccVersion != null
+        then pkgs."gcc${gccVersion}"
+        else pkgs.gcc;
     in
       pkgs.mkShell {
         buildInputs = with pkgs; [
@@ -503,6 +526,7 @@
           nodejs_20
           pkg-config
           coreutils
+          gcc
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -518,9 +542,17 @@
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export CC=${gcc}/bin/gcc
+          export CXX=${gcc}/bin/g++
+          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          # Install flake's bundler into GEM_HOME to override default gem
-          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin
+          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin || {
+            echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+            exit 1
+          }
+          echo "Verifying installed gems in GEM_HOME:"
+          ${ruby}/bin/gem list --local --gempath $GEM_HOME
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
@@ -535,7 +567,12 @@
         '';
       };
 
-    mkRubyShell = {src}:
+    mkRubyShell = {src}: let
+      gcc =
+        if gccVersion != null
+        then pkgs."gcc${gccVersion}"
+        else pkgs.gcc;
+    in
       pkgs.mkShell {
         buildInputs = with pkgs; [
           (pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
@@ -550,6 +587,7 @@
           nodejs_20
           pkg-config
           coreutils
+          gcc
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -561,6 +599,9 @@
           export RUBYLIB=${pkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}"}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export CC=${gcc}/bin/gcc
+          export CXX=${gcc}/bin/g++
+          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p $GEM_HOME
           echo "Ruby version: ''$(ruby --version)"
           echo "Node.js version: ''$(node --version)"
@@ -575,37 +616,27 @@
       name,
       debug ? false,
       extraEnv ? [],
-      ruby, # Use ruby parameter from buildRailsApp
-      bundler, # Use bundler from buildRailsApp
+      ruby,
+      bundler,
     }: let
       startScript = pkgs.writeShellScript "start" ''
         #!/bin/bash
         set -e
-
-        # Check if Procfile exists
         if [ ! -f /app/Procfile ]; then
           echo "Error: /app/Procfile not found. Please provide a Procfile with role commands."
           exit 1
         fi
-
-        # Check if EXECUTION_ROLE is set
         if [ -z "$EXECUTION_ROLE" ]; then
           echo "Error: EXECUTION_ROLE environment variable is not set. Please set it to a valid role (e.g., 'web', 'worker')."
           exit 1
         fi
-
-        # Read Procfile and find the command for EXECUTION_ROLE
         command=$(grep "^$EXECUTION_ROLE:" /app/Procfile | sed "s/^$EXECUTION_ROLE:[[:space:]]*//" | head -n 1)
-
-        # Check if a command was found
         if [ -z "$command" ]; then
           echo "Error: No command found for EXECUTION_ROLE='$EXECUTION_ROLE' in /app/Procfile."
           echo "Available roles:"
           grep "^[a-zA-Z0-9_-]\+:" /app/Procfile | sed 's/^\(.*\):.*/\1/' | sort | uniq
           exit 1
         fi
-
-        # Execute the command
         echo "Starting $EXECUTION_ROLE with command: $command"
         cd /app
         exec $command
@@ -614,7 +645,7 @@
         railsApp
         railsApp.buildInputs
         pkgs.bash
-        pkgs.postgresql # Ensure libpq.so.5 is included
+        pkgs.postgresql
       ];
       debugPaths = [
         pkgs.coreutils
@@ -624,7 +655,6 @@
         pkgs.busybox
         pkgs.less
       ];
-      # Derive rubyVersion from ruby derivation name
       rubyVersion = let
         match = builtins.match "ruby-([0-9.]+)" ruby.name;
       in {
@@ -746,7 +776,6 @@
         ''}/bin/flake-version";
       };
     };
-    # Expose flake_version for downstream flakes
     flake_version = flake_version;
     templates = {
       new-app = {
