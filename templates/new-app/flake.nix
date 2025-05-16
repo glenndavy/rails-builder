@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-historical.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11"; # For gcc, etc.
     rails-builder = {
       url = "github:glenndavy/rails-builder";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -46,7 +46,7 @@
         ruby = let
           rubyVersion = rails-builder.lib.${system}.detectRubyVersion {src = ./.;};
         in
-          pkgs."ruby_${rubyVersion.underscored}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs");
+          pkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
         bundler =
           (rails-builder.lib.${system}.buildRailsApp {
             src = ./.;

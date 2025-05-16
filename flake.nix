@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "97"; # Incremented to 97
+    flake_version = "100"; # Incremented to 100
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -36,7 +36,13 @@
         if rubyVersionSpecified != null
         then rubyVersionSpecified
         else if builtins.pathExists "${src}/.ruby-version"
-        then builtins.replaceStrings ["ruby-" "\n" "\r"] ["" "" ""] (builtins.readFile "${src}/.ruby-version")
+        then let
+          rawVersion = builtins.readFile "${src}/.ruby-version";
+          cleanedVersion = builtins.replaceStrings ["ruby-" "\n" "\r"] ["" "" ""] rawVersion;
+        in
+          if cleanedVersion == ""
+          then throw "Empty .ruby-version file in ${src}"
+          else cleanedVersion
         else throw "Missing .ruby-version file in ${src}";
       underscored = builtins.replaceStrings ["."] ["_"] version;
     in {
@@ -139,7 +145,7 @@
         else
           (
             if gccVersion != null
-            then pkgs."gcc${gccVersion}"
+            then historicalPkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
       gemsetExists = builtins.pathExists "${src}/gemset.nix";
@@ -164,7 +170,7 @@
         tzdata
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
-      ruby = effectivePkgs."ruby_${rubyVersion.underscored}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs");
+      ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
       bundlerVersion = detectBundlerVersion {inherit src;};
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix or provide custom bundlerHashes.");
       bundler = effectivePkgs.stdenv.mkDerivation {
@@ -508,14 +514,14 @@
         then import historicalNixpkgs {inherit system;}
         else pkgs;
       bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
-      ruby = effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs");
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs-ruby");
       gcc =
         if packageOverrides ? gcc
         then packageOverrides.gcc
         else
           (
             if gccVersion != null
-            then pkgs."gcc${gccVersion}"
+            then historicalPkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
       bundlerVersion = detectBundlerVersion {inherit src;};
@@ -524,7 +530,7 @@
         buildInputs = with effectivePkgs; (
           if builtins.pathExists "${src}/vendor/cache"
           then [
-            (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
+            (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
             bundler
             (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).app.buildInputs
             git
@@ -533,7 +539,7 @@
             tzdata
           ]
           else [
-            (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
+            (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
             bundler
             git
             libyaml
@@ -622,21 +628,21 @@
         then import historicalNixpkgs {inherit system;}
         else pkgs;
       bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
-      ruby = effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs");
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs-ruby");
       gcc =
         if packageOverrides ? gcc
         then packageOverrides.gcc
         else
           (
             if gccVersion != null
-            then pkgs."gcc${gccVersion}"
+            then historicalPkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
       bundlerVersion = detectBundlerVersion {inherit src;};
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
+          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
           bundler
           git
           libyaml
@@ -728,14 +734,14 @@
         else
           (
             if gccVersion != null
-            then pkgs."gcc${gccVersion}"
+            then historicalPkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
-      ruby = effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs");
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs-ruby");
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
+          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
           git
           libyaml
           postgresql
@@ -927,7 +933,7 @@
         buildInputs = with pkgs; [
           bundix
           git
-          (pkgs."ruby_${(detectRubyVersion {src = ./.;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {src = ./.;}).dotted} not found"))
+          (pkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {src = ./.;}).dotted} not found"))
           (buildRailsApp {
             src = ./.;
             inherit nixpkgsConfig;
