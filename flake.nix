@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "101"; # Incremented to 101
+    flake_version = "102"; # Incremented to 102
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -577,48 +577,37 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
-          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
-          echo "TZDIR set to: $TZDIR"
-          echo "Timezone data contents:"
-          ls -l $TZDIR || echo "Failed to list TZDIR contents"
-          echo "Sample timezone file check:"
-          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
-          echo "Testing tzinfo with TZDIR:"
-          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
-          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin || {
             echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
             exit 1
           }
-          echo "Verifying installed gems in GEM_HOME:"
-          ${ruby}/bin/gem list --local --gempath $GEM_HOME
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
-          # Add Rails bin directory to PATH after bundle install
+          # Add Rails bin to PATH after bundle install
           if [ -d "$BUNDLE_PATH/bin" ]; then
             export PATH=$BUNDLE_PATH/bin:$PATH
           fi
-          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
-          echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
+          echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
+          echo "BUNDLE_GEMFILE: $BUNDLE_GEMFILE"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
-          ${
-            if builtins.pathExists "${src}/vendor/cache"
-            then ''
-              echo "vendor/cache detected. Binstubs are available in vendor/bundle/bin (e.g., vendor/bundle/bin/rails)."
-            ''
-            else ''
-              echo "vendor/cache not found. Run 'bundle install --path vendor/cache' to populate gems."
-            ''
-          }
+          echo "BUNDLE_IGNORE_CONFIG: $BUNDLE_IGNORE_CONFIG"
+          echo "RUBYLIB: $RUBYLIB"
+          echo "RUBYOPT: $RUBYOPT"
+          echo "TZDIR: $TZDIR"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+          echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "CC: $CC"
+          echo "CXX: $CXX"
+          echo "Ruby version: ''$(ruby --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "Welcome to the Rails dev shell!"
         '';
       };
@@ -682,48 +671,37 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
-          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
-          echo "TZDIR set to: $TZDIR"
-          echo "Timezone data contents:"
-          ls -l $TZDIR || echo "Failed to list TZDIR contents"
-          echo "Sample timezone file check:"
-          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
-          echo "Testing tzinfo with TZDIR:"
-          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
-          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
           echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin || {
             echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
             exit 1
           }
-          echo "Verifying installed gems in GEM_HOME:"
-          ${ruby}/bin/gem list --local --gempath $GEM_HOME
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
-          # Add Rails bin directory to PATH after bundle install
+          # Add Rails bin to PATH after bundle install
           if [ -d "$BUNDLE_PATH/bin" ]; then
             export PATH=$BUNDLE_PATH/bin:$PATH
           fi
-          echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
-          echo "Ruby version: ''$(ruby --version)"
-          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
+          echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
+          echo "BUNDLE_GEMFILE: $BUNDLE_GEMFILE"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
-          ${
-            if builtins.pathExists "${src}/vendor/cache"
-            then ''
-              echo "vendor/cache detected. Binstubs are available in vendor/bundle/bin (e.g., vendor/bundle/bin/rails)."
-            ''
-            else ''
-              echo "vendor/cache not found. Run 'bundle install --path vendor/cache' to populate gems."
-            ''
-          }
+          echo "BUNDLE_IGNORE_CONFIG: $BUNDLE_IGNORE_CONFIG"
+          echo "RUBYLIB: $RUBYLIB"
+          echo "RUBYOPT: $RUBYOPT"
+          echo "TZDIR: $TZDIR"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+          echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "CC: $CC"
+          echo "CXX: $CXX"
+          echo "Ruby version: ''$(ruby --version)"
+          echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
           echo "Welcome to the Rails bootstrap shell!"
         '';
       };
@@ -781,22 +759,20 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
-          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
-          echo "TZDIR set to: $TZDIR"
-          echo "Timezone data contents:"
-          ls -l $TZDIR || echo "Failed to list TZDIR contents"
-          echo "Sample timezone file check:"
-          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
-          echo "Testing tzinfo with TZDIR:"
-          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
-          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
-          mkdir -p $GEM_HOME
+          echo "PATH: $PATH"
+          echo "GEM_HOME: $GEM_HOME"
+          echo "RUBYLIB: $RUBYLIB"
+          echo "RUBYOPT: $RUBYOPT"
+          echo "TZDIR: $TZDIR"
+          echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+          echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
+          echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "CC: $CC"
+          echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
           echo "Node.js version: ''$(node --version)"
-          echo "GEM_HOME: $GEM_HOME"
           echo "Ruby shell with build inputs. Gems are installed in $GEM_HOME."
           echo "Run 'gem install <gem>' to install gems, or use Ruby without Bundler."
         '';
@@ -936,7 +912,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1_1_1w is blocked"
       '';
     };
     devShells.${system} = {
