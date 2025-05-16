@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "103"; # Incremented to 103
+    flake_version = "104"; # Incremented to 104
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -400,8 +400,8 @@
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
-              # Add Rails bin directory to PATH after bundle install
-              export PATH=$APP_DIR/vendor/bundle/bin:$PATH
+              # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
+              export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               # Test tzinfo after bundle install
               echo "Testing tzinfo with TZDIR:"
               ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
@@ -459,8 +459,8 @@
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
-              # Add Rails bin directory to PATH after bundle install
-              export PATH=$APP_DIR/vendor/bundle/bin:$PATH
+              # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
+              export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               # Test tzinfo after bundle install
               echo "Testing tzinfo with TZDIR:"
               ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
@@ -889,7 +889,7 @@
           exit 1
         fi
         if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gemfile.lock is missing in $1."
+          echo "Error: Gamfile.lock is missing in $1."
           exit 1
         fi
         cd "$1"
@@ -909,7 +909,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1_1_1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
       '';
     };
     devShells.${system} = {
