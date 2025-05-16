@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-historical.url = "github:NixOS/nixpkgs/nixos-unstable"; # Adjusted for dentalportal
+    nixpkgs-historical.url = "github:NixOS/nixpkgs/nixos-unstable";
     rails-builder = {
       url = "github:glenndavy/rails-builder";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.2";
+    flake_version = "1.0.3";
   in {
     packages.${system} = {
       buildRailsApp =
@@ -95,7 +95,7 @@
         type = "app";
         program = "${pkgs.writeShellScriptBin "detect-ruby-version" ''
           #!${pkgs.runtimeShell}
-          echo "${rails-builder.lib.${system}.detectRubyVersion {src = ./.;}.dotted}"
+          echo "${(rails-builder.lib.${system}.detectRubyVersion {src = ./.;}).dotted}"
         ''}/bin/detect-ruby-version";
       };
     };

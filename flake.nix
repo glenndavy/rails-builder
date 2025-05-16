@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "95"; # Incremented to 95
+    flake_version = "97"; # Incremented to 97
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -36,8 +36,8 @@
         if rubyVersionSpecified != null
         then rubyVersionSpecified
         else if builtins.pathExists "${src}/.ruby-version"
-        then builtins.replaceStrings ["ruby" "-" "\n" "\r"] ["" "" "" ""] (builtins.readFile "${src}/.ruby-version")
-        else throw "Missing .ruby-version file in ${src}.";
+        then builtins.replaceStrings ["ruby-" "\n" "\r"] ["" "" ""] (builtins.readFile "${src}/.ruby-version")
+        else throw "Missing .ruby-version file in ${src}";
       underscored = builtins.replaceStrings ["."] ["_"] version;
     in {
       dotted = version;
@@ -164,7 +164,7 @@
         tzdata
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
-      ruby = effectivePkgs."ruby-${rubyVersion.dotted}";
+      ruby = effectivePkgs."ruby_${rubyVersion.underscored}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs");
       bundlerVersion = detectBundlerVersion {inherit src;};
       bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix or provide custom bundlerHashes.");
       bundler = effectivePkgs.stdenv.mkDerivation {
@@ -221,7 +221,7 @@
           command -v mkdir || echo "mkdir not found"
           echo "Checking for coreutils:"
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          export PATH=${effectivePkgs.coreutils}/bin:$PATH
+          export PATH=${effectivePkgs.coreutils}/bin:${bundler}/bin:$PATH
 
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
@@ -508,7 +508,7 @@
         then import historicalNixpkgs {inherit system;}
         else pkgs;
       bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
-      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      ruby = effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs");
       gcc =
         if packageOverrides ? gcc
         then packageOverrides.gcc
@@ -524,7 +524,7 @@
         buildInputs = with effectivePkgs; (
           if builtins.pathExists "${src}/vendor/cache"
           then [
-            (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+            (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
             bundler
             (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).app.buildInputs
             git
@@ -533,7 +533,7 @@
             tzdata
           ]
           else [
-            (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+            (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
             bundler
             git
             libyaml
@@ -561,7 +561,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:$PATH
+          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:${ruby}/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -622,7 +622,7 @@
         then import historicalNixpkgs {inherit system;}
         else pkgs;
       bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
-      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      ruby = effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs");
       gcc =
         if packageOverrides ? gcc
         then packageOverrides.gcc
@@ -636,7 +636,7 @@
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+          (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
           bundler
           git
           libyaml
@@ -662,7 +662,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:$PATH
+          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:${ruby}/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -731,11 +731,11 @@
             then pkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
-      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}";
+      ruby = effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs");
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}")
+          (effectivePkgs."ruby_${(detectRubyVersion {inherit src;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
           git
           libyaml
           postgresql
@@ -757,7 +757,7 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:$PATH
+          export PATH=$GEM_HOME/bin:${ruby}/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -927,7 +927,7 @@
         buildInputs = with pkgs; [
           bundix
           git
-          (pkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}")
+          (pkgs."ruby_${(detectRubyVersion {src = ./.;}).underscored}" or (throw "Ruby version ${(detectRubyVersion {src = ./.;}).dotted} not found"))
           (buildRailsApp {
             src = ./.;
             inherit nixpkgsConfig;
@@ -976,6 +976,13 @@
           #!${pkgs.runtimeShell}
           echo "${detectRailsVersion {src = ./.;}}"
         ''}/bin/detect-rails-version";
+      };
+      detectRubyVersion = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "detect-ruby-version" ''
+          #!${pkgs.runtimeShell}
+          echo "${detectRubyVersion {src = ./.;}.dotted}"
+        ''}/bin/detect-ruby-version";
       };
     };
     flake_version = flake_version;
