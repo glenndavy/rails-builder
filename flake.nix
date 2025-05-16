@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "100"; # Incremented to 100
+    flake_version = "101"; # Incremented to 101
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -227,7 +227,7 @@
           command -v mkdir || echo "mkdir not found"
           echo "Checking for coreutils:"
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          export PATH=${effectivePkgs.coreutils}/bin:${bundler}/bin:$PATH
+          export PATH=${effectivePkgs.coreutils}/bin:${bundler}/bin:${ruby}/bin:$PATH
 
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
@@ -238,7 +238,6 @@
           export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
           export BUNDLE_PATH=$APP_DIR/vendor/bundle
           export BUNDLE_FROZEN=true
-          export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:$PATH
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
@@ -410,6 +409,8 @@
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
+              # Add Rails bin directory to PATH after bundle install
+              export PATH=$APP_DIR/vendor/bundle/bin:$PATH
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
@@ -464,6 +465,8 @@
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
+              # Add Rails bin directory to PATH after bundle install
+              export PATH=$APP_DIR/vendor/bundle/bin:$PATH
             ''
             else ''
               echo "Error: Invalid gem_strategy '${effectiveGemStrategy}' or missing/invalid gemset for bundix"
@@ -567,7 +570,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:${ruby}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -597,6 +600,10 @@
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
+          # Add Rails bin directory to PATH after bundle install
+          if [ -d "$BUNDLE_PATH/bin" ]; then
+            export PATH=$BUNDLE_PATH/bin:$PATH
+          fi
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
@@ -668,7 +675,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:$BUNDLE_PATH/bin:${ruby}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:$PATH
           export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
@@ -698,6 +705,10 @@
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
+          # Add Rails bin directory to PATH after bundle install
+          if [ -d "$BUNDLE_PATH/bin" ]; then
+            export PATH=$BUNDLE_PATH/bin:$PATH
+          fi
           echo "Detected Ruby version: ${(detectRubyVersion {inherit src;}).dotted}"
           echo "Ruby version: ''$(ruby --version)"
           echo "Bundler version: ''$(${bundler}/bin/bundle --version)"
@@ -873,7 +884,7 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=/app/vendor/bundle/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
               "BUNDLE_GEMFILE=/app/Gemfile"
