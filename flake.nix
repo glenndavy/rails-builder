@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "102"; # Incremented to 102
+    flake_version = "103"; # Incremented to 103
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -246,15 +246,6 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          echo "XDG_DATA_DIRS set to: $XDG_DATA_DIRS"
-          echo "FREEDESKTOP_MIME_TYPES_PATH set to: $FREEDESKTOP_MIME_TYPES_PATH"
-          echo "TZDIR set to: $TZDIR"
-          echo "Timezone data contents:"
-          ls -l $TZDIR || echo "Failed to list TZDIR contents"
-          echo "Sample timezone file check:"
-          ls -l $TZDIR/America/New_York || echo "America/New_York not found in TZDIR"
-          echo "Testing tzinfo with TZDIR:"
-          ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -411,6 +402,9 @@
               fi
               # Add Rails bin directory to PATH after bundle install
               export PATH=$APP_DIR/vendor/bundle/bin:$PATH
+              # Test tzinfo after bundle install
+              echo "Testing tzinfo with TZDIR:"
+              ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
@@ -467,6 +461,9 @@
               fi
               # Add Rails bin directory to PATH after bundle install
               export PATH=$APP_DIR/vendor/bundle/bin:$PATH
+              # Test tzinfo after bundle install
+              echo "Testing tzinfo with TZDIR:"
+              ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
             ''
             else ''
               echo "Error: Invalid gem_strategy '${effectiveGemStrategy}' or missing/invalid gemset for bundix"
