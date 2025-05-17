@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "104"; # Incremented to 104
+    flake_version = "105"; # Incremented to 105
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -219,7 +219,7 @@
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs = [ruby effectivePkgs.git effectivePkgs.coreutils gcc];
+        nativeBuildInputs = [bundler ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
           echo "Initial PATH: $PATH"
@@ -227,7 +227,7 @@
           command -v mkdir || echo "mkdir not found"
           echo "Checking for coreutils:"
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          export PATH=${effectivePkgs.coreutils}/bin:${bundler}/bin:${ruby}/bin:$PATH
+          export PATH=${bundler}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
 
           export HOME=$TMPDIR
           export GEM_HOME=$TMPDIR/gems
