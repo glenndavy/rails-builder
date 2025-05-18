@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "106"; # Incremented to 106
+    flake_version = "107"; # Incremented to 107
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -250,6 +250,11 @@
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
           mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
+          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
+            echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+            exit 1
+          }
           cat > $APP_DIR/.bundle/config <<EOF
           ---
           BUNDLE_PATH: "$APP_DIR/vendor/bundle"
@@ -384,7 +389,7 @@
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
               fi
-              echo "Checking $out/app/vendor/bundle contents:"
+              echo "Checking $APP_DIR/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
               if [ -d "$out/app/vendor/bundle/bin" ]; then
@@ -444,7 +449,7 @@
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
               fi
               echo "Checking $APP_DIR/vendor/bundle contents:"
-              find $APP_DIR/vendor/bundle -type f
+              find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 find $out/app/vendor/bundle/bin -type f -name rails
