@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "107"; # Incremented to 107
+    flake_version = "108"; # Incremented to 108
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -206,11 +206,18 @@
           fi
         '';
       };
+      bundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
+        #!${pkgs.runtimeShell}
+        export GEM_HOME=$TMPDIR/gems
+        export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+        unset RUBYLIB
+        exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
+      '';
       effectiveBuildCommands =
         if buildCommands == true
         then []
         else if buildCommands == null
-        then ["${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
+        then ["${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails assets:precompile"]
         else if builtins.isList buildCommands
         then buildCommands
         else [buildCommands];
@@ -219,7 +226,7 @@
         name = "rails-app";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs = [bundler ruby effectivePkgs.git effectivePkgs.coreutils gcc];
+        nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
           echo "Initial PATH: $PATH"
@@ -227,7 +234,7 @@
           command -v mkdir || echo "mkdir not found"
           echo "Checking for coreutils:"
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          export PATH=${bundler}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
+          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           unset RUBYLIB
@@ -266,12 +273,12 @@
           echo "Checking for git availability:"
           git --version || echo "Git not found"
           echo "Using bundler version:"
-          ${bundler}/bin/bundle --version || {
+          ${bundlerWrapper}/bin/bundle --version || {
             echo "Failed to run bundle command"
             exit 1
           }
           echo "Bundler executable path:"
-          ls -l ${bundler}/bin/bundle
+          ls -l ${bundlerWrapper}/bin/bundle
           echo "Detected gem strategy: ${effectiveGemStrategy}"
           echo "Checking for gemset.nix: ${
             if gemsetExists
@@ -352,22 +359,22 @@
           ${
             if effectiveGemStrategy == "vendored"
             then ''
-              ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
-              ${bundler}/bin/bundle config set --local cache_path vendor/cache
-              ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
+              ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
+              ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
+              ${bundlerWrapper}/bin/bundle config set --local without development test
+              ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
               echo "Bundler config before install:"
-              ${bundler}/bin/bundle config
+              ${bundlerWrapper}/bin/bundle config
               echo "Listing vendor/cache contents:"
               ls -l vendor/cache || echo "vendor/cache directory not found"
               echo "Listing gem dependencies from Gemfile.lock:"
-              ${bundler}/bin/bundle list || echo "Failed to list dependencies"
+              ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
               echo "Bundler environment:"
               env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
               echo "RubyGems environment:"
               gem env
               echo "Attempting bundle install:"
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+              ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
                 echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
                 exit 1
               }
@@ -389,14 +396,14 @@
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
               fi
-              echo "Checking $APP_DIR/vendor/bundle contents:"
+              echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 find $out/app/vendor/bundle/bin -type f -name rails
                 if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
                   echo "Rails executable found"
-                  ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                  ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
                 else
                   echo "Rails executable not found"
                   exit 1
@@ -406,7 +413,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               # Test tzinfo after bundle install
               echo "Testing tzinfo with TZDIR:"
               ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
@@ -414,15 +421,15 @@
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
               rm -rf $APP_DIR/vendor/bundle/*
-              ${bundler}/bin/bundle config set --local path $APP_DIR/vendor/bundle
-              ${bundler}/bin/bundle config set --local without development test
-              ${bundler}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
+              ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
+              ${bundlerWrapper}/bin/bundle config set --local without development test
+              ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
               echo "Bundler config before install:"
-              ${bundler}/bin/bundle config
+              ${bundlerWrapper}/bin/bundle config
               echo "Listing gemset.nix:"
               ls -l gemset.nix || echo "gemset.nix not found"
               echo "Listing gem dependencies from Gemfile.lock:"
-              ${bundler}/bin/bundle list || echo "Failed to list dependencies"
+              ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
               echo "Bundler environment:"
               env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
               echo "RubyGems environment:"
@@ -430,9 +437,9 @@
               echo "Activated gems after bundle install:"
               gem list || echo "Failed to list gems"
               echo "Bundler executable path:"
-              ls -l ${bundler}/bin/bundle
+              ls -l ${bundlerWrapper}/bin/bundle
               echo "Attempting bundle install:"
-              ${bundler}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+              ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
                 echo "Bundle install failed, please check gemset.nix for correctness"
                 exit 1
               }
@@ -448,14 +455,14 @@
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
               fi
-              echo "Checking $APP_DIR/vendor/bundle contents:"
+              echo "Checking $out/app/vendor/bundle contents:"
               find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 find $out/app/vendor/bundle/bin -type f -name rails
                 if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
                   echo "Rails executable found"
-                  ${bundler}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                  ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
                 else
                   echo "Rails executable not found"
                   exit 1
@@ -465,7 +472,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundler}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               # Test tzinfo after bundle install
               echo "Testing tzinfo with TZDIR:"
               ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
@@ -490,7 +497,7 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:\$PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:\$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
@@ -498,7 +505,7 @@
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           mkdir -p /app/.bundle
           cd /app
-          exec ${bundler}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
+          exec ${bundlerWrapper}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
           EOF
           chmod +x $out/app/bin/rails-app
           sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/app/bin/rails-app"
