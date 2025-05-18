@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "105"; # Incremented to 105
+    flake_version = "106"; # Incremented to 106
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -228,10 +228,11 @@
           echo "Checking for coreutils:"
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
           export PATH=${bundler}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
+          export GEM_HOME=$TMPDIR/gems
+          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+          unset RUBYLIB
 
           export HOME=$TMPDIR
-          export GEM_HOME=$TMPDIR/gems
-          unset GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
@@ -240,7 +241,6 @@
           export BUNDLE_FROZEN=true
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
-          export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -443,8 +443,8 @@
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
               fi
-              echo "Checking $out/app/vendor/bundle contents:"
-              find $out/app/vendor/bundle -type f
+              echo "Checking $APP_DIR/vendor/bundle contents:"
+              find $APP_DIR/vendor/bundle -type f
               echo "Checking for rails executable:"
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 find $out/app/vendor/bundle/bin -type f -name rails
@@ -479,13 +479,13 @@
           cat > $out/app/bin/rails-app <<EOF
           #!${effectivePkgs.runtimeShell}
           export GEM_HOME=/app/.nix-gems
-          unset GEM_PATH
+          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems
+          unset RUBYLIB
           unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundler}/bin:/app/vendor/bundle/bin:\$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:\$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
@@ -563,12 +563,13 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
+          export GEM_PATH=${bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          unset RUBYLIB
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=${bundler}/bin:${ruby}/bin:$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -591,11 +592,11 @@
           fi
           echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
+          echo "GEM_PATH: $GEM_PATH"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
           echo "BUNDLE_GEMFILE: $BUNDLE_GEMFILE"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
           echo "BUNDLE_IGNORE_CONFIG: $BUNDLE_IGNORE_CONFIG"
-          echo "RUBYLIB: $RUBYLIB"
           echo "RUBYOPT: $RUBYOPT"
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
@@ -657,12 +658,13 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
+          export GEM_PATH=${bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          unset RUBYLIB
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=${bundler}/bin:${ruby}/bin:$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -685,11 +687,11 @@
           fi
           echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
+          echo "GEM_PATH: $GEM_PATH"
           echo "BUNDLE_PATH: $BUNDLE_PATH"
           echo "BUNDLE_GEMFILE: $BUNDLE_GEMFILE"
           echo "BUNDLE_USER_CONFIG: $BUNDLE_USER_CONFIG"
           echo "BUNDLE_IGNORE_CONFIG: $BUNDLE_IGNORE_CONFIG"
-          echo "RUBYLIB: $RUBYLIB"
           echo "RUBYOPT: $RUBYOPT"
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
@@ -750,7 +752,7 @@
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
           export PATH=$GEM_HOME/bin:${ruby}/bin:$PATH
-          export RUBYLIB=${ruby}/lib/ruby/${(detectRubyVersion {inherit src;}).dotted}
+          unset RUBYLIB
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -760,7 +762,6 @@
           export CXX=${gcc}/bin/g++
           echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
-          echo "RUBYLIB: $RUBYLIB"
           echo "RUBYOPT: $RUBYOPT"
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
@@ -859,13 +860,13 @@
             [
               "PATH=${bundler}/bin:/app/vendor/bundle/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
+              "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
               "BUNDLE_GEMFILE=/app/Gemfile"
               "BUNDLE_USER_CONFIG=/app/.bundle/config"
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
-              "RUBYLIB=${ruby}/lib/ruby/${rubyVersion.dotted}"
               "RUBYOPT=-r logger"
               "LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH"
               "XDG_DATA_DIRS=/share:$XDG_DATA_DIRS"
@@ -889,7 +890,7 @@
           exit 1
         fi
         if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gamfile.lock is missing in $1."
+          echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
         cd "$1"
