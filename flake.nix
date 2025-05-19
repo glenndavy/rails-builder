@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "108"; # Incremented to 108
+    flake_version = "109"; # Incremented to 108
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -108,7 +108,7 @@
         else defaultVersion;
     in
       version;
-
+    # Start buildRailsApp
     buildRailsApp = {
       system ? "x86_64-linux",
       rubyVersionSpecified ? null,
@@ -359,65 +359,65 @@
           ${
             if effectiveGemStrategy == "vendored"
             then ''
-              ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
-              ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
-              ${bundlerWrapper}/bin/bundle config set --local without development test
-              ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
-              echo "Bundler config before install:"
-              ${bundlerWrapper}/bin/bundle config
-              echo "Listing vendor/cache contents:"
-              ls -l vendor/cache || echo "vendor/cache directory not found"
-              echo "Listing gem dependencies from Gemfile.lock:"
-              ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
-              echo "Bundler environment:"
-              env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
-              echo "RubyGems environment:"
-              gem env
-              echo "Attempting bundle install:"
-              ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
-                echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
-                exit 1
-              }
-              echo "Checking $APP_DIR/vendor/bundle contents before copy:"
-              find $APP_DIR/vendor/bundle -type f
-              echo "Checking for rails gem in vendor/cache:"
-              ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
-              echo "Checking for pg gem in vendor/cache:"
-              ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
-              echo "Checking for attr_encrypted gem in vendor/cache:"
-              ls -l vendor/cache | grep attr_encrypted || echo "attr_encrypted gem not found in vendor/cache"
-              echo "Copying gems to output path:"
-              cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
-              if [ -d "$out/app/vendor/bundle/bin" ]; then
-                for file in $out/app/vendor/bundle/bin/*; do
-                  if [ -f "$file" ]; then
-                    sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
+                ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
+                ${bundlerWrapper}/bin/bundle config set --local without development test
+                ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
+                echo "Bundler config before install:"
+                ${bundlerWrapper}/bin/bundle config
+                echo "Listing vendor/cache contents:"
+                ls -l vendor/cache || echo "vendor/cache directory not found"
+                echo "Listing gem dependencies from Gemfile.lock:"
+                ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
+                echo "Bundler environment:"
+                env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
+                echo "RubyGems environment:"
+                gem env
+                echo "Attempting bundle install:"
+                ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                  echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
+                  exit 1
+                }
+                echo "Checking $APP_DIR/vendor/bundle contents before copy:"
+                find $APP_DIR/vendor/bundle -type f
+                echo "Checking for rails gem in vendor/cache:"
+                ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
+                echo "Checking for pg gem in vendor/cache:"
+                ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
+                echo "Checking for attr_encrypted gem in vendor/cache:"
+                ls -l vendor/cache | grep attr_encrypted || echo "attr_encrypted gem not found in vendor/cache"
+                echo "Copying gems to output path:"
+                cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
+                if [ -d "$out/app/vendor/bundle/bin" ]; then
+                  for file in $out/app/vendor/bundle/bin/*; do
+                    if [ -f "$file" ]; then
+                      sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                    fi
+                  done
+                  echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
+                fi
+                echo "Checking $out/app/vendor/bundle contents:"
+                find $out/app/vendor/bundle -type f
+                echo "Checking for rails executable:"
+                if [ -d "$out/app/vendor/bundle/bin" ]; then
+                  find $out/app/vendor/bundle/bin -type f -name rails
+                  if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                    echo "Rails executable found"
+                    ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                  else
+                    echo "Rails executable not found"
+                    exit 1
                   fi
-                done
-                echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
-              fi
-              echo "Checking $out/app/vendor/bundle contents:"
-              find $out/app/vendor/bundle -type f
-              echo "Checking for rails executable:"
-              if [ -d "$out/app/vendor/bundle/bin" ]; then
-                find $out/app/vendor/bundle/bin -type f -name rails
-                if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
-                  echo "Rails executable found"
-                  ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
                 else
-                  echo "Rails executable not found"
+                  echo "Bin directory $out/app/vendor/bundle/bin not found"
                   exit 1
                 fi
-              else
-                echo "Bin directory $out/app/vendor/bundle/bin not found"
-                exit 1
-              fi
-              # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
-              # Test tzinfo after bundle install
-              echo "Testing tzinfo with TZDIR:"
-              ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
-            ''
+                # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
+                export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+                # Test tzinfo after bundle install
+                #echo "Testing tzinfo with TZDIR:"
+                #${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
+              #''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
               rm -rf $APP_DIR/vendor/bundle/*
@@ -512,7 +512,7 @@
         '';
       };
       bundler = bundler;
-    };
+    }; # End buildRailsApp
 
     mkAppDevShell = {
       src,
@@ -569,6 +569,7 @@
             tzdata
           ]
         );
+        ## Shell hook for appDevShell
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -664,6 +665,7 @@
           shared-mime-info
           tzdata
         ];
+        # Shellhook for bootStrapDevShell
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -757,6 +759,7 @@
           shared-mime-info
           tzdata
         ];
+        # Shell shook for mkRubyShell
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -939,6 +942,7 @@
             historicalNixpkgs = null;
           }).bundler
         ];
+
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
