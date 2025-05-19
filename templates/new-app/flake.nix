@@ -98,6 +98,10 @@
           echo "${(rails-builder.lib.${system}.detectRubyVersion {src = ./.;}).dotted}"
         ''}/bin/detect-ruby-version";
       };
+      generate-gemset = {
+        type = "app";
+        program = "${rails-builder.packages.${system}.generate-gemset}/bin/generate-gemset";
+      };
     };
   };
 }
