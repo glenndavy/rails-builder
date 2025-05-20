@@ -86,7 +86,7 @@
 
     detectRailsVersion = {
       src,
-      defaultVersion ? "6.0.0",
+      defaultVersion ? "7.0.0",
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -370,7 +370,7 @@
           sleep 2
           # Verify Redis is running
           ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
-          export REDIS_URL="redis://$REDIS_SOCKET
+          export REDIS_URL="redis://$REDIS_SOCKET"
 
           export RAILS_ENV=${railsEnv}
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
