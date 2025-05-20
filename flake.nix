@@ -157,6 +157,7 @@
       defaultBuildInputs = with effectivePkgs; [
         libyaml
         postgresql
+        redis
         zlib
         openssl
         libxml2
@@ -778,6 +779,7 @@
           export PATH=$GEM_HOME/bin:${ruby}/bin:$PATH
           unset RUBYLIB
           export RUBYOPT="-r logger"
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
