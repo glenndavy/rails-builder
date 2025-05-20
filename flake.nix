@@ -348,6 +348,7 @@
             then "export RAILS_SERVE_STATIC_FILES=true"
             else ""
           }
+          ## Postgres setup
           export PGDATA=$TMPDIR/pgdata
           export PGHOST=$TMPDIR
           export PGUSER=postgres
@@ -359,6 +360,16 @@
           sleep 2
           createdb -h $TMPDIR $PGDATABASE
           export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
+
+          ## Redis setup
+          export REDIS_SOCKET=$TMPDIR/redis.sock
+          export REDIS_PID=$TMPDIR/redis.pid
+          mkdir -p $TMPDIR
+          ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 0
+          sleep 2
+          # Verify Redis is running
+          ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
+          export REDIS_URL="redis://$REDIS_SOCKET
 
           export RAILS_ENV=${railsEnv}
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
@@ -490,6 +501,14 @@
             ''
           }
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
+          # Stop services
+          ## Stop Redis
+          if [ -f "$REDIS_PID" ]; then
+              kill $(cat $REDIS_PID)
+              sleep 1
+              rm -f $REDIS_PID $REDIS_SOCKET
+          fi
+          ## Stop postres
           pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
