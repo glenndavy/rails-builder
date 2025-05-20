@@ -501,7 +501,7 @@
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:\$PATH
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:\$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
