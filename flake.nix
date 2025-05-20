@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "109"; # Incremented to 108
+    flake_version = "110"; # Incremented to 108
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -262,6 +262,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -617,6 +618,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
@@ -682,6 +684,7 @@
           bundler
           git
           libyaml
+          redis
           postgresql
           zlib
           openssl
@@ -740,6 +743,7 @@
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
+          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
           echo "CC: $CC"
           echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
@@ -776,6 +780,7 @@
           git
           libyaml
           postgresql
+          redis
           zlib
           openssl
           libxml2
@@ -856,6 +861,7 @@
         railsApp.buildInputs
         pkgs.bash
         pkgs.postgresql
+        pkgs.redis
         pkgs.shared-mime-info
         pkgs.tzdata
       ];
