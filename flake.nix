@@ -182,7 +182,10 @@
         };
         dontUnpack = true;
         installPhase = ''
+          echo "******************************************************************"
           echo "Entering install phase"
+          echo "******************************************************************"
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export HOME=$TMPDIR
           export GEM_HOME=$out/lib/ruby/gems/${rubyVersion.dotted}
           export GEM_PATH=$GEM_HOME
@@ -230,7 +233,9 @@
         nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
+          echo "******************************************************************"
           echo "Entering build phase"
+          echo "******************************************************************"
           echo "Initial PATH: $PATH"
           echo "Checking for mkdir:"
           command -v mkdir || echo "mkdir not found"
@@ -252,7 +257,7 @@
           export BUNDLE_GEMFILE=$APP_DIR/Gemfile
           export SECRET_KEY_BASE=dummy_secret_key_for_build
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
@@ -487,7 +492,10 @@
           pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
+          echo "******************************************************************"
           echo "Entering install phase"
+          echo "******************************************************************"
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           mkdir -p $out/app/bin $out/app/.bundle
           cp -r . $out/app
           cat > $out/app/bin/rails-app <<EOF
@@ -501,7 +509,6 @@
           export BUNDLE_GEMFILE=/app/Gemfile
           export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:\$PATH
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
@@ -586,7 +593,7 @@
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=${bundler}/bin:${ruby}/bin:$PATH
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
@@ -682,7 +689,7 @@
           export BUNDLE_IGNORE_CONFIG=1
           export PATH=${bundler}/bin:${ruby}/bin:$PATH
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
@@ -771,7 +778,7 @@
           export PATH=$GEM_HOME/bin:${ruby}/bin:$PATH
           unset RUBYLIB
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
+          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
