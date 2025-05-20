@@ -182,6 +182,7 @@
         };
         dontUnpack = true;
         installPhase = ''
+          echo "Entering install phase"
           export HOME=$TMPDIR
           export GEM_HOME=$out/lib/ruby/gems/${rubyVersion.dotted}
           export GEM_PATH=$GEM_HOME
@@ -229,6 +230,7 @@
         nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
+          echo "Entering build phase"
           echo "Initial PATH: $PATH"
           echo "Checking for mkdir:"
           command -v mkdir || echo "mkdir not found"
@@ -239,6 +241,7 @@
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           unset RUBYLIB
 
+          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           export HOME=$TMPDIR
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export APP_DIR=$TMPDIR/app
@@ -475,8 +478,8 @@
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
               export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               # Test tzinfo after bundle install
-              echo "Testing tzinfo with TZDIR:"
-              ${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
+              #echo "Testing tzinfo with TZDIR:"
+              #${ruby}/bin/ruby -rtzinfo -e "begin; TZInfo::Timezone.get('America/New_York'); puts 'tzinfo loaded America/New_York successfully'; rescue TZInfo::DataSourceNotFound => e; puts 'tzinfo error: ' + e.message; exit 1; end"
             ''
             else ''
               echo "Error: Invalid gem_strategy '${effectiveGemStrategy}' or missing/invalid gemset for bundix"
@@ -487,6 +490,7 @@
           pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
+          echo "Entering install phase"
           mkdir -p $out/app/bin $out/app/.bundle
           cp -r . $out/app
           cat > $out/app/bin/rails-app <<EOF
