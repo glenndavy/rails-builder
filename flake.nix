@@ -377,19 +377,16 @@
                 echo "RubyGems environment:"
                 gem env
                 echo "Attempting bundle install:"
-                ${bundlerWrapper}/bin/bundle install --local --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
                   echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
                   exit 1
                 }
-                sleep 10
-                echo "Checking $APP_DIR/vendor/bundle contents before copy:"
-                find $APP_DIR/vendor/bundle -type f
+                #echo "Checking $APP_DIR/vendor/bundle contents before copy:"
+                #find $APP_DIR/vendor/bundle -type f
                 echo "Checking for rails gem in vendor/cache:"
                 ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
                 echo "Checking for pg gem in vendor/cache:"
                 ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
-                echo "Checking for attr_encrypted gem in vendor/cache:"
-                ls -l vendor/cache | grep attr_encrypted || echo "attr_encrypted gem not found in vendor/cache"
                 echo "Copying gems to output path:"
                 cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
                 if [ -d "$out/app/vendor/bundle/bin" ]; then
@@ -400,8 +397,8 @@
                   done
                   echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
                 fi
-                echo "Checking $out/app/vendor/bundle contents:"
-                find $out/app/vendor/bundle -type f
+                #echo "Checking $out/app/vendor/bundle contents:"
+                #find $out/app/vendor/bundle -type f
                 echo "Checking for rails executable:"
                 if [ -d "$out/app/vendor/bundle/bin" ]; then
                   find $out/app/vendor/bundle/bin -type f -name rails
@@ -447,8 +444,8 @@
                 echo "Bundle install failed, please check gemset.nix for correctness"
                 exit 1
               }
-              echo "Checking $APP_DIR/vendor/bundle contents before copy:"
-              find $APP_DIR/vendor/bundle -type f
+              #echo "Checking $APP_DIR/vendor/bundle contents before copy:"
+              #find $APP_DIR/vendor/bundle -type f
               echo "Copying gems to output path:"
               cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
               if [ -d "$out/app/vendor/bundle/bin" ]; then
@@ -459,8 +456,8 @@
                 done
                 echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
               fi
-              echo "Checking $out/app/vendor/bundle contents:"
-              find $out/app/vendor/bundle -type f
+              #echo "Checking $out/app/vendor/bundle contents:"
+              #find $out/app/vendor/bundle -type f
               echo "Checking for rails executable:"
               if [ -d "$out/app/vendor/bundle/bin" ]; then
                 find $out/app/vendor/bundle/bin -type f -name rails
