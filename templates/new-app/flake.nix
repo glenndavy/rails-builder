@@ -31,7 +31,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.5";
+    flake_version = "1.0.7";
 
     # Yarn dependencies (if yarn.lock exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.lock) (pkgs.yarn2nix.mkYarnModules {
