@@ -3,17 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11";
+    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11"; # For gcc, etc.
     rails-builder = {
       url = "github:glenndavy/rails-builder";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    yarn2nix = {
-      url = "github:nix-community/yarn2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     node2nix = {
-      url = "github:svanderburg/node2nix";
+      url = "github:svanderburg/node2nix/master"; # Ensure master has flake.nix
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -23,7 +19,6 @@
     nixpkgs,
     nixpkgs-historical,
     rails-builder,
-    yarn2nix,
     node2nix,
     ...
   }: let
@@ -31,7 +26,7 @@
     pkgs = import nixpkgs {
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
-      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default yarn2nix.overlays.default node2nix.overlays.default];
+      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default node2nix.overlays.default];
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
