@@ -170,6 +170,8 @@
         shared-mime-info
         tzdata
         yarn
+        yarn2nix
+        node2nix
         icu
         glib
         libxml2
