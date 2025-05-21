@@ -235,7 +235,7 @@
         dontPatchShebangs = true;
         buildPhase = ''
           echo "******************************************************************"
-          echo "Entering build phase"
+          echo "Entering build phase for buildRailsApp"
           echo "******************************************************************"
           echo "Initial PATH: $PATH"
           echo "Checking for mkdir:"
@@ -266,6 +266,46 @@
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
+          export CFLAGS="-Wno-error=incompatible-pointer-types"
+
+          echo "\n********************** Environment is set up ********************************************\n"
+
+          echo "\n********************* Setting up postgres ********************************************\n"
+
+          echo "Checking for libpq.so:"
+          find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
+          ${
+            if railsEnv == "production"
+            then "export RAILS_SERVE_STATIC_FILES=true"
+            else ""
+          }
+          ## Postgres setup
+          export PGDATA=$TMPDIR/pgdata
+          export PGHOST=$TMPDIR
+          export PGUSER=postgres
+          export PGDATABASE=rails_build
+          mkdir -p $PGDATA
+          initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
+          echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
+          pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
+          sleep 2
+          createdb -h $TMPDIR $PGDATABASE
+          export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
+
+          echo "\n********************* Setting up redis ********************************************\n"
+
+          ## Redis setup
+          export REDIS_SOCKET=$TMPDIR/redis.sock
+          export REDIS_PID=$TMPDIR/redis.pid
+          mkdir -p $TMPDIR
+          ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 0
+          sleep 2
+          # Verify Redis is running
+          ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
+          export REDIS_URL="redis://$REDIS_SOCKET"
+
+          echo "\n********************* Setting up bundler ********************************************\n"
+
           mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
           echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
@@ -289,6 +329,10 @@
           }
           echo "Bundler executable path:"
           ls -l ${bundlerWrapper}/bin/bundle
+
+          echo "\n********************** Bundler installed ********************************************\n"
+          echo "\n********************** Deciding bundle strategy ********************************************\n"
+
           echo "Detected gem strategy: ${effectiveGemStrategy}"
           echo "Checking for gemset.nix: ${
             if gemsetExists
@@ -323,11 +367,11 @@
             then "ls -l vendor/cache || echo 'vendor/cache directory not found'"
             else "ls -l gemset.nix || echo 'gemset.nix not found in source'"
           }
-          echo "Gemfile.lock contents:"
-          cat Gemfile.lock || echo "Gemfile.lock not found in source"
+          #echo "Gemfile.lock contents:"
+          #cat Gemfile.lock || echo "Gemfile.lock not found in source"
           echo "Activated gems before bundle install:"
           gem list || echo "Failed to list gems"
-
+          echo "********** copying to APP_DIR **********"
           cp -r . $APP_DIR
           cd $APP_DIR
           if [ ! -f Gemfile ]; then
@@ -338,48 +382,22 @@
             echo "Gemfile.lock not found in source"
             exit 1
           fi
-          echo "Existing files in $out/app/vendor/bundle:"
-          find $out/app/vendor/bundle -type f 2>/dev/null || echo "No existing files"
+          #echo "Existing files in $out/app/vendor/bundle:"
+          #find $out/app/vendor/bundle -type f 2>/dev/null || echo "No existing files"
           rm -rf $out/app/vendor/bundle
           mkdir -p $out/app/vendor/bundle
-          echo "Checking for libpq.so:"
-          find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
-          ${
-            if railsEnv == "production"
-            then "export RAILS_SERVE_STATIC_FILES=true"
-            else ""
-          }
-          ## Postgres setup
-          export PGDATA=$TMPDIR/pgdata
-          export PGHOST=$TMPDIR
-          export PGUSER=postgres
-          export PGDATABASE=rails_build
-          mkdir -p $PGDATA
-          initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
-          echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
-          pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
-          sleep 2
-          createdb -h $TMPDIR $PGDATABASE
-          export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
 
-          ## Redis setup
-          export REDIS_SOCKET=$TMPDIR/redis.sock
-          export REDIS_PID=$TMPDIR/redis.pid
-          mkdir -p $TMPDIR
-          ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 0
-          sleep 2
-          # Verify Redis is running
-          ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
-          export REDIS_URL="redis://$REDIS_SOCKET"
 
           export RAILS_ENV=${railsEnv}
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
+          echo "\n********************** Bundling... ********************************************\n"
 
           cd $APP_DIR
-          export CFLAGS="-Wno-error=incompatible-pointer-types"
           ${
             if effectiveGemStrategy == "vendored"
             then ''
+              echo "\n********************** using vendored strategy ********************************************\n"
+              echo "\n************************** bundler set config  ********************************************\n"
               ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
               ${bundlerWrapper}/bin/bundle config set --local without development test
@@ -433,9 +451,12 @@
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
               export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+              echo "\n********************** bundling done ********************************************\n"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
             then ''
+              echo "\n********************** using bundix strategy ********************************************\n"
+              echo "\n************************** bundler set config  ********************************************\n"
               rm -rf $APP_DIR/vendor/bundle/*
               ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
               ${bundlerWrapper}/bin/bundle config set --local without development test
@@ -489,6 +510,7 @@
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
               export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+              echo "\n********************** bundling done ********************************************\n"
             ''
             else ''
               echo "Error: Invalid gem_strategy '${effectiveGemStrategy}' or missing/invalid gemset for bundix"
@@ -508,7 +530,7 @@
         '';
         installPhase = ''
           echo "******************************************************************"
-          echo "Entering install phase"
+          echo "Entering install phase for buildRailsApp"
           echo "******************************************************************"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           mkdir -p $out/app/bin $out/app/.bundle
