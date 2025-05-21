@@ -136,7 +136,6 @@
           if [ -f yarn.lock ]; then
             echo "Detected Yarn (yarn.lock found)"
             ${pkgs.yarn}/bin/yarn install --frozen-lockfile
-            ${pkgs.yarn}/bin/yarn lock
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
             echo "Generated yarn.nix"
           elif [ -f package-lock.json ]; then
