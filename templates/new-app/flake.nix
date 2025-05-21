@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.3";
+    flake_version = "1.0.5";
   in {
     packages.${system} = {
       buildRailsApp =
