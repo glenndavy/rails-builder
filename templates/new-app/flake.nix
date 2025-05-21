@@ -8,10 +8,6 @@
       url = "github:glenndavy/rails-builder";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    node2nix = {
-      url = "github:svanderburg/node2nix/master"; # Ensure master has flake.nix
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
@@ -19,30 +15,29 @@
     nixpkgs,
     nixpkgs-historical,
     rails-builder,
-    node2nix,
     ...
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
-      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default node2nix.overlays.default];
+      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.7";
+    flake_version = "1.0.8"; # Incremented for changes
 
-    # Yarn dependencies (if yarn.lock exists)
-    yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.lock) (pkgs.yarn2nix.mkYarnModules {
+    # Yarn dependencies (if yarn.nix exists)
+    yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix.mkYarnModules {
       name = "rails-app-yarn-modules";
       packageJSON = ./package.json;
       yarnLock = ./yarn.lock;
       yarnNix = ./yarn.nix;
     });
 
-    # Node.js dependencies (if package-lock.json exists)
-    nodeDeps = pkgs.lib.optional (builtins.pathExists ./package-lock.json) ((pkgs.callPackage ./node-packages.nix {}).nodeDependencies);
+    # Node.js dependencies (if node-packages.nix exists)
+    nodeDeps = pkgs.lib.optional (builtins.pathExists ./node-packages.nix) ((pkgs.callPackage ./node-packages.nix {}).nodeDependencies);
   in {
     packages.${system} = {
       buildRailsApp =
@@ -83,6 +78,18 @@
         historicalNixpkgs = nixpkgs-historical;
       };
       bundix = rails-builder.devShells.${system}.bundix;
+      jsDev = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          yarn
+          yarn2nix
+          node2nix
+          nodejs_20
+        ];
+        shellHook = ''
+          echo "JavaScript development shell with yarn, yarn2nix, and node2nix"
+          echo "Run 'nix run .#prepareJSBuilds' to generate yarn.nix or node-packages.nix"
+        '';
+      };
     };
 
     apps.${system} = {
@@ -118,6 +125,33 @@
       generate-gemset = {
         type = "app";
         program = "${rails-builder.packages.${system}.generate-gemset}/bin/generate-gemset";
+      };
+      prepareJSBuilds = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "prepare-js-builds" ''
+          #!${pkgs.runtimeShell}
+          set -e
+          echo "Preparing JavaScript dependencies..."
+
+          if [ -f yarn.lock ]; then
+            echo "Detected Yarn (yarn.lock found)"
+            ${pkgs.yarn}/bin/yarn install --frozen-lockfile
+            ${pkgs.yarn}/bin/yarn lock
+            ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
+            echo "Generated yarn.nix"
+          elif [ -f package-lock.json ]; then
+            echo "Detected npm (package-lock.json found)"
+            ${pkgs.nodejs_20}/bin/npm install
+            ${pkgs.node2nix}/bin/node2nix -l package-lock.json
+            mv node-packages.nix .
+            echo "Generated node-packages.nix"
+          else
+            echo "No yarn.lock or package-lock.json found. Skipping JavaScript dependency preparation."
+            exit 0
+          fi
+
+          echo "JavaScript dependency preparation complete. Commit yarn.nix or node-packages.nix to your repository."
+        ''}/bin/prepare-js-builds";
       };
     };
   };
