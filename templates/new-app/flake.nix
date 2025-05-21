@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.8"; # Incremented for changes
+    flake_version = "1.0.9"; # Incremented for yarn2nix fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix.mkYarnModules {
@@ -37,7 +37,7 @@
     });
 
     # Node.js dependencies (if node-packages.nix exists)
-    nodeDeps = pkgs.lib.optional (builtins.pathExists ./node-packages.nix) ((pkgs.callPackage ./node-packages.nix {}).nodeDependencies);
+    nodeDeps = pkgs.lib.optional (builtins.pathExists ./node-packages.nix) ((pkgs.node2nix.callPackage ./node-packages.nix {}).nodeDependencies);
   in {
     packages.${system} = {
       buildRailsApp =

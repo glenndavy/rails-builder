@@ -532,7 +532,9 @@
             ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
-            ln -s ${extraBuildInputs.nodeDeps}/lib/node_modules $APP_DIR/node_modules || echo "nodeDeps not provided, skipping npm dependencies"
+            ${pkgs.lib.optionalString (builtins.hasAttr "nodeDeps" extraBuildInputs) ''
+            ln -s ${extraBuildInputs.nodeDeps}/lib/node_modules $APP_DIR/node_modules
+          ''} || echo "nodeDeps not provided, skipping npm dependencies"
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
@@ -540,7 +542,6 @@
             echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, skipping node_modules installation"
           fi
           export NODE_PATH=$APP_DIR/node_modules
-
 
           echo "\r********************** executing build commands ********************************************\r"
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
