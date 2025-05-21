@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112";
+    flake_version = "113";
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -524,21 +524,23 @@
             ''
           }
           echo "\r********************** installing javascript dependencies ********************************************\r"
+
           # JavaScript dependencies
           echo "Checking for JavaScript dependencies..."
-          if [ -f "$APP_DIR/yarn.lock" ]; then
+          if [ -f "$APP_DIR/yarn.nix" ]; then
             echo "Installing Yarn dependencies..."
             ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
-          elif [ -f "$APP_DIR/package-lock.json" ]; then
+          elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
-            ln -s ${effectivePkgs.nodeDeps}/lib/node_modules $APP_DIR/node_modules
+            ln -s ${extraBuildInputs.nodeDeps}/lib/node_modules $APP_DIR/node_modules || echo "nodeDeps not provided, skipping npm dependencies"
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
           else
-            echo "No JavaScript lockfile found, skipping node_modules installation"
+            echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, skipping node_modules installation"
           fi
           export NODE_PATH=$APP_DIR/node_modules
+
 
           echo "\r********************** executing build commands ********************************************\r"
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
