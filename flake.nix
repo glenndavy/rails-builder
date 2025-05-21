@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "110"; # Incremented to 108
+    flake_version = "112";
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -240,112 +240,112 @@
         nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
-          echo "******************************************************************"
-          echo "Entering build phase for buildRailsApp"
-          echo "******************************************************************"
-          echo "Initial PATH: $PATH"
-          echo "Checking for mkdir:"
-          command -v mkdir || echo "mkdir not found"
-          echo "Checking for coreutils:"
-          ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
-          export GEM_HOME=$TMPDIR/gems
-          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
-          unset RUBYLIB
+                    echo "******************************************************************"
+                    echo "Entering build phase for buildRailsApp"
+                    echo "******************************************************************"
+                    echo "Initial PATH: $PATH"
+                    echo "Checking for mkdir:"
+                    command -v mkdir || echo "mkdir not found"
+                    echo "Checking for coreutils:"
+                    ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
+                    export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
+                    export GEM_HOME=$TMPDIR/gems
+                    export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+                    unset RUBYLIB
 
-          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export HOME=$TMPDIR
-          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export APP_DIR=$TMPDIR/app
-          mkdir -p $APP_DIR
-          export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
-          export BUNDLE_PATH=$APP_DIR/vendor/bundle
-          export BUNDLE_FROZEN=true
-          export BUNDLE_GEMFILE=$APP_DIR/Gemfile
-          export SECRET_KEY_BASE=dummy_secret_key_for_build
-          export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
-          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
-          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
-          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
-          export CC=${gcc}/bin/gcc
-          export CXX=${gcc}/bin/g++
-          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
-          export CFLAGS="-Wno-error=incompatible-pointer-types"
+                    export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+                    export HOME=$TMPDIR
+                    unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+                    export APP_DIR=$TMPDIR/app
+                    mkdir -p $APP_DIR
+                    export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
+                    export BUNDLE_PATH=$APP_DIR/vendor/bundle
+                    export BUNDLE_FROZEN=true
+                    export BUNDLE_GEMFILE=$APP_DIR/Gemfile
+                    export SECRET_KEY_BASE=dummy_secret_key_for_build
+                    export RUBYOPT="-r logger"
+                    export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
+                    export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+                    export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+                    export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+                    export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
+                    export CC=${gcc}/bin/gcc
+                    export CXX=${gcc}/bin/g++
+                    echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
+                    export CFLAGS="-Wno-error=incompatible-pointer-types"
 
-          echo "\n********************** Environment is set up ********************************************\n"
+                    echo "\n********************** Environment is set up ********************************************\n"
 
-          echo "\n********************* Setting up postgres ********************************************\n"
+                    echo "\n********************* Setting up postgres ********************************************\n"
 
-          echo "Checking for libpq.so:"
-          find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
-          ${
+                    echo "Checking for libpq.so:"
+                    find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
+                    ${
             if railsEnv == "production"
             then "export RAILS_SERVE_STATIC_FILES=true"
             else ""
           }
-          ## Postgres setup
-          export PGDATA=$TMPDIR/pgdata
-          export PGHOST=$TMPDIR
-          export PGUSER=postgres
-          export PGDATABASE=rails_build
-          mkdir -p $PGDATA
-          initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
-          echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
-          pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
-          sleep 2
-          createdb -h $TMPDIR $PGDATABASE
-          export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
+                    ## Postgres setup
+                    export PGDATA=$TMPDIR/pgdata
+                    export PGHOST=$TMPDIR
+                    export PGUSER=postgres
+                    export PGDATABASE=rails_build
+                    mkdir -p $PGDATA
+                    initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
+                    echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
+                    pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
+                    sleep 2
+                    createdb -h $TMPDIR $PGDATABASE
+                    export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
 
-          echo "\n********************* Setting up redis ********************************************\n"
+                    echo "\n********************* Setting up redis ********************************************\n"
 
-          ## Redis setup
-          export REDIS_SOCKET=$TMPDIR/redis.sock
-          export REDIS_PID=$TMPDIR/redis.pid
-          mkdir -p $TMPDIR
-          ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
-          sleep 2
-          # Verify Redis is running
-          ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
-          #export REDIS_URL="redis://$REDIS_SOCKET"
+                    ## Redis setup
+                    export REDIS_SOCKET=$TMPDIR/redis.sock
+                    export REDIS_PID=$TMPDIR/redis.pid
+                    mkdir -p $TMPDIR
+                    ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
+                    sleep 2
+                    # Verify Redis is running
+                    ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
+                    #export REDIS_URL="redis://$REDIS_SOCKET"
 
-          echo "\n********************* Setting up bundler ********************************************\n"
+                    echo "\n********************* Setting up bundler ********************************************\n"
 
-          mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
-          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
-          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
-            echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
-            exit 1
-          }
-          cat > $APP_DIR/.bundle/config <<EOF
-          ---
-          BUNDLE_PATH: "$APP_DIR/vendor/bundle"
-          BUNDLE_FROZEN: "true"
-          EOF
-          echo "Contents of $APP_DIR/.bundle/config:"
-          cat $APP_DIR/.bundle/config
+                    mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
+                    echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+                    ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
+                      echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+                      exit 1
+                    }
+                    cat > $APP_DIR/.bundle/config <<EOF
+                    ---
+                    BUNDLE_PATH: "$APP_DIR/vendor/bundle"
+                    BUNDLE_FROZEN: "true"
+                    EOF
+                    echo "Contents of $APP_DIR/.bundle/config:"
+                    cat $APP_DIR/.bundle/config
 
-          echo "Checking for git availability:"
-          git --version || echo "Git not found"
-          echo "Using bundler version:"
-          ${bundlerWrapper}/bin/bundle --version || {
-            echo "Failed to run bundle command"
-            exit 1
-          }
-          echo "Bundler executable path:"
-          ls -l ${bundlerWrapper}/bin/bundle
+                    echo "Checking for git availability:"
+                    git --version || echo "Git not found"
+                    echo "Using bundler version:"
+                    ${bundlerWrapper}/bin/bundle --version || {
+                      echo "Failed to run bundle command"
+                      exit 1
+                    }
+                    echo "Bundler executable path:"
+                    ls -l ${bundlerWrapper}/bin/bundle
 
-          echo "\n********************** Bundler installed ********************************************\n"
-          echo "\n********************** Deciding bundle strategy ********************************************\n"
+                    echo "\n********************** Bundler installed ********************************************\n"
+                    echo "\n********************** Deciding bundle strategy ********************************************\n"
 
-          echo "Detected gem strategy: ${effectiveGemStrategy}"
-          echo "Checking for gemset.nix: ${
+                    echo "Detected gem strategy: ${effectiveGemStrategy}"
+                    echo "Checking for gemset.nix: ${
             if gemsetExists
             then "found"
             else "not found"
           }"
-          ${
+                    ${
             if effectiveGemStrategy == "bundix"
             then ''
               echo "Checking gemset status: ${
@@ -363,43 +363,43 @@
               echo "Vendored strategy: gemset not required"
             ''
           }
-          echo "Checking ${
+                    echo "Checking ${
             if effectiveGemStrategy == "vendored"
             then "vendor/cache"
             else "gemset.nix"
           } contents:"
-          ${
+                    ${
             if effectiveGemStrategy == "vendored"
             then "ls -l vendor/cache || echo 'vendor/cache directory not found'"
             else "ls -l gemset.nix || echo 'gemset.nix not found in source'"
           }
-          #echo "Gemfile.lock contents:"
-          #cat Gemfile.lock || echo "Gemfile.lock not found in source"
-          echo "Activated gems before bundle install:"
-          gem list || echo "Failed to list gems"
-          echo "********** copying to APP_DIR **********"
-          cp -r . $APP_DIR
-          cd $APP_DIR
-          if [ ! -f Gemfile ]; then
-            echo "Gemfile not found in source"
-            exit 1
-          fi
-          if [ ! -f Gemfile.lock ]; then
-            echo "Gemfile.lock not found in source"
-            exit 1
-          fi
-          #echo "Existing files in $out/app/vendor/bundle:"
-          #find $out/app/vendor/bundle -type f 2>/dev/null || echo "No existing files"
-          rm -rf $out/app/vendor/bundle
-          mkdir -p $out/app/vendor/bundle
+                    #echo "Gemfile.lock contents:"
+                    #cat Gemfile.lock || echo "Gemfile.lock not found in source"
+                    echo "Activated gems before bundle install:"
+                    gem list || echo "Failed to list gems"
+                    echo "********** copying to APP_DIR **********"
+                    cp -r . $APP_DIR
+                    cd $APP_DIR
+                    if [ ! -f Gemfile ]; then
+                      echo "Gemfile not found in source"
+                      exit 1
+                    fi
+                    if [ ! -f Gemfile.lock ]; then
+                      echo "Gemfile.lock not found in source"
+                      exit 1
+                    fi
+                    #echo "Existing files in $out/app/vendor/bundle:"
+                    #find $out/app/vendor/bundle -type f 2>/dev/null || echo "No existing files"
+                    rm -rf $out/app/vendor/bundle
+                    mkdir -p $out/app/vendor/bundle
 
 
-          export RAILS_ENV=${railsEnv}
-          ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
-          echo "\n********************** Bundling... ********************************************\n"
+                    export RAILS_ENV=${railsEnv}
+                    ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
+                    echo "\n********************** Bundling... ********************************************\n"
 
-          cd $APP_DIR
-          ${
+                    cd $APP_DIR
+                    ${
             if effectiveGemStrategy == "vendored"
             then ''
               echo "\n********************** using vendored strategy ********************************************\n"
@@ -533,12 +533,12 @@
             echo "Installing npm dependencies..."
             ln -s ${effectivePkgs.nodeDeps}/lib/node_modules $APP_DIR/node_modules
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
-            echo "Importmaps detected, no node_modules required"
+            echo "Importmaps detected, running importmap install..."
+            ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
           else
             echo "No JavaScript lockfile found, skipping node_modules installation"
           fi
           export NODE_PATH=$APP_DIR/node_modules
-
 
           echo "\r********************** executing build commands ********************************************\r"
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
