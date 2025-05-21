@@ -262,7 +262,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
+          export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -634,7 +634,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
+          #export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
