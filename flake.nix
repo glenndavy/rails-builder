@@ -169,6 +169,12 @@
         gcc
         shared-mime-info
         tzdata
+        yarn
+        icu
+        glib
+        libxml2
+        libxslt
+        inetutils
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
