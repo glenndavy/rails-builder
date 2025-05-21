@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "111"; # Incremented to 108
+    flake_version = "110"; # Incremented to 108
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -523,6 +523,24 @@
               exit 1
             ''
           }
+          echo "\r********************** installing javascript dependencies ********************************************\r"
+          # JavaScript dependencies
+          echo "Checking for JavaScript dependencies..."
+          if [ -f "$APP_DIR/yarn.lock" ]; then
+            echo "Installing Yarn dependencies..."
+            ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
+          elif [ -f "$APP_DIR/package-lock.json" ]; then
+            echo "Installing npm dependencies..."
+            ln -s ${effectivePkgs.nodeDeps}/lib/node_modules $APP_DIR/node_modules
+          elif [ -f "$APP_DIR/config/importmap.rb" ]; then
+            echo "Importmaps detected, no node_modules required"
+          else
+            echo "No JavaScript lockfile found, skipping node_modules installation"
+          fi
+          export NODE_PATH=$APP_DIR/node_modules
+
+
+          echo "\r********************** executing build commands ********************************************\r"
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
           # Stop services
           ## Stop Redis

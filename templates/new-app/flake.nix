@@ -3,9 +3,17 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11"; # For gcc, etc.
+    nixpkgs-historical.url = "github:NixOS/nixpkgs/23.11";
     rails-builder = {
       url = "github:glenndavy/rails-builder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    yarn2nix = {
+      url = "github:nix-community/yarn2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    node2nix = {
+      url = "github:svanderburg/node2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -15,18 +23,31 @@
     nixpkgs,
     nixpkgs-historical,
     rails-builder,
+    yarn2nix,
+    node2nix,
     ...
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
-      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
+      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default yarn2nix.overlays.default node2nix.overlays.default];
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
     flake_version = "1.0.5";
+
+    # Yarn dependencies (if yarn.lock exists)
+    yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.lock) (pkgs.yarn2nix.mkYarnModules {
+      name = "rails-app-yarn-modules";
+      packageJSON = ./package.json;
+      yarnLock = ./yarn.lock;
+      yarnNix = ./yarn.nix;
+    });
+
+    # Node.js dependencies (if package-lock.json exists)
+    nodeDeps = pkgs.lib.optional (builtins.pathExists ./package-lock.json) ((pkgs.callPackage ./node-packages.nix {}).nodeDependencies);
   in {
     packages.${system} = {
       buildRailsApp =
@@ -36,6 +57,7 @@
           gccVersion = gccVersion;
           packageOverrides = packageOverrides;
           historicalNixpkgs = nixpkgs-historical;
+          extraBuildInputs = yarnDeps ++ nodeDeps;
         }).app;
 
       default = self.packages.${system}.buildRailsApp;
