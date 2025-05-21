@@ -262,7 +262,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
+          #export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -759,7 +759,7 @@
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
-          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
+          #export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
           echo "CC: $CC"
           echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
