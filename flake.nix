@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.14"; # Incremented for refined yarnCache handling
+    flake_version = "112.15"; # Incremented for node_modules copy
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -515,29 +515,20 @@
           echo "Checking for JavaScript dependencies..."
           if [ -f "$APP_DIR/yarn.nix" ]; then
             echo "Installing Yarn dependencies..."
-            # Set Yarn cache from yarnCache if available
-            ${
-            if builtins.any (dep: builtins.isPath dep && (builtins.pathExists "${dep}")) extraBuildInputs
-            then ''
-              yarn_cache_count=${builtins.length (builtins.filter (dep: builtins.isPath dep && (builtins.pathExists "${dep}")) extraBuildInputs)}
-              if [ "$yarn_cache_count" -gt 0 ]; then
-                export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
-                mkdir -p $YARN_CACHE_FOLDER
-                cp -r ${builtins.head (builtins.filter (dep: builtins.isPath dep && (builtins.pathExists "${dep}")) extraBuildInputs)}/* $YARN_CACHE_FOLDER/
-                echo "Set Yarn cache from yarnCache at $YARN_CACHE_FOLDER"
-              fi
-            ''
-            else ''
-              echo "No yarnCache provided, relying on yarnDeps"
-            ''
-          }
             # Link yarnDeps node_modules from Nix store to TMPDIR
             ${
             if builtins.any (dep: dep ? yarnModules) extraBuildInputs
             then ''
               yarn_deps_count=${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}
               if [ "$yarn_deps_count" -eq 0 ]; then
-                echo "No valid yarnModules found in extraBuildInputs, skipping Yarn dependencies"
+                echo "No valid yarnModules found in extraBuildInputs, using tmp/node_modules"
+                if [ -d "${./tmp/node_modules}" ]; then
+                  mkdir -p $APP_DIR/node_modules
+                  cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                  echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                else
+                  echo "No tmp/node_modules found, skipping Yarn dependencies"
+                fi
               else
                 mkdir -p $APP_DIR/node_modules
                 ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
@@ -546,7 +537,14 @@
               fi
             ''
             else ''
-              echo "yarnDeps not provided, skipping Yarn dependencies"
+              echo "yarnDeps not provided, using tmp/node_modules"
+              if [ -d "${./tmp/node_modules}" ]; then
+                mkdir -p $APP_DIR/node_modules
+                cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+              else
+                echo "No tmp/node_modules or yarnDeps provided, skipping Yarn dependencies"
+              fi
             ''
           }
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
@@ -556,20 +554,42 @@
             then ''
               node_deps_count=${builtins.length (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs)}
               if [ "$node_deps_count" -eq 0 ]; then
-                echo "No valid nodeDependencies found in extraBuildInputs, skipping npm dependencies"
+                echo "No valid nodeDependencies found in extraBuildInputs, using tmp/node_modules"
+                if [ -d "${./tmp/node_modules}" ]; then
+                  mkdir -p $APP_DIR/node_modules
+                  cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                  echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                else
+                  echo "No tmp/node_modules found, skipping npm dependencies"
+                fi
               else
                 ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
+                echo "Linked nodeDependencies to $APP_DIR/node_modules"
               fi
             ''
             else ''
-              echo "nodeDeps not provided, skipping npm dependencies"
+              echo "nodeDeps not provided, using tmp/node_modules"
+              if [ -d "${./tmp/node_modules}" ]; then
+                mkdir -p $APP_DIR/node_modules
+                cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+              else
+                echo "No tmp/node_modules or nodeDeps provided, skipping npm dependencies"
+              fi
             ''
           }
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
           else
-            echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, skipping node_modules installation"
+            echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
+            if [ -d "${./tmp/node_modules}" ]; then
+              mkdir -p $APP_DIR/node_modules
+              cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+              echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+            else
+              echo "No tmp/node_modules found, skipping node_modules installation"
+            fi
           fi
           export NODE_PATH=$APP_DIR/node_modules
           echo "\r********************** executing build commands ********************************************\r"

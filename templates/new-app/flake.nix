@@ -26,41 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.29"; # Incremented for clean source and Yarn config fix
-
-    # Pre-fetch Yarn dependencies into Nix store
-    yarnCache = pkgs.stdenv.mkDerivation {
-      name = "yarn-cache";
-      src = pkgs.lib.cleanSource ./.;
-      buildInputs = [pkgs.yarn pkgs.nodejs_20 pkgs.cacert];
-      buildPhase = ''
-        export HOME=$TMPDIR
-        export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
-        export YARN_GLOBAL_FOLDER=$TMPDIR/yarn-global
-        export NODE_EXTRA_CA_CERTS=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-        mkdir -p $YARN_CACHE_FOLDER $YARN_GLOBAL_FOLDER
-        if [ -f yarn.lock ]; then
-          yarn config set cafile ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-          yarn config set enableGlobalCache false
-          yarn config set cacheFolder $YARN_CACHE_FOLDER
-          yarn install --verbose --frozen-lockfile --prefer-offline
-          # Validate cache
-          if [ -z "$(ls -A $YARN_CACHE_FOLDER)" ]; then
-            echo "Error: Yarn cache is empty"
-            exit 1
-          fi
-        else
-          echo "No yarn.lock found, skipping Yarn cache"
-        fi
-      '';
-      installPhase = ''
-        mkdir -p $out
-        cp -r $YARN_CACHE_FOLDER/* $out/ 2>/dev/null || echo "No Yarn cache to copy"
-      '';
-      outputHashMode = "recursive";
-      outputHashAlgo = "sha256";
-      outputHash = pkgs.lib.fakeSha256; # Replace with actual hash after first build
-    };
+    flake_version = "1.0.32"; # Incremented for node_modules copy approach
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
@@ -83,7 +49,7 @@
           gccVersion = gccVersion;
           packageOverrides = packageOverrides;
           historicalNixpkgs = nixpkgs-historical;
-          extraBuildInputs = yarnDeps ++ nodeDeps ++ [yarnCache];
+          extraBuildInputs = yarnDeps ++ nodeDeps;
         }).app;
 
       default = self.packages.${system}.buildRailsApp;
@@ -189,36 +155,39 @@
               echo "Error: yarn.lock is inconsistent with package.json. Run 'yarn install' locally to fix."
               exit 1
             }
-            # Populate Yarn cache in TMPDIR
+            # Populate node_modules
             echo "Running yarn install..."
             export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
             export YARN_GLOBAL_FOLDER=$TMPDIR/yarn-global
+            export YARN_CONFIG_DIR=$TMPDIR/yarn-config
             export NODE_EXTRA_CA_CERTS=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-            mkdir -p $YARN_CACHE_FOLDER $YARN_GLOBAL_FOLDER
+            mkdir -p $YARN_CACHE_FOLDER $YARN_GLOBAL_FOLDER $YARN_CONFIG_DIR
             yarn config set cafile ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
             yarn config set enableGlobalCache false
             yarn config set cacheFolder $YARN_CACHE_FOLDER
-            ${pkgs.yarn}/bin/yarn install --verbose --frozen-lockfile --prefer-offline || {
+            ${pkgs.yarn}/bin/yarn install --verbose --frozen-lockfile || {
               echo "Error: yarn install failed. Check yarn.lock or package.json."
               exit 1
             }
-            # Validate cache
-            if [ -z "$(ls -A $YARN_CACHE_FOLDER)" ]; then
-              echo "Error: Yarn cache is empty"
-              exit 1
-            fi
-            echo "Yarn cache populated at: $YARN_CACHE_FOLDER"
+            # Copy node_modules to tmp/node_modules
+            mkdir -p tmp/node_modules
+            cp -r node_modules/* tmp/node_modules/
+            echo "Copied node_modules to tmp/node_modules"
             # Generate yarn.nix for offline use
             echo "Generating yarn.nix..."
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
-            if [ ! -f yarn.nix ]; then
+            if [ -f yarn.nix ]; then
+              echo "Generated yarn.nix"
+            else
               echo "Error: Failed to generate yarn.nix"
               exit 1
             fi
-            echo "Generated yarn.nix"
           elif [ -f package-lock.json ]; then
             echo "Detected npm (package-lock.json found)"
             ${pkgs.nodejs_20}/bin/npm install
+            mkdir -p tmp/node_modules
+            cp -r node_modules/* tmp/node_modules/
+            echo "Copied node_modules to tmp/node_modules"
             ${pkgs.node2nix}/bin/node2nix -l package-lock.json
             mv node-packages.nix .
             echo "Generated node-packages.nix"
@@ -227,7 +196,7 @@
             exit 0
           fi
 
-          echo "JavaScript dependency preparation complete. Commit yarn.nix or node-packages.nix to your repository."
+          echo "JavaScript dependency preparation complete. Commit yarn.nix and tmp/node_modules to your repository."
         ''}/bin/prepare-js-builds";
       };
     };
