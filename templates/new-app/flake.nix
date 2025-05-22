@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.26"; # Incremented for rails_builder typo fix
+    flake_version = "1.0.27"; # Incremented for TMPDIR fix in prepareJSBuilds
 
     # Pre-fetch Yarn dependencies into Nix store
     yarnCache = pkgs.stdenv.mkDerivation {
@@ -163,6 +163,13 @@
           #!${pkgs.runtimeShell}
           set -e
           echo "Preparing JavaScript dependencies..."
+
+          # Ensure TMPDIR is set
+          if [ -z "$TMPDIR" ]; then
+            export TMPDIR=/tmp/nix-prepare-js-$(date +%s)
+            mkdir -p $TMPDIR
+            echo "TMPDIR was unset, set to $TMPDIR"
+          fi
 
           if [ -f yarn.lock ]; then
             echo "Detected Yarn (yarn.lock found)"
