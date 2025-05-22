@@ -21,12 +21,12 @@
     pkgs = import nixpkgs {
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
-      overlays = [rails_builder.inputs.nixpkgs-ruby.overlays.default];
+      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.25"; # Incremented for controlled Yarn cache
+    flake_version = "1.0.26"; # Incremented for rails_builder typo fix
 
     # Pre-fetch Yarn dependencies into Nix store
     yarnCache = pkgs.stdenv.mkDerivation {
