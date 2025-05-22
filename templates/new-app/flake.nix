@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.17"; # Incremented for correct yarn cache fix
+    flake_version = "1.0.19"; # Incremented for robust Yarn cache fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
@@ -137,8 +137,11 @@
 
           if [ -f yarn.lock ]; then
             echo "Detected Yarn (yarn.lock found)"
-            # Ensure Yarn cache is populated
+            # Populate Yarn cache
             ${pkgs.yarn}/bin/yarn install
+            # Ensure yarn.lock consistency
+            ${pkgs.yarn}/bin/yarn install --frozen-lockfile
+            echo "Yarn cache populated at: $(${pkgs.yarn}/bin/yarn cache dir)"
             # Generate yarn.nix for offline use
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
             echo "Generated yarn.nix"
