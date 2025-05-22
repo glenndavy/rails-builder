@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.19"; # Incremented for fixed Yarn cache copy
+    flake_version = "112.20"; # Incremented for sass PATH fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -248,7 +248,7 @@
           command -v mkdir || echo "mkdir not found"
           echo "Checking for coreutils:"
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$PATH
+          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           unset RUBYLIB
@@ -379,7 +379,7 @@
           cp -r . $APP_DIR
           cd $APP_DIR
           if [ ! -f Gemfile ]; then
-            echo "Gamfile not found in source"
+            echo "Gemfile not found in source"
             exit 1
           fi
           if [ ! -f Gemfile.lock ]; then
@@ -447,7 +447,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
@@ -502,7 +502,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
+              export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else ''
@@ -545,6 +545,13 @@
                 exit 1
               }
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+              # Validate sass presence
+              if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
+                echo "Found sass executable in node_modules/.bin"
+              else
+                echo "Error: sass executable not found in $APP_DIR/node_modules/.bin"
+                exit 1
+              fi
             fi
             # Run yarn install offline
             if [ -f yarn.lock ]; then
@@ -633,7 +640,7 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:\$PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:\$PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
@@ -717,7 +724,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:$PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -814,7 +821,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:$PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -904,7 +911,7 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:${ruby}/bin:$PATH
+          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:$PATH
           unset RUBYLIB
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -1012,7 +1019,7 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
