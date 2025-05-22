@@ -26,21 +26,13 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.12"; # Incremented to reflect version fix
-
-    # Read version from package.json or use default
-    packageJsonVersion = let
-      packageJson =
-        if builtins.pathExists ./package.json
-        then builtins.fromJSON (builtins.readFile ./package.json)
-        else {};
-    in
-      packageJson.version or "1.0.0";
+    flake_version = "1.0.14"; # Incremented for pname fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
       name = "rails-app-yarn-modules";
-      version = packageJsonVersion; # Required by mkYarnModules
+      pname = "rails-app-yarn-modules"; # Required by mkYarnModules
+      version = "1.0.0"; # Hardcoded for simplicity
       packageJSON = ./package.json;
       yarnLock = ./yarn.lock;
       yarnNix = ./yarn.nix;
