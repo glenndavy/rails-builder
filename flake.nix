@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.11"; # Incremented for effectivePkgs fix in bundix devShell
+    flake_version = "112.12"; # Incremented for graceful yarnDeps handling
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -521,8 +521,7 @@
             then ''
               yarn_deps_count=${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}
               if [ "$yarn_deps_count" -eq 0 ]; then
-                echo "No valid yarnModules found in extraBuildInputs, cannot install Yarn dependencies"
-                exit 1
+                echo "No valid yarnModules found in extraBuildInputs, skipping Yarn dependencies"
               else
                 mkdir -p $APP_DIR/node_modules
                 ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
@@ -531,8 +530,7 @@
               fi
             ''
             else ''
-              echo "yarnDeps not provided, cannot install Yarn dependencies"
-              exit 1
+              echo "yarnDeps not provided, skipping Yarn dependencies"
             ''
           }
           elif [ -f "$APP_DIR/node-packages.nix" ]; then

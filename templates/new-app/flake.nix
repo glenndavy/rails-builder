@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.21"; # Incremented for robust Yarn cache fix
+    flake_version = "1.0.22"; # Incremented for robust Yarn cache fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
@@ -137,17 +137,31 @@
 
           if [ -f yarn.lock ]; then
             echo "Detected Yarn (yarn.lock found)"
-            # Verify package.json and yarn.lock consistency
+            # Verify package.json and yarn.lock
             if [ ! -f package.json ]; then
               echo "Error: package.json not found"
               exit 1
             fi
+            echo "Validating yarn.lock consistency..."
+            ${pkgs.yarn}/bin/yarn check --verify-tree || {
+              echo "Error: yarn.lock is inconsistent with package.json. Run 'yarn install' locally to fix."
+              exit 1
+            }
             # Populate Yarn cache with verbose output
-            ${pkgs.yarn}/bin/yarn install --verbose
+            echo "Running yarn install..."
+            ${pkgs.yarn}/bin/yarn install --verbose || {
+              echo "Error: yarn install failed. Check network or yarn.lock."
+              exit 1
+            }
             # Ensure yarn.lock consistency
-            ${pkgs.yarn}/bin/yarn install --frozen-lockfile --verbose
+            echo "Running yarn install --frozen-lockfile..."
+            ${pkgs.yarn}/bin/yarn install --frozen-lockfile --verbose || {
+              echo "Error: yarn install --frozen-lockfile failed. Ensure yarn.lock is up-to-date."
+              exit 1
+            }
             echo "Yarn cache populated at: $(${pkgs.yarn}/bin/yarn cache dir)"
             # Generate yarn.nix for offline use
+            echo "Generating yarn.nix..."
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
             if [ ! -f yarn.nix ]; then
               echo "Error: Failed to generate yarn.nix"
