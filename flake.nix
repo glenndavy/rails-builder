@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.17"; # Incremented for Yarn offline cache
+    flake_version = "112.18"; # Incremented for Yarn cache debug
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -518,9 +518,18 @@
             # Set up Yarn cache
             export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
             mkdir -p $YARN_CACHE_FOLDER
+            echo "Checking for tmp/yarn-cache in source:"
             if [ -d "${src}/tmp/yarn-cache" ]; then
-              cp -r ${src}/tmp/yarn-cache/* $YARN_CACHE_FOLDER/
+              echo "Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
+              cp -r ${src}/tmp/yarn-cache/* $YARN_CACHE_FOLDER/ || {
+                echo "Error: Failed to copy tmp/yarn-cache"
+                exit 1
+              }
               echo "Copied tmp/yarn-cache to $YARN_CACHE_FOLDER"
+              echo "Yarn cache contents:"
+              ls -R $YARN_CACHE_FOLDER
+            else
+              echo "No tmp/yarn-cache found in app source, yarn install may fail"
             fi
             # Copy node_modules if available
             if [ -d "${src}/tmp/node_modules" ]; then
