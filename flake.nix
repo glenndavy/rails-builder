@@ -110,6 +110,7 @@
       version;
     # Start buildRailsApp
     buildRailsApp = {
+buildRailsApp = {
       system ? "x86_64-linux",
       rubyVersionSpecified ? null,
       gemset ? null,
@@ -517,8 +518,8 @@
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             ${pkgs.lib.optionalString (builtins.any (dep: dep ? nodeDependencies) extraBuildInputs) ''
-            ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
-          ''} || echo "nodeDeps not provided, skipping npm dependencies"
+              ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
+            ''} || echo "nodeDeps not provided, skipping npm dependencies"
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
