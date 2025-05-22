@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.12"; # Incremented for graceful yarnDeps handling
+    flake_version = "112.13"; # Incremented for yarnCache integration
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -515,6 +515,22 @@
           echo "Checking for JavaScript dependencies..."
           if [ -f "$APP_DIR/yarn.nix" ]; then
             echo "Installing Yarn dependencies..."
+            # Set Yarn cache from yarnCache if available
+            ${
+            if builtins.any (dep: builtins.isPath dep && (builtins.pathExists "${dep}")) extraBuildInputs
+            then ''
+              yarn_cache_count=${builtins.length (builtins.filter (dep: builtins.isPath dep && (builtins.pathExists "${dep}")) extraBuildInputs)}
+              if [ "$yarn_cache_count" -gt 0 ]; then
+                export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+                mkdir -p $YARN_CACHE_FOLDER
+                cp -r ${builtins.head (builtins.filter (dep: builtins.isPath dep && (builtins.pathExists "${dep}")) extraBuildInputs)}/* $YARN_CACHE_FOLDER/
+                echo "Set Yarn cache from yarnCache at $YARN_CACHE_FOLDER"
+              fi
+            ''
+            else ''
+              echo "No yarnCache provided, relying on yarnDeps"
+            ''
+          }
             # Link yarnDeps node_modules from Nix store to TMPDIR
             ${
             if builtins.any (dep: dep ? yarnModules) extraBuildInputs

@@ -26,7 +26,31 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.22"; # Incremented for robust Yarn cache fix
+    flake_version = "1.0.24"; # Incremented for Yarn cache derivation
+
+    # Pre-fetch Yarn dependencies into Nix store
+    yarnCache = pkgs.stdenv.mkDerivation {
+      name = "yarn-cache";
+      src = ./.;
+      buildInputs = [pkgs.yarn pkgs.nodejs_20];
+      buildPhase = ''
+        export HOME=$TMPDIR
+        export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+        mkdir -p $YARN_CACHE_FOLDER
+        if [ -f yarn.lock ]; then
+          yarn install --verbose --frozen-lockfile --prefer-offline
+        else
+          echo "No yarn.lock found, skipping Yarn cache"
+        fi
+      '';
+      installPhase = ''
+        mkdir -p $out
+        cp -r $YARN_CACHE_FOLDER/* $out/ 2>/dev/null || echo "No Yarn cache to copy"
+      '';
+      outputHashMode = "recursive";
+      outputHashAlgo = "sha256";
+      outputHash = pkgs.lib.fakeSha256; # Replace with actual hash after first build
+    };
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
@@ -49,7 +73,7 @@
           gccVersion = gccVersion;
           packageOverrides = packageOverrides;
           historicalNixpkgs = nixpkgs-historical;
-          extraBuildInputs = yarnDeps ++ nodeDeps;
+          extraBuildInputs = yarnDeps ++ nodeDeps ++ [yarnCache];
         }).app;
 
       default = self.packages.${system}.buildRailsApp;
@@ -147,16 +171,10 @@
               echo "Error: yarn.lock is inconsistent with package.json. Run 'yarn install' locally to fix."
               exit 1
             }
-            # Populate Yarn cache with verbose output
+            # Populate Yarn cache
             echo "Running yarn install..."
-            ${pkgs.yarn}/bin/yarn install --verbose || {
-              echo "Error: yarn install failed. Check network or yarn.lock."
-              exit 1
-            }
-            # Ensure yarn.lock consistency
-            echo "Running yarn install --frozen-lockfile..."
-            ${pkgs.yarn}/bin/yarn install --frozen-lockfile --verbose || {
-              echo "Error: yarn install --frozen-lockfile failed. Ensure yarn.lock is up-to-date."
+            ${pkgs.yarn}/bin/yarn install --verbose --frozen-lockfile --prefer-offline || {
+              echo "Error: yarn install failed. Check yarn.lock or package.json."
               exit 1
             }
             echo "Yarn cache populated at: $(${pkgs.yarn}/bin/yarn cache dir)"
