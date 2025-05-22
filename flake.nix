@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.9"; # Incremented for yarnDeps validation
+    flake_version = "112.10"; # Incremented for effectivePkgs fix in bundix devShell
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -798,8 +798,7 @@
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
-          echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
-          echo "REDIS_URL: $REDIS_URL"
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           echo "CC: $CC"
           echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
@@ -1045,7 +1044,7 @@
             historicalNixpkgs = null;
           }).bundler}/bin:$PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
-          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
           echo "Run 'bundix' to generate gemset.nix."
         '';
