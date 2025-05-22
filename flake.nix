@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.15"; # Incremented for node_modules copy
+    flake_version = "112.16"; # Incremented for correct tmp/node_modules path
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -522,12 +522,12 @@
               yarn_deps_count=${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}
               if [ "$yarn_deps_count" -eq 0 ]; then
                 echo "No valid yarnModules found in extraBuildInputs, using tmp/node_modules"
-                if [ -d "${./tmp/node_modules}" ]; then
+                if [ -d "${src}/tmp/node_modules" ]; then
                   mkdir -p $APP_DIR/node_modules
-                  cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                  cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
                   echo "Copied tmp/node_modules to $APP_DIR/node_modules"
                 else
-                  echo "No tmp/node_modules found, skipping Yarn dependencies"
+                  echo "No tmp/node_modules found in app source, skipping Yarn dependencies"
                 fi
               else
                 mkdir -p $APP_DIR/node_modules
@@ -538,9 +538,9 @@
             ''
             else ''
               echo "yarnDeps not provided, using tmp/node_modules"
-              if [ -d "${./tmp/node_modules}" ]; then
+              if [ -d "${src}/tmp/node_modules" ]; then
                 mkdir -p $APP_DIR/node_modules
-                cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
                 echo "Copied tmp/node_modules to $APP_DIR/node_modules"
               else
                 echo "No tmp/node_modules or yarnDeps provided, skipping Yarn dependencies"
@@ -555,12 +555,12 @@
               node_deps_count=${builtins.length (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs)}
               if [ "$node_deps_count" -eq 0 ]; then
                 echo "No valid nodeDependencies found in extraBuildInputs, using tmp/node_modules"
-                if [ -d "${./tmp/node_modules}" ]; then
+                if [ -d "${src}/tmp/node_modules" ]; then
                   mkdir -p $APP_DIR/node_modules
-                  cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                  cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
                   echo "Copied tmp/node_modules to $APP_DIR/node_modules"
                 else
-                  echo "No tmp/node_modules found, skipping npm dependencies"
+                  echo "No tmp/node_modules found in app source, skipping npm dependencies"
                 fi
               else
                 ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
@@ -569,9 +569,9 @@
             ''
             else ''
               echo "nodeDeps not provided, using tmp/node_modules"
-              if [ -d "${./tmp/node_modules}" ]; then
+              if [ -d "${src}/tmp/node_modules" ]; then
                 mkdir -p $APP_DIR/node_modules
-                cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+                cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
                 echo "Copied tmp/node_modules to $APP_DIR/node_modules"
               else
                 echo "No tmp/node_modules or nodeDeps provided, skipping npm dependencies"
@@ -583,12 +583,12 @@
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
           else
             echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
-            if [ -d "${./tmp/node_modules}" ]; then
+            if [ -d "${src}/tmp/node_modules" ]; then
               mkdir -p $APP_DIR/node_modules
-              cp -r ${./tmp/node_modules}/* $APP_DIR/node_modules/
+              cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             else
-              echo "No tmp/node_modules found, skipping node_modules installation"
+              echo "No tmp/node_modules found in app source, skipping node_modules installation"
             fi
           fi
           export NODE_PATH=$APP_DIR/node_modules
