@@ -26,13 +26,13 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.14"; # Incremented for pname fix
+    flake_version = "1.0.16"; # Incremented for yarn cache fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
       name = "rails-app-yarn-modules";
-      pname = "rails-app-yarn-modules"; # Required by mkYarnModules
-      version = "1.0.0"; # Hardcoded for simplicity
+      pname = "rails-app-yarn-modules";
+      version = "1.0.0";
       packageJSON = ./package.json;
       yarnLock = ./yarn.lock;
       yarnNix = ./yarn.nix;
@@ -137,8 +137,9 @@
 
           if [ -f yarn.lock ]; then
             echo "Detected Yarn (yarn.lock found)"
-            ${pkgs.yarn}/bin/yarn install --frozen-lockfile
-            ${pkgs.yarn}/bin/yarn lock
+            # Ensure Yarn cache is populated
+            ${pkgs.yarn}/bin/yarn install
+            # Generate yarn.nix for offline use
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
             echo "Generated yarn.nix"
           elif [ -f package-lock.json ]; then
