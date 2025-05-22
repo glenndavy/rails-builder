@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.32"; # Incremented for node_modules copy approach
+    flake_version = "1.0.33"; # Incremented for tmp/yarn-cache in prepareJSBuilds
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
@@ -155,7 +155,7 @@
               echo "Error: yarn.lock is inconsistent with package.json. Run 'yarn install' locally to fix."
               exit 1
             }
-            # Populate node_modules
+            # Populate Yarn cache and node_modules
             echo "Running yarn install..."
             export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
             export YARN_GLOBAL_FOLDER=$TMPDIR/yarn-global
@@ -173,6 +173,10 @@
             mkdir -p tmp/node_modules
             cp -r node_modules/* tmp/node_modules/
             echo "Copied node_modules to tmp/node_modules"
+            # Copy Yarn cache to tmp/yarn-cache
+            mkdir -p tmp/yarn-cache
+            cp -r $YARN_CACHE_FOLDER/* tmp/yarn-cache/
+            echo "Copied Yarn cache to tmp/yarn-cache"
             # Generate yarn.nix for offline use
             echo "Generating yarn.nix..."
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
@@ -196,7 +200,7 @@
             exit 0
           fi
 
-          echo "JavaScript dependency preparation complete. Commit yarn.nix and tmp/node_modules to your repository."
+          echo "JavaScript dependency preparation complete. Commit yarn.nix, tmp/node_modules, and tmp/yarn-cache to your repository."
         ''}/bin/prepare-js-builds";
       };
     };

@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.16"; # Incremented for correct tmp/node_modules path
+    flake_version = "112.17"; # Incremented for Yarn offline cache
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -515,67 +515,58 @@
           echo "Checking for JavaScript dependencies..."
           if [ -f "$APP_DIR/yarn.nix" ]; then
             echo "Installing Yarn dependencies..."
-            # Link yarnDeps node_modules from Nix store to TMPDIR
+            # Set up Yarn cache
+            export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+            mkdir -p $YARN_CACHE_FOLDER
+            if [ -d "${src}/tmp/yarn-cache" ]; then
+              cp -r ${src}/tmp/yarn-cache/* $YARN_CACHE_FOLDER/
+              echo "Copied tmp/yarn-cache to $YARN_CACHE_FOLDER"
+            fi
+            # Copy node_modules if available
+            if [ -d "${src}/tmp/node_modules" ]; then
+              mkdir -p $APP_DIR/node_modules
+              cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
+              echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+            fi
+            # Run yarn install offline
+            if [ -f yarn.lock ]; then
+              ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules || {
+                echo "Error: yarn install --offline failed. Check yarn.lock or tmp/yarn-cache."
+                exit 1
+              }
+            fi
+            # Link yarnDeps if available
             ${
             if builtins.any (dep: dep ? yarnModules) extraBuildInputs
             then ''
               yarn_deps_count=${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}
-              if [ "$yarn_deps_count" -eq 0 ]; then
-                echo "No valid yarnModules found in extraBuildInputs, using tmp/node_modules"
-                if [ -d "${src}/tmp/node_modules" ]; then
-                  mkdir -p $APP_DIR/node_modules
-                  cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
-                  echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-                else
-                  echo "No tmp/node_modules found in app source, skipping Yarn dependencies"
-                fi
-              else
-                mkdir -p $APP_DIR/node_modules
+              if [ "$yarn_deps_count" -gt 0 ]; then
                 ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
                 echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
-                ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
               fi
             ''
             else ''
-              echo "yarnDeps not provided, using tmp/node_modules"
-              if [ -d "${src}/tmp/node_modules" ]; then
-                mkdir -p $APP_DIR/node_modules
-                cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
-                echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-              else
-                echo "No tmp/node_modules or yarnDeps provided, skipping Yarn dependencies"
-              fi
+              echo "yarnDeps not provided"
             ''
           }
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
+            if [ -d "${src}/tmp/node_modules" ]; then
+              mkdir -p $APP_DIR/node_modules
+              cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
+              echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+            fi
             ${
             if builtins.any (dep: dep ? nodeDependencies) extraBuildInputs
             then ''
               node_deps_count=${builtins.length (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs)}
-              if [ "$node_deps_count" -eq 0 ]; then
-                echo "No valid nodeDependencies found in extraBuildInputs, using tmp/node_modules"
-                if [ -d "${src}/tmp/node_modules" ]; then
-                  mkdir -p $APP_DIR/node_modules
-                  cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
-                  echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-                else
-                  echo "No tmp/node_modules found in app source, skipping npm dependencies"
-                fi
-              else
+              if [ "$node_deps_count" -gt 0 ]; then
                 ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
                 echo "Linked nodeDependencies to $APP_DIR/node_modules"
               fi
             ''
             else ''
-              echo "nodeDeps not provided, using tmp/node_modules"
-              if [ -d "${src}/tmp/node_modules" ]; then
-                mkdir -p $APP_DIR/node_modules
-                cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
-                echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-              else
-                echo "No tmp/node_modules or nodeDeps provided, skipping npm dependencies"
-              fi
+              echo "nodeDeps not provided"
             ''
           }
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
