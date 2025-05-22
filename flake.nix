@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.3"; # Incremented for buildPhase syntax fix
+    flake_version = "112.4"; # Incremented for buildPhase boolean fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -518,11 +518,15 @@
             ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
-            if ${pkgs.lib.any (dep: dep ? nodeDependencies) extraBuildInputs}; then
+            ${
+            if builtins.any (dep: dep ? nodeDependencies) extraBuildInputs
+            then ''
               ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
-            else
+            ''
+            else ''
               echo "nodeDeps not provided, skipping npm dependencies"
-            fi
+            ''
+          }
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
@@ -987,7 +991,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1_1_1w is blocked"
       '';
     };
     devShells.${system} = {
