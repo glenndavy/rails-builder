@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.18"; # Incremented for Yarn cache debug
+    flake_version = "112.19"; # Incremented for fixed Yarn cache copy
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -379,7 +379,7 @@
           cp -r . $APP_DIR
           cd $APP_DIR
           if [ ! -f Gemfile ]; then
-            echo "Gemfile not found in source"
+            echo "Gamfile not found in source"
             exit 1
           fi
           if [ ! -f Gemfile.lock ]; then
@@ -521,7 +521,12 @@
             echo "Checking for tmp/yarn-cache in source:"
             if [ -d "${src}/tmp/yarn-cache" ]; then
               echo "Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
-              cp -r ${src}/tmp/yarn-cache/* $YARN_CACHE_FOLDER/ || {
+              # Validate tmp/yarn-cache is non-empty
+              if [ -z "$(ls -A ${src}/tmp/yarn-cache)" ]; then
+                echo "Error: tmp/yarn-cache is empty"
+                exit 1
+              fi
+              cp -r ${src}/tmp/yarn-cache/. $YARN_CACHE_FOLDER/ || {
                 echo "Error: Failed to copy tmp/yarn-cache"
                 exit 1
               }
@@ -529,12 +534,16 @@
               echo "Yarn cache contents:"
               ls -R $YARN_CACHE_FOLDER
             else
-              echo "No tmp/yarn-cache found in app source, yarn install may fail"
+              echo "Error: No tmp/yarn-cache found in app source, yarn install will fail"
+              exit 1
             fi
             # Copy node_modules if available
             if [ -d "${src}/tmp/node_modules" ]; then
               mkdir -p $APP_DIR/node_modules
-              cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
+              cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
+                echo "Error: Failed to copy tmp/node_modules"
+                exit 1
+              }
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             fi
             # Run yarn install offline
@@ -562,7 +571,10 @@
             echo "Installing npm dependencies..."
             if [ -d "${src}/tmp/node_modules" ]; then
               mkdir -p $APP_DIR/node_modules
-              cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
+              cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
+                echo "Error: Failed to copy tmp/node_modules"
+                exit 1
+              }
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             fi
             ${
@@ -585,7 +597,10 @@
             echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
             if [ -d "${src}/tmp/node_modules" ]; then
               mkdir -p $APP_DIR/node_modules
-              cp -r ${src}/tmp/node_modules/* $APP_DIR/node_modules/
+              cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
+                echo "Error: Failed to copy tmp/node_modules"
+                exit 1
+              }
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             else
               echo "No tmp/node_modules found in app source, skipping node_modules installation"
