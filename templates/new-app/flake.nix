@@ -26,20 +26,23 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.28"; # Incremented for CA bundle in yarnCache
+    flake_version = "1.0.29"; # Incremented for clean source and Yarn config fix
 
     # Pre-fetch Yarn dependencies into Nix store
     yarnCache = pkgs.stdenv.mkDerivation {
       name = "yarn-cache";
-      src = ./.;
+      src = pkgs.lib.cleanSource ./.;
       buildInputs = [pkgs.yarn pkgs.nodejs_20 pkgs.cacert];
       buildPhase = ''
         export HOME=$TMPDIR
         export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+        export YARN_GLOBAL_FOLDER=$TMPDIR/yarn-global
         export NODE_EXTRA_CA_CERTS=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-        mkdir -p $YARN_CACHE_FOLDER
+        mkdir -p $YARN_CACHE_FOLDER $YARN_GLOBAL_FOLDER
         if [ -f yarn.lock ]; then
           yarn config set cafile ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+          yarn config set enableGlobalCache false
+          yarn config set cacheFolder $YARN_CACHE_FOLDER
           yarn install --verbose --frozen-lockfile --prefer-offline
           # Validate cache
           if [ -z "$(ls -A $YARN_CACHE_FOLDER)" ]; then
@@ -189,9 +192,12 @@
             # Populate Yarn cache in TMPDIR
             echo "Running yarn install..."
             export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+            export YARN_GLOBAL_FOLDER=$TMPDIR/yarn-global
             export NODE_EXTRA_CA_CERTS=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
-            mkdir -p $YARN_CACHE_FOLDER
+            mkdir -p $YARN_CACHE_FOLDER $YARN_GLOBAL_FOLDER
             yarn config set cafile ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
+            yarn config set enableGlobalCache false
+            yarn config set cacheFolder $YARN_CACHE_FOLDER
             ${pkgs.yarn}/bin/yarn install --verbose --frozen-lockfile --prefer-offline || {
               echo "Error: yarn install failed. Check yarn.lock or package.json."
               exit 1
