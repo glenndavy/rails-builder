@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.10"; # Incremented for effectivePkgs fix in bundix devShell
+    flake_version = "112.11"; # Incremented for effectivePkgs fix in bundix devShell
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -798,7 +798,8 @@
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
-          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "REDIS_URL: $REDIS_URL"
           echo "CC: $CC"
           echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
