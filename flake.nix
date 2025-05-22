@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.2"; # Incremented for yarn2nix and node2nix fixes
+    flake_version = "112.3"; # Incremented for buildPhase syntax fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -518,9 +518,11 @@
             ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
-            ${pkgs.lib.optionalString (builtins.any (dep: dep ? nodeDependencies) extraBuildInputs) ''
-            ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
-          ''} || echo "nodeDeps not provided, skipping npm dependencies"
+            if ${pkgs.lib.any (dep: dep ? nodeDependencies) extraBuildInputs}; then
+              ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
+            else
+              echo "nodeDeps not provided, skipping npm dependencies"
+            fi
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
