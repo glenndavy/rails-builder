@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.20"; # Incremented for Yarn cache in Nix store
+    flake_version = "1.0.21"; # Incremented for robust Yarn cache fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {
@@ -137,13 +137,22 @@
 
           if [ -f yarn.lock ]; then
             echo "Detected Yarn (yarn.lock found)"
-            # Populate Yarn cache
-            ${pkgs.yarn}/bin/yarn install
+            # Verify package.json and yarn.lock consistency
+            if [ ! -f package.json ]; then
+              echo "Error: package.json not found"
+              exit 1
+            fi
+            # Populate Yarn cache with verbose output
+            ${pkgs.yarn}/bin/yarn install --verbose
             # Ensure yarn.lock consistency
-            ${pkgs.yarn}/bin/yarn install --frozen-lockfile
+            ${pkgs.yarn}/bin/yarn install --frozen-lockfile --verbose
             echo "Yarn cache populated at: $(${pkgs.yarn}/bin/yarn cache dir)"
             # Generate yarn.nix for offline use
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
+            if [ ! -f yarn.nix ]; then
+              echo "Error: Failed to generate yarn.nix"
+              exit 1
+            fi
             echo "Generated yarn.nix"
           elif [ -f package-lock.json ]; then
             echo "Detected npm (package-lock.json found)"

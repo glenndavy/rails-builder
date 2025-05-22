@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.8"; # Incremented for node_modules in TMPDIR
+    flake_version = "112.9"; # Incremented for yarnDeps validation
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -521,18 +521,20 @@
             then ''
               yarn_deps_count=${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}
               if [ "$yarn_deps_count" -eq 0 ]; then
-                echo "No valid yarnModules found in extraBuildInputs, skipping Yarn dependencies"
+                echo "No valid yarnModules found in extraBuildInputs, cannot install Yarn dependencies"
+                exit 1
               else
                 mkdir -p $APP_DIR/node_modules
                 ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
                 echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
+                ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
               fi
             ''
             else ''
-              echo "yarnDeps not provided, skipping Yarn dependencies"
+              echo "yarnDeps not provided, cannot install Yarn dependencies"
+              exit 1
             ''
           }
-            ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             ${
@@ -894,7 +896,7 @@
           exit 1
         fi
         if [ -z "$EXECUTION_ROLE" ]; then
-          echo "Error: EXECUTION_ROLE spoof environment variable is not set. Please set it to a valid role (e.g., 'web', 'worker')."
+          echo "Error: EXECUTION_ROLE environment variable is not set. Please set it to a valid role (e.g., 'web', 'worker')."
           exit 1
         fi
         command=$(grep "^$EXECUTION_ROLE:" /app/Procfile | sed "s/^$EXECUTION_ROLE:[[:space:]]*//" | head -n 1)
@@ -1013,7 +1015,7 @@
         echo "Permitted insecure packages:"
         echo "${builtins.concatStringsSep ", " nixpkgsConfig.permittedInsecurePackages}"
         echo "Checking if openssl-1.1.1w is allowed:"
-        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1.1.1w is blocked"
+        nix eval --raw nixpkgs#openssl_1_1_1w.outPath 2>/dev/null || echo "openssl_1_1_1w is blocked"
       '';
     };
     devShells.${system} = {
@@ -1043,7 +1045,7 @@
             historicalNixpkgs = null;
           }).bundler}/bin:$PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
-          export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
           echo "Run 'bundix' to generate gemset.nix."
         '';
