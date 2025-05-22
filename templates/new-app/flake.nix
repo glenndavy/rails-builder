@@ -26,7 +26,7 @@
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.16"; # Incremented for yarn cache fix
+    flake_version = "1.0.17"; # Incremented for correct yarn cache fix
 
     # Yarn dependencies (if yarn.nix exists)
     yarnDeps = pkgs.lib.optional (builtins.pathExists ./yarn.nix) (pkgs.yarn2nix-moretea.mkYarnModules {

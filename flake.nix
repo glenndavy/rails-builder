@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.6"; # Incremented for buildPhase boolean fix
+    flake_version = "112.7"; # Incremented for buildPhase syntax fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -518,13 +518,20 @@
             ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
-            ${pkgs.lib.optionalString (builtins.any (dep: dep ? nodeDependencies) extraBuildInputs) ''
-            if [ ${builtins.length (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs)} -eq 0 ]; then
-              echo "No valid nodeDependencies found in extraBuildInputs, skipping npm dependencies"
-            else
-              ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
-            fi
-          ''} || echo "nodeDeps not provided, skipping npm dependencies"
+            ${
+            if builtins.any (dep: dep ? nodeDependencies) extraBuildInputs
+            then ''
+              node_deps_count=${builtins.length (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs)}
+              if [ "$node_deps_count" -eq 0 ]; then
+                echo "No valid nodeDependencies found in extraBuildInputs, skipping npm dependencies"
+              else
+                ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
+              fi
+            ''
+            else ''
+              echo "nodeDeps not provided, skipping npm dependencies"
+            ''
+          }
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
