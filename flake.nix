@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "113";
+    flake_version = "112.2"; # Incremented for yarn2nix and node2nix fixes
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -108,9 +108,8 @@
         else defaultVersion;
     in
       version;
-    # Start buildRailsApp
+
     buildRailsApp = {
-buildRailsApp = {
       system ? "x86_64-linux",
       rubyVersionSpecified ? null,
       gemset ? null,
@@ -269,7 +268,7 @@ buildRailsApp = {
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
+          export REDIS_URL=redis://localhost:6379 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -286,7 +285,7 @@ buildRailsApp = {
             then "export RAILS_SERVE_STATIC_FILES=true"
             else ""
           }
-          ## Postgres setup
+          # Postgres setup
           export PGDATA=$TMPDIR/pgdata
           export PGHOST=$TMPDIR
           export PGUSER=postgres
@@ -301,7 +300,7 @@ buildRailsApp = {
 
           echo "\n********************* Setting up redis ********************************************\n"
 
-          ## Redis setup
+          # Redis setup
           export REDIS_SOCKET=$TMPDIR/redis.sock
           export REDIS_PID=$TMPDIR/redis.pid
           mkdir -p $TMPDIR
@@ -447,6 +446,7 @@ buildRailsApp = {
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
+              # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
               export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
@@ -501,6 +501,7 @@ buildRailsApp = {
                 echo "Bin directory $out/app/vendor/bundle/bin not found"
                 exit 1
               fi
+              # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
               export PATH=${bundlerWrapper}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
@@ -518,8 +519,8 @@ buildRailsApp = {
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             ${pkgs.lib.optionalString (builtins.any (dep: dep ? nodeDependencies) extraBuildInputs) ''
-              ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
-            ''} || echo "nodeDeps not provided, skipping npm dependencies"
+            ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
+          ''} || echo "nodeDeps not provided, skipping npm dependencies"
           elif [ -f "$APP_DIR/config/importmap.rb" ]; then
             echo "Importmaps detected, running importmap install..."
             ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
@@ -567,7 +568,7 @@ buildRailsApp = {
         '';
       };
       bundler = bundler;
-    }; # End buildRailsApp
+    };
 
     mkAppDevShell = {
       src,
@@ -611,6 +612,7 @@ buildRailsApp = {
             git
             libyaml
             postgresql
+            redis
             zlib
             openssl
             libxml2
@@ -624,7 +626,6 @@ buildRailsApp = {
             tzdata
           ]
         );
-        ## Shell hook for appDevShell
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -722,7 +723,6 @@ buildRailsApp = {
           shared-mime-info
           tzdata
         ];
-        # Shellhook for bootStrapDevShell
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -741,6 +741,7 @@ buildRailsApp = {
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
@@ -768,7 +769,7 @@ buildRailsApp = {
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
-          export REDIS_URL=redis://localhost:6379 #/0 # Default Redis URL for runtime
+          echo "REDIS_URL: $REDIS_URL"
           echo "CC: $CC"
           echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
@@ -818,7 +819,6 @@ buildRailsApp = {
           shared-mime-info
           tzdata
         ];
-        # Shell shook for mkRubyShell
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -828,7 +828,6 @@ buildRailsApp = {
           export PATH=$GEM_HOME/bin:${ruby}/bin:$PATH
           unset RUBYLIB
           export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:$LD_LIBRARY_PATH
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
@@ -1003,7 +1002,6 @@ buildRailsApp = {
             historicalNixpkgs = null;
           }).bundler
         ];
-
         shellHook = ''
           unset GEM_HOME GEM_PATH
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
