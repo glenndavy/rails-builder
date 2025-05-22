@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.21"; # Incremented for yarn PATH and explicit install
+    flake_version = "112.22"; # Incremented for fixed mkDockerImage PATH
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -318,6 +318,7 @@
           echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
             echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+            exit  ascended
             exit 1
           }
           cat > $APP_DIR/.bundle/config <<EOF
@@ -643,7 +644,7 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${effectivePkgs.yarn}/bin:\$PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:\$PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
@@ -1022,7 +1023,7 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${effectivePkgs.yarn}/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
@@ -1102,7 +1103,7 @@
             gccVersion = null;
             packageOverrides = {};
             historicalNixpkgs = null;
-          }).bundler}/bin:${effectivePkgs.yarn}/bin:$PATH
+          }).bundler}/bin:${pkgs.yarn}/bin:$PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
