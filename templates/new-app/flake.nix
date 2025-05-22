@@ -21,12 +21,12 @@
     pkgs = import nixpkgs {
       inherit system;
       config = rails-builder.lib.${system}.nixpkgsConfig;
-      overlays = [rails-builder.inputs.nixpkgs-ruby.overlays.default];
+      overlays = [rails_builder.inputs.nixpkgs-ruby.overlays.default];
     };
     historicalPkgs = import nixpkgs-historical {inherit system;};
     packageOverrides = {};
     gccVersion = null;
-    flake_version = "1.0.24"; # Incremented for Yarn cache derivation
+    flake_version = "1.0.25"; # Incremented for controlled Yarn cache
 
     # Pre-fetch Yarn dependencies into Nix store
     yarnCache = pkgs.stdenv.mkDerivation {
@@ -39,6 +39,11 @@
         mkdir -p $YARN_CACHE_FOLDER
         if [ -f yarn.lock ]; then
           yarn install --verbose --frozen-lockfile --prefer-offline
+          # Validate cache
+          if [ -z "$(ls -A $YARN_CACHE_FOLDER)" ]; then
+            echo "Error: Yarn cache is empty"
+            exit 1
+          fi
         else
           echo "No yarn.lock found, skipping Yarn cache"
         fi
@@ -171,13 +176,20 @@
               echo "Error: yarn.lock is inconsistent with package.json. Run 'yarn install' locally to fix."
               exit 1
             }
-            # Populate Yarn cache
+            # Populate Yarn cache in TMPDIR
             echo "Running yarn install..."
+            export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+            mkdir -p $YARN_CACHE_FOLDER
             ${pkgs.yarn}/bin/yarn install --verbose --frozen-lockfile --prefer-offline || {
               echo "Error: yarn install failed. Check yarn.lock or package.json."
               exit 1
             }
-            echo "Yarn cache populated at: $(${pkgs.yarn}/bin/yarn cache dir)"
+            # Validate cache
+            if [ -z "$(ls -A $YARN_CACHE_FOLDER)" ]; then
+              echo "Error: Yarn cache is empty"
+              exit 1
+            fi
+            echo "Yarn cache populated at: $YARN_CACHE_FOLDER"
             # Generate yarn.nix for offline use
             echo "Generating yarn.nix..."
             ${pkgs.yarn2nix}/bin/yarn2nix > yarn.nix
