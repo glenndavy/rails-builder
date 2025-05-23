@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.34"; # Incremented for fixed boolean-to-string coercion
+    flake_version = "112.35"; # Incremented for fixed null-to-string coercion
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -353,9 +353,21 @@
                       echo "Checking for gemset.nix: not found"
                     fi
                     if [ "${effectiveGemStrategy}" = "bundix" ]; then
-                      if [ -n "${effectiveGemset}" ] && [ "$(type -t ${effectiveGemset})" = "associative array" ]; then
+                      if [ -n "${
+            if effectiveGemset == null
+            then ""
+            else effectiveGemset
+          }" ] && [ "$(type -t ${
+            if effectiveGemset == null
+            then "{}"
+            else effectiveGemset
+          })" = "associative array" ]; then
                         echo "Checking gemset status: provided"
-                        echo "Gemset gem names: ${builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)}"
+                        echo "Gemset gem names: ${
+            if effectiveGemset == null
+            then ""
+            else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
+          }"
                       else
                         echo "Checking gemset status: null or invalid"
                       fi
@@ -442,60 +454,73 @@
                       fi
                       export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
                       echo "\n********************** bundling done ********************************************\n"
-                    elif [ "${effectiveGemStrategy}" = "bundix" ] && [ -n "${effectiveGemset}" ] && [ "$(type -t ${effectiveGemset})" = "associative array" ]; then
-                      echo "\n********************** using bundix strategy ********************************************\n"
-                      echo "\n************************** bundler set config  ********************************************\n"
-                      rm -rf $APP_DIR/vendor/bundle/*
-                      ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
-                      ${bundlerWrapper}/bin/bundle config set --local without development test
-                      ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
-                      echo "Bundler config before install:"
-                      ${bundlerWrapper}/bin/bundle config
-                      echo "Listing gemset.nix:"
-                      ls -l gemset.nix || echo "gemset.nix not found"
-                      echo "Listing gem dependencies from Gemfile.lock:"
-                      ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
-                      echo "Bundler environment:"
-                      env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
-                      echo "RubyGems environment:"
-                      gem env
-                      echo "Activated gems after bundle install:"
-                      gem list || echo "Failed to list gems"
-                      echo "Bundler executable path:"
-                      ls -l ${bundlerWrapper}/bin/bundle
-                      echo "Attempting bundle install:"
-                      ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
-                        echo "Bundle install failed, please check gemset.nix for correctness"
-                        exit 1
-                      }
-                      echo "Copying gems to output path:"
-                      cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
-                      if [ -d "$out/app/vendor/bundle/bin" ]; then
-                        for file in $out/app/vendor/bundle/bin/*; do
-                          if [ -f "$file" ]; then
-                            sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                    elif [ "${effectiveGemStrategy}" = "bundix" ]; then
+                      if [ -n "${
+            if effectiveGemset == null
+            then ""
+            else effectiveGemset
+          }" ] && [ "$(type -t ${
+            if effectiveGemset == null
+            then "{}"
+            else effectiveGemset
+          })" = "associative array" ]; then
+                        echo "\n********************** using bundix strategy ********************************************\n"
+                        echo "\n************************** bundler set config  ********************************************\n"
+                        rm -rf $APP_DIR/vendor/bundle/*
+                        ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
+                        ${bundlerWrapper}/bin/bundle config set --local without development test
+                        ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
+                        echo "Bundler config before install:"
+                        ${bundlerWrapper}/bin/bundle config
+                        echo "Listing gemset.nix:"
+                        ls -l gemset.nix || echo "gemset.nix not found"
+                        echo "Listing gem dependencies from Gemfile.lock:"
+                        ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
+                        echo "Bundler environment:"
+                        env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
+                        echo "RubyGems environment:"
+                        gem env
+                        echo "Activated gems after bundle install:"
+                        gem list || echo "Failed to list gems"
+                        echo "Bundler executable path:"
+                        ls -l ${bundlerWrapper}/bin/bundle
+                        echo "Attempting bundle install:"
+                        ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                          echo "Bundle install failed, please check gemset.nix for correctness"
+                          exit 1
+                        }
+                        echo "Copying gems to output path:"
+                        cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
+                        if [ -d "$out/app/vendor/bundle/bin" ]; then
+                          for file in $out/app/vendor/bundle/bin/*; do
+                            if [ -f "$file" ]; then
+                              sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                            fi
+                          done
+                          echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
+                        fi
+                        echo "Checking for rails executable:"
+                        if [ -d "$out/app/vendor/bundle/bin" ]; then
+                          find $out/app/vendor/bundle/bin -type f -name rails
+                          if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                            echo "Rails executable found"
+                            ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                          else
+                            echo "Rails executable not found"
+                            exit 1
                           fi
-                        done
-                        echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
-                      fi
-                      echo "Checking for rails executable:"
-                      if [ -d "$out/app/vendor/bundle/bin" ]; then
-                        find $out/app/vendor/bundle/bin -type f -name rails
-                        if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
-                          echo "Rails executable found"
-                          ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
                         else
-                          echo "Rails executable not found"
+                          echo "Bin directory $out/app/vendor/bundle/bin not found"
                           exit 1
                         fi
+                        export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
+                        echo "\n********************** bundling done ********************************************\n"
                       else
-                        echo "Bin directory $out/app/vendor/bundle/bin not found"
+                        echo "Error: Invalid or missing gemset for bundix strategy"
                         exit 1
                       fi
-                      export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
-                      echo "\n********************** bundling done ********************************************\n"
                     else
-                      echo "Error: Invalid gem_strategy '${effectiveGemStrategy}' or missing/invalid gemset for bundix"
+                      echo "Error: Invalid gem_strategy '${effectiveGemStrategy}'"
                       exit 1
                     fi
                     echo "\n********************** installing javascript dependencies ********************************************\n"
@@ -884,6 +909,7 @@
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
           echo "XDG_DATA_DIRS: $XDG_DATA_DIRS"
           echo "FREEDESKTOP_MIME_TYPES_PATH: $FREEDESKTOP_MIME_TYPES_PATH"
+          echo "REDIS_URL: $REDIS_URL"
           echo "CC: $CC"
           echo "CXX: $CXX"
           echo "Ruby version: ''$(ruby --version)"
