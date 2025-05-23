@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.33"; # Incremented for fixed Nix syntax in buildPhase
+    flake_version = "112.34"; # Incremented for fixed boolean-to-string coercion
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -343,7 +343,11 @@
                     echo "\n********************** Bundler installed ********************************************\n"
                     echo "\n********************** Deciding bundle strategy ********************************************\n"
                     echo "Detected gem strategy: ${effectiveGemStrategy}"
-                    if [ "${gemsetExists}" = "true" ]; then
+                    if [ ${
+            if gemsetExists
+            then "1"
+            else "0"
+          } -eq 1 ]; then
                       echo "Checking for gemset.nix: found"
                     else
                       echo "Checking for gemset.nix: not found"
@@ -554,10 +558,15 @@
                           exit 1
                         fi
                       fi
-                      if [ "${builtins.any (dep: dep ? yarnModules) extraBuildInputs}" = "true" ]; then
-                        yarn_deps_count=$(echo "${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}")
-                        if [ "$yarn_deps_count" -gt 0 ]; then
-                          ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
+                      yarn_deps_count=0
+                      for dep in ${builtins.concatStringsSep " " (map (dep:
+            if dep ? yarnModules
+            then dep.yarnModules
+            else "")
+          extraBuildInputs)}; do
+                        if [ -n "$dep" ]; then
+                          yarn_deps_count=$((yarn_deps_count + 1))
+                          ln -sf $dep/node_modules/* $APP_DIR/node_modules/
                           echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
                           echo "Checking for webpack after yarnDeps link:"
                           if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
@@ -571,7 +580,8 @@
                             exit 1
                           fi
                         fi
-                      else
+                      done
+                      if [ "$yarn_deps_count" -eq 0 ]; then
                         echo "yarnDeps not provided"
                       fi
                       if [ -f package.json ]; then
@@ -641,13 +651,19 @@
                         }
                         echo "Copied tmp/node_modules to $APP_DIR/node_modules"
                       fi
-                      if [ "${builtins.any (dep: dep ? nodeDependencies) extraBuildInputs}" = "true" ]; then
-                        node_deps_count=$(echo "${builtins.length (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs)}")
-                        if [ "$node_deps_count" -gt 0 ]; then
-                          ln -s ${builtins.head (builtins.filter (dep: dep ? nodeDependencies) extraBuildInputs).nodeDependencies}/lib/node_modules $APP_DIR/node_modules
+                      node_deps_count=0
+                      for dep in ${builtins.concatStringsSep " " (map (dep:
+            if dep ? nodeDependencies
+            then dep.nodeDependencies
+            else "")
+          extraBuildInputs)}; do
+                        if [ -n "$dep" ]; then
+                          node_deps_count=$((node_deps_count + 1))
+                          ln -s $dep/lib/node_modules $APP_DIR/node_modules
                           echo "Linked nodeDependencies to $APP_DIR/node_modules"
                         fi
-                      else
+                      done
+                      if [ "$node_deps_count" -eq 0 ]; then
                         echo "nodeDeps not provided"
                       fi
                     elif [ -f "$APP_DIR/config/importmap.rb" ]; then
