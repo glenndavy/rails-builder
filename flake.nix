@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.36"; # Incremented for fixed bash syntax and bin/webpack patch
+    flake_version = "112.37"; # Incremented for fixed syntax error in buildPhase
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -349,15 +349,31 @@
           echo "\n********************** Bundler installed ********************************************\n"
           echo "\n********************** Deciding bundle strategy ********************************************\n"
           echo "Detected gem strategy: ${effectiveGemStrategy}"
-          if [ ${if gemsetExists then "1" else "0"} -eq 1 ]; then
+          if [ ${
+            if gemsetExists
+            then "1"
+            else "0"
+          } -eq 1 ]; then
             echo "Checking for gemset.nix: found"
           else
             echo "Checking for gemset.nix: not found"
           fi
           if [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${if effectiveGemset == null then "" else effectiveGemset}" ] && [ "$(type -t ${if effectiveGemset == null then "{}" else effectiveGemset})" = "associative array" ]; then
+            if [ -n "${
+            if effectiveGemset == null
+            then ""
+            else effectiveGemset
+          }" ] && [ "$(type -t ${
+            if effectiveGemset == null
+            then "{}"
+            else effectiveGemset
+          })" = "associative array" ]; then
               echo "Checking gemset status: provided"
-              echo "Gemset gem names: ${if effectiveGemset == null then "" else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)}"
+              echo "Gemset gem names: ${
+            if effectiveGemset == null
+            then ""
+            else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
+          }"
             else
               echo "Checking gemset status: null or invalid"
             fi
@@ -445,7 +461,15 @@
             export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
             echo "\n********************** bundling done ********************************************\n"
           elif [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${if effectiveGemset == null then "" else effectiveGemset}" ] && [ "$(type -t ${if effectiveGemset == null then "{}" else effectiveGemset})" = "associative array" ]; then
+            if [ -n "${
+            if effectiveGemset == null
+            then ""
+            else effectiveGemset
+          }" ] && [ "$(type -t ${
+            if effectiveGemset == null
+            then "{}"
+            else effectiveGemset
+          })" = "associative array" ]; then
               echo "\n********************** using bundix strategy ********************************************\n"
               echo "\n************************** bundler set config  ********************************************\n"
               rm -rf $APP_DIR/vendor/bundle/*
@@ -566,7 +590,11 @@
               fi
             fi
             yarn_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep: if dep ? yarnModules then dep.yarnModules else "") extraBuildInputs)}; do
+            for dep in ${builtins.concatStringsSep " " (map (dep:
+            if dep ? yarnModules
+            then dep.yarnModules
+            else "")
+          extraBuildInputs)}; do
               if [ -n "$dep" ]; then
                 yarn_deps_count=$((yarn_deps_count + 1))
                 ln -sf $dep/node_modules/* $APP_DIR/node_modules/ || {
@@ -627,7 +655,7 @@
               if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
                 echo "dart-sass binary exists"
                 ls -l ${effectivePkgs.dart-sass}/bin/sass
-                ${effectivePkgs.nivcx63drxqzm6pic6vm2wbkxl368w83-stdenv-linux/setup: eval: line 2114: syntax error near unexpected token `fi'ffectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
+                ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
               else
                 echo "dart-sass binary missing"
               fi
@@ -657,7 +685,11 @@
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             fi
             node_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep: if dep ? nodeDependencies then dep.nodeDependencies else "") extraBuildInputs)}; do
+            for dep in ${builtins.concatStringsSep " " (map (dep:
+            if dep ? nodeDependencies
+            then dep.nodeDependencies
+            else "")
+          extraBuildInputs)}; do
               if [ -n "$dep" ]; then
                 node_deps_count=$((node_deps_count + 1))
                 ln -s $dep/lib/node_modules $APP_DIR/node_modules || {
