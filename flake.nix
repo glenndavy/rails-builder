@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.27"; # Incremented for dart-sass package
+    flake_version = "112.28"; # Incremented for webpack validation
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -553,6 +553,16 @@
                 exit 1
               }
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+              # Validate webpack presence
+              echo "Checking for webpack after node_modules copy:"
+              if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                echo "Found webpack executable in node_modules/.bin"
+                ls -l $APP_DIR/node_modules/.bin/webpack
+                chmod +x $APP_DIR/node_modules/.bin/webpack
+                echo "Ensured webpack is executable"
+              else
+                echo "Warning: webpack executable not found in $APP_DIR/node_modules/.bin"
+              fi
             fi
             # Run yarn install offline explicitly
             if [ -f yarn.lock ]; then
@@ -561,6 +571,17 @@
                 exit 1
               }
               echo "Yarn install completed successfully"
+              # Re-validate webpack after yarn install
+              echo "Checking for webpack after yarn install:"
+              if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                echo "Found webpack executable in node_modules/.bin"
+                ls -l $APP_DIR/node_modules/.bin/webpack
+                chmod +x $APP_DIR/node_modules/.bin/webpack
+                echo "Ensured webpack is executable"
+              else
+                echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarn install"
+                exit 1
+              fi
             fi
             # Link yarnDeps if available
             ${
@@ -570,6 +591,17 @@
               if [ "$yarn_deps_count" -gt 0 ]; then
                 ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
                 echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
+                # Re-validate webpack after yarnDeps link
+                echo "Checking for webpack after yarnDeps link:"
+                if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                  echo "Found webpack executable in node_modules/.bin"
+                  ls -l $APP_DIR/node_modules/.bin/webpack
+                  chmod +x $APP_DIR/node_modules/.bin/webpack
+                  echo "Ensured webpack is executable"
+                else
+                  echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
+                  exit 1
+                fi
               fi
             ''
             else ''
@@ -640,7 +672,7 @@
             fi
           fi
           export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
-          # Debug sass availability before assets:precompile
+          # Debug sass and webpack availability before assets:precompile
           echo "Checking for sass before assets:precompile:"
           if command -v sass >/dev/null 2>&1; then
             echo "sass found in PATH: $(command -v sass)"
@@ -655,6 +687,15 @@
             else
               echo "dart-sass binary missing in ${effectivePkgs.dart-sass}/bin/sass"
             fi
+            exit 1
+          fi
+          echo "Checking for webpack before assets:precompile:"
+          if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+            echo "webpack found in node_modules/.bin: $APP_DIR/node_modules/.bin/webpack"
+            ls -l $APP_DIR/node_modules/.bin/webpack
+            $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack"
+          else
+            echo "webpack not found in node_modules/.bin"
             exit 1
           fi
           echo "\r********************** executing build commands ********************************************\r"
