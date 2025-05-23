@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.43"; # Incremented for further refined webpack_runner.rb patch
+    flake_version = "112.44"; # Incremented for simplified bin/webpack patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -227,10 +227,9 @@
         exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
       '';
       webpackScript = pkgs.writeShellScript "webpack" ''
-        #!/bin/bash
-        export NODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules
-        export PATH=${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/node_modules/.bin:$PATH
-        exec ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack "$@"
+        #!${ruby}/bin/ruby
+        ENV['NODE_PATH'] = "#{$APP_DIR}/node_modules:#{${effectivePkgs.nodejs_20}}/lib/node_modules:#{ENV['NODE_PATH']}"
+        exec("${effectivePkgs.nodejs_20}/bin/node", "#{$APP_DIR}/node_modules/.bin/webpack", *ARGV)
       '';
       effectiveBuildCommands =
         if buildCommands == true
@@ -634,42 +633,6 @@
                 echo "Error: bin/webpack patch failed, incorrect contents"
                 exit 1
               fi
-            fi
-            echo "Locating webpacker gem directory:"
-            echo "Running find command: find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.*' -maxdepth 4"
-            WEBPACKER_GEM_DIR=$(find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.*' -maxdepth 4)
-            echo "Found WEBPACKER_GEM_DIR: $WEBPACKER_GEM_DIR"
-            if [ -n "$WEBPACKER_GEM_DIR" ] && [ -f "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" ]; then
-              echo "Patching webpack_runner.rb in $WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              echo "File permissions before patching:"
-              ls -l "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              echo "Original exec line with context (if present):"
-              grep -n -C 2 'exec.*bin/webpack' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || echo "No exec line found"
-              echo "Applying primary sed command: sed -i 's|exec\s*(\"\./bin/webpack\"[^\)]*)|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\", *ARGV)|' \"$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb\""
-              sed -i 's|exec\s*("\./bin/webpack"[^\)]*)|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              sed_exit_code=$?
-              echo "Primary sed command exit code: $sed_exit_code"
-              if [ $sed_exit_code -ne 0 ]; then
-                echo "Primary sed failed, attempting fallback patch..."
-                echo "Applying fallback sed command: sed -i 's|exec.*bin/webpack.*|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\", *ARGV)|' \"$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb\""
-                sed -i 's|exec.*bin/webpack.*|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || {
-                  echo "Error: Fallback patch for webpack_runner.rb failed"
-                  cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-                  exit 1
-                }
-              fi
-              echo "Patched exec line (if present):"
-              grep -n 'exec.*node.*webpack' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || echo "No patched exec line found"
-              echo "Full patched webpack_runner.rb contents:"
-              cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              if ! grep -q "${effectivePkgs.nodejs_20}/bin/node" "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"; then
-                echo "Error: webpack_runner.rb patch failed, node path not found"
-                exit 1
-              fi
-            else
-              echo "Error: webpacker gem or webpack_runner.rb not found in $APP_DIR/vendor/bundle/ruby"
-              ls -R $APP_DIR/vendor/bundle/ruby | grep webpacker || echo "No webpacker directory found"
-              exit 1
             fi
             echo "Running yarn build:css with dart-sass binary:"
             ${effectivePkgs.yarn}/bin/yarn build:css || {
