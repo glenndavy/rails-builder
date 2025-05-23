@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.30a"; # Incremented for webpack execution and webpack_runner.rb patch
+    flake_version = "112.31"; # Incremented for removing explicit webpack call
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -653,25 +653,19 @@
               exit 1
             }
             echo "yarn build:css completed successfully"
-            # Explicitly run webpack to ensure it works
-            #echo "Running webpack explicitly:"
-            #${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --config $APP_DIR/config/webpack/webpack.config.js || {
-            #  echo "Error: webpack execution failed"
-            #  echo "PATH in subprocess: $PATH"
-            #  echo "NODE_PATH in subprocess: $NODE_PATH"
-            #  echo "Checking webpack binary:"
-            #  if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-            #    echo "webpack binary exists"
-            #    ls -l $APP_DIR/node_modules/.bin/webpack
-            #    readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
-            #  else
-            #    echo "webpack binary missing"
-            #  fi
-            #  echo "Checking node binary:"
-            #  ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
-            #  exit 1
-            #}
-            #echo "webpack execution completed successfully"
+            # Check Webpacker configuration files
+            echo "Checking Webpacker configuration files:"
+            ls -R config/webpack || echo "No config/webpack directory found"
+            if [ -f config/webpacker.yml ]; then
+              echo "Found config/webpacker.yml:"
+              cat config/webpacker.yml
+            else
+              echo "Warning: config/webpacker.yml not found"
+            fi
+            if [ ! -f config/webpack/environment.js ] && [ ! -f config/webpack/production.js ]; then
+              echo "Error: No Webpacker configuration files (environment.js or production.js) found in config/webpack"
+              exit 1
+            fi
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             if [ -d "${src}/tmp/node_modules" ]; then
@@ -975,7 +969,7 @@
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+          echo  echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin || {
             echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
             exit 1
@@ -1029,11 +1023,11 @@
             then historicalPkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
-      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs-ruby");
+      ruby = effectivePkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {src = ./.;}).dotted} not found in nixpkgs-ruby");
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
-          (effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found"))
+          (effectivePkgs."ruby-${(detectRubyVersion {src = ./.;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {src = ./.;}).dotted} not found"))
           git
           libyaml
           postgresql
