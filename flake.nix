@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.26"; # Incremented for Nix sass package
+    flake_version = "112.27"; # Incremented for dart-sass package
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -175,7 +175,7 @@
         libxml2
         libxslt
         inetutils
-        sass
+        dart-sass
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
@@ -253,7 +253,7 @@
           command -v yarn || echo "yarn not found"
           echo "Checking for sass:"
           command -v sass || echo "sass not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$APP_DIR/node_modules/.bin:$PATH
+          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/node_modules/.bin:$PATH
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
@@ -455,7 +455,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
@@ -510,7 +510,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else ''
@@ -576,26 +576,26 @@
               echo "yarnDeps not provided"
             ''
           }
-            # Update package.json to use Nix sass binary
+            # Update package.json to use dart-sass binary
             if [ -f package.json ]; then
-              echo "Updating package.json build:css script to use Nix sass binary"
-              sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.sass}/bin/sass |' package.json
+              echo "Updating package.json build:css script to use dart-sass binary"
+              sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.dart-sass}/bin/sass |' package.json
               echo "Updated package.json:"
               cat package.json
             fi
             # Explicitly run yarn build:css
-            echo "Running yarn build:css with Nix sass binary:"
+            echo "Running yarn build:css with dart-sass binary:"
             ${effectivePkgs.yarn}/bin/yarn build:css || {
               echo "Error: yarn build:css failed"
               echo "PATH in subprocess: $PATH"
               echo "NODE_PATH in subprocess: $NODE_PATH"
-              echo "Checking Nix sass binary:"
-              if [ -f "${effectivePkgs.sass}/bin/sass" ]; then
-                echo "Nix sass binary exists"
-                ls -l ${effectivePkgs.sass}/bin/sass
-                ${effectivePkgs.sass}/bin/sass --version || echo "Failed to run Nix sass binary"
+              echo "Checking dart-sass binary:"
+              if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
+                echo "dart-sass binary exists"
+                ls -l ${effectivePkgs.dart-sass}/bin/sass
+                ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
               else
-                echo "Nix sass binary missing"
+                echo "dart-sass binary missing"
               fi
               exit 1
             }
@@ -648,12 +648,12 @@
             sass --version || echo "Failed to run sass from PATH"
           else
             echo "sass not found in PATH"
-            if [ -f "${effectivePkgs.sass}/bin/sass" ]; then
-              echo "Nix sass binary exists in ${effectivePkgs.sass}/bin/sass but not in PATH"
-              ls -l ${effectivePkgs.sass}/bin/sass
-              ${effectivePkgs.sass}/bin/sass --version || echo "Failed to run Nix sass binary"
+            if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
+              echo "dart-sass binary exists in ${effectivePkgs.dart-sass}/bin/sass but not in PATH"
+              ls -l ${effectivePkgs.dart-sass}/bin/sass
+              ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
             else
-              echo "Nix sass binary missing in ${effectivePkgs.sass}/bin/sass"
+              echo "dart-sass binary missing in ${effectivePkgs.dart-sass}/bin/sass"
             fi
             exit 1
           fi
@@ -683,7 +683,7 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.sass}/bin:\$PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:\$PATH
           export NODE_PATH=/app/node_modules:\$NODE_PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
@@ -754,7 +754,7 @@
             gcc
             shared-mime-info
             tzdata
-            sass
+            dart-sass
           ]
         );
         shellHook = ''
@@ -769,7 +769,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -855,7 +855,7 @@
           gcc
           shared-mime-info
           tzdata
-          sass
+          dart-sass
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -869,7 +869,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -954,7 +954,7 @@
           gcc
           shared-mime-info
           tzdata
-          sass
+          dart-sass
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -962,7 +962,7 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$PATH
+          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -1027,7 +1027,7 @@
         pkgs.redis
         pkgs.shared-mime-info
         pkgs.tzdata
-        pkgs.sass
+        pkgs.dart-sass
       ];
       debugPaths = [
         pkgs.coreutils
@@ -1073,7 +1073,7 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.sass}/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
@@ -1154,7 +1154,7 @@
             gccVersion = null;
             packageOverrides = {};
             historicalNixpkgs = null;
-          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.sass}/bin:$PATH
+          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
