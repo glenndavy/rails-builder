@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.38"; # Incremented for fixed webpack_runner.rb patch
+    flake_version = "112.39"; # Incremented for robust webpack_runner.rb patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -636,12 +636,13 @@
               fi
             fi
             echo "Locating webpacker gem directory:"
-            WEBPACKER_GEM_DIR=$(find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.4.3' -maxdepth 4)
+            WEBPACKER_GEM_DIR=$(find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.*' -maxdepth 4)
+            echo "Found WEBPACKER_GEM_DIR: $WEBPACKER_GEM_DIR"
             if [ -n "$WEBPACKER_GEM_DIR" ] && [ -f "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" ]; then
               echo "Patching webpack_runner.rb in $WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
               echo "Original webpack_runner.rb contents:"
               cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              sed -i 's|exec("\./bin/webpack",|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack",|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || {
+              sed -i 's|exec("\./bin/webpack".*|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || {
                 echo "Error: Failed to patch webpack_runner.rb"
                 exit 1
               }
@@ -652,7 +653,8 @@
                 exit 1
               fi
             else
-              echo "Error: webpacker-5.4.3 gem or webpack_runner.rb not found in $APP_DIR/vendor/bundle/ruby"
+              echo "Error: webpacker gem or webpack_runner.rb not found in $APP_DIR/vendor/bundle/ruby"
+              ls -R $APP_DIR/vendor/bundle/ruby | grep webpacker || echo "No webpacker directory found"
               exit 1
             fi
             echo "Running yarn build:css with dart-sass binary:"
