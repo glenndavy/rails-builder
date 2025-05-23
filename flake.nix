@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.44"; # Incremented for simplified bin/webpack patch
+    flake_version = "112.45"; # Incremented for corrected Ruby webpackScript
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -226,11 +226,15 @@
         unset RUBYLIB
         exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
       '';
-      webpackScript = pkgs.writeShellScript "webpack" ''
-        #!${ruby}/bin/ruby
-        ENV['NODE_PATH'] = "#{$APP_DIR}/node_modules:#{${effectivePkgs.nodejs_20}}/lib/node_modules:#{ENV['NODE_PATH']}"
-        exec("${effectivePkgs.nodejs_20}/bin/node", "#{$APP_DIR}/node_modules/.bin/webpack", *ARGV)
-      '';
+      webpackScript = pkgs.writeFile {
+        name = "webpack";
+        text = ''
+          #!${ruby}/bin/ruby
+          ENV['NODE_PATH'] = "#{ENV['APP_DIR']}/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:#{ENV['NODE_PATH']}"
+          exec("${effectivePkgs.nodejs_20}/bin/node", "#{ENV['APP_DIR']}/node_modules/.bin/webpack", *ARGV)
+        '';
+        executable = true;
+      };
       effectiveBuildCommands =
         if buildCommands == true
         then []
@@ -265,12 +269,12 @@
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           export NODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
+          export APP_DIR=$TMPDIR/app
           unset RUBYLIB
 
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
           export HOME=$TMPDIR
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          export APP_DIR=$TMPDIR/app
           mkdir -p $APP_DIR
           export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
           export BUNDLE_PATH=$APP_DIR/vendor/bundle
@@ -633,6 +637,10 @@
                 echo "Error: bin/webpack patch failed, incorrect contents"
                 exit 1
               fi
+              ${ruby}/bin/ruby bin/webpack --version || {
+                echo "Error: Failed to execute bin/webpack"
+                exit 1
+              }
             fi
             echo "Running yarn build:css with dart-sass binary:"
             ${effectivePkgs.yarn}/bin/yarn build:css || {
