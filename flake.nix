@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.25"; # Incremented for explicit sass path and subprocess debug
+    flake_version = "112.26"; # Incremented for Nix sass package
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -175,6 +175,7 @@
         libxml2
         libxslt
         inetutils
+        sass
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
@@ -250,7 +251,9 @@
           ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
           echo "Checking for yarn:"
           command -v yarn || echo "yarn not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:$APP_DIR/node_modules/.bin:$PATH
+          echo "Checking for sass:"
+          command -v sass || echo "sass not found"
+          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$APP_DIR/node_modules/.bin:$PATH
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
@@ -452,7 +455,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
@@ -507,7 +510,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else ''
@@ -550,17 +553,6 @@
                 exit 1
               }
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-              # Validate sass presence
-              echo "Checking for sass after node_modules copy:"
-              if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
-                echo "Found sass executable in node_modules/.bin"
-                ls -l $APP_DIR/node_modules/.bin/sass
-                chmod +x $APP_DIR/node_modules/.bin/sass
-                echo "Ensured sass is executable"
-              else
-                echo "Error: sass executable not found in $APP_DIR/node_modules/.bin"
-                exit 1
-              fi
             fi
             # Run yarn install offline explicitly
             if [ -f yarn.lock ]; then
@@ -569,17 +561,6 @@
                 exit 1
               }
               echo "Yarn install completed successfully"
-              # Re-validate sass after yarn install
-              echo "Checking for sass after yarn install:"
-              if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
-                echo "Found sass executable in node_modules/.bin"
-                ls -l $APP_DIR/node_modules/.bin/sass
-                chmod +x $APP_DIR/node_modules/.bin/sass
-                echo "Ensured sass is executable"
-              else
-                echo "Error: sass executable not found in $APP_DIR/node_modules/.bin after yarn install"
-                exit 1
-              fi
             fi
             # Link yarnDeps if available
             ${
@@ -589,43 +570,32 @@
               if [ "$yarn_deps_count" -gt 0 ]; then
                 ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
                 echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
-                # Re-validate sass after yarnDeps link
-                echo "Checking for sass after yarnDeps link:"
-                if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
-                  echo "Found sass executable in node_modules/.bin"
-                  ls -l $APP_DIR/node_modules/.bin/sass
-                  chmod +x $APP_DIR/node_modules/.bin/sass
-                  echo "Ensured sass is executable"
-                else
-                  echo "Error: sass executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
-                  exit 1
-                fi
               fi
             ''
             else ''
               echo "yarnDeps not provided"
             ''
           }
-            # Update package.json to use explicit sass path
+            # Update package.json to use Nix sass binary
             if [ -f package.json ]; then
-              echo "Updating package.json build:css script to use explicit sass path"
-              sed -i 's|"build:css":.*sass |"build:css": "./node_modules/.bin/sass |' package.json
+              echo "Updating package.json build:css script to use Nix sass binary"
+              sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.sass}/bin/sass |' package.json
               echo "Updated package.json:"
               cat package.json
             fi
             # Explicitly run yarn build:css
-            echo "Running yarn build:css explicitly:"
+            echo "Running yarn build:css with Nix sass binary:"
             ${effectivePkgs.yarn}/bin/yarn build:css || {
               echo "Error: yarn build:css failed"
               echo "PATH in subprocess: $PATH"
               echo "NODE_PATH in subprocess: $NODE_PATH"
-              echo "Checking sass in subprocess:"
-              if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
-                echo "sass exists in $APP_DIR/node_modules/.bin"
-                ls -l $APP_DIR/node_modules/.bin/sass
-                $APP_DIR/node_modules/.bin/sass --version || echo "Failed to run sass directly"
+              echo "Checking Nix sass binary:"
+              if [ -f "${effectivePkgs.sass}/bin/sass" ]; then
+                echo "Nix sass binary exists"
+                ls -l ${effectivePkgs.sass}/bin/sass
+                ${effectivePkgs.sass}/bin/sass --version || echo "Failed to run Nix sass binary"
               else
-                echo "sass missing in $APP_DIR/node_modules/.bin"
+                echo "Nix sass binary missing"
               fi
               exit 1
             }
@@ -678,12 +648,12 @@
             sass --version || echo "Failed to run sass from PATH"
           else
             echo "sass not found in PATH"
-            if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
-              echo "sass executable exists in $APP_DIR/node_modules/.bin but not in PATH"
-              ls -l $APP_DIR/node_modules/.bin/sass
-              $APP_DIR/node_modules/.bin/sass --version || echo "Failed to run sass directly"
+            if [ -f "${effectivePkgs.sass}/bin/sass" ]; then
+              echo "Nix sass binary exists in ${effectivePkgs.sass}/bin/sass but not in PATH"
+              ls -l ${effectivePkgs.sass}/bin/sass
+              ${effectivePkgs.sass}/bin/sass --version || echo "Failed to run Nix sass binary"
             else
-              echo "sass executable missing in $APP_DIR/node_modules/.bin"
+              echo "Nix sass binary missing in ${effectivePkgs.sass}/bin/sass"
             fi
             exit 1
           fi
@@ -713,7 +683,7 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:\$PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.sass}/bin:\$PATH
           export NODE_PATH=/app/node_modules:\$NODE_PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
@@ -784,6 +754,7 @@
             gcc
             shared-mime-info
             tzdata
+            sass
           ]
         );
         shellHook = ''
@@ -798,7 +769,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -884,6 +855,7 @@
           gcc
           shared-mime-info
           tzdata
+          sass
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -897,7 +869,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -982,6 +954,7 @@
           gcc
           shared-mime-info
           tzdata
+          sass
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -989,7 +962,7 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:$PATH
+          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -1001,7 +974,7 @@
           echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
           echo "GEM_PATH: $GEM_PATH"
-          echo "NODE_PATH: $NODE_PATH
+          echo "NODE_PATH: $NODE_PATH"
           echo "RUBYOPT: $RUBYOPT"
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
@@ -1054,6 +1027,7 @@
         pkgs.redis
         pkgs.shared-mime-info
         pkgs.tzdata
+        pkgs.sass
       ];
       debugPaths = [
         pkgs.coreutils
@@ -1099,7 +1073,7 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.sass}/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
@@ -1180,7 +1154,7 @@
             gccVersion = null;
             packageOverrides = {};
             historicalNixpkgs = null;
-          }).bundler}/bin:${pkgs.yarn}/bin:$PATH
+          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.sass}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
