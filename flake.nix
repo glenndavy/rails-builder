@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.28"; # Incremented for webpack validation
+    flake_version = "112.29"; # Incremented for enhanced webpack validation and bin/webpack patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -253,7 +253,9 @@
           command -v yarn || echo "yarn not found"
           echo "Checking for sass:"
           command -v sass || echo "sass not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/node_modules/.bin:$PATH
+          echo "Checking for node:"
+          command -v node || echo "node not found"
+          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
@@ -455,7 +457,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
@@ -510,7 +512,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else ''
@@ -560,6 +562,7 @@
                 ls -l $APP_DIR/node_modules/.bin/webpack
                 chmod +x $APP_DIR/node_modules/.bin/webpack
                 echo "Ensured webpack is executable"
+                ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
               else
                 echo "Warning: webpack executable not found in $APP_DIR/node_modules/.bin"
               fi
@@ -578,6 +581,7 @@
                 ls -l $APP_DIR/node_modules/.bin/webpack
                 chmod +x $APP_DIR/node_modules/.bin/webpack
                 echo "Ensured webpack is executable"
+                ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
               else
                 echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarn install"
                 exit 1
@@ -598,6 +602,7 @@
                   ls -l $APP_DIR/node_modules/.bin/webpack
                   chmod +x $APP_DIR/node_modules/.bin/webpack
                   echo "Ensured webpack is executable"
+                  ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
                 else
                   echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
                   exit 1
@@ -614,6 +619,14 @@
               sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.dart-sass}/bin/sass |' package.json
               echo "Updated package.json:"
               cat package.json
+            fi
+            # Patch bin/webpack to ensure node path
+            if [ -f bin/webpack ]; then
+              echo "Patching bin/webpack to use explicit node path"
+              sed -i '1i #!${effectivePkgs.runtimeShell}\nNODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules\nPATH=${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH\n' bin/webpack
+              chmod +x bin/webpack
+              echo "Patched bin/webpack:"
+              cat bin/webpack
             fi
             # Explicitly run yarn build:css
             echo "Running yarn build:css with dart-sass binary:"
@@ -693,9 +706,16 @@
           if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
             echo "webpack found in node_modules/.bin: $APP_DIR/node_modules/.bin/webpack"
             ls -l $APP_DIR/node_modules/.bin/webpack
-            $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack"
+            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
+              echo "Failed to run webpack directly"
+              echo "Checking node availability:"
+              ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
+              echo "Checking webpack symlink:"
+              readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
+              exit 1
+            }
           else
-            echo "webpack not found in node_modules/.bin"
+            echo "Error: webpack not found in node_modules/.bin"
             exit 1
           fi
           echo "\r********************** executing build commands ********************************************\r"
@@ -724,7 +744,7 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:\$PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:\$PATH
           export NODE_PATH=/app/node_modules:\$NODE_PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
@@ -810,7 +830,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -910,7 +930,7 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -1003,7 +1023,7 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$PATH
+          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
@@ -1114,7 +1134,7 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
@@ -1195,7 +1215,7 @@
             gccVersion = null;
             packageOverrides = {};
             historicalNixpkgs = null;
-          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:$PATH
+          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:$PATH
           export NODE_PATH=./node_modules:$NODE_PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
