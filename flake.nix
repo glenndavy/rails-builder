@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.33"; # Incremented for fixed if/fi syntax and enhanced debugging
+    flake_version = "112.33"; # Incremented for fixed Nix syntax in buildPhase
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -277,7 +277,7 @@
                     export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
                     export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
                     export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-                    export REDIS_URL=redis://localhost:6379 # Default Redis URL for runtime
+                    export REDIS_URL=redis://localhost:6379
                     export CC=${gcc}/bin/gcc
                     export CXX=${gcc}/bin/g++
                     echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
@@ -288,7 +288,6 @@
                     echo "PATH: $PATH"
 
                     echo "\n********************* Setting up postgres ********************************************\n"
-
                     echo "Checking for libpq.so:"
                     find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
                     ${
@@ -296,7 +295,6 @@
             then "export RAILS_SERVE_STATIC_FILES=true"
             else ""
           }
-                    # Postgres setup
                     export PGDATA=$TMPDIR/pgdata
                     export PGHOST=$TMPDIR
                     export PGUSER=postgres
@@ -310,18 +308,14 @@
                     export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
 
                     echo "\n********************* Setting up redis ********************************************\n"
-
-                    # Redis setup
                     export REDIS_SOCKET=$TMPDIR/redis.sock
                     export REDIS_PID=$TMPDIR/redis.pid
                     mkdir -p $TMPDIR
                     ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
                     sleep 2
-                    # Verify Redis is running
                     ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
 
                     echo "\n********************* Setting up bundler ********************************************\n"
-
                     mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
                     echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
                     ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
@@ -348,51 +342,29 @@
 
                     echo "\n********************** Bundler installed ********************************************\n"
                     echo "\n********************** Deciding bundle strategy ********************************************\n"
-
                     echo "Detected gem strategy: ${effectiveGemStrategy}"
-                    echo "Checking for gemset.nix: ${
-            if gemsetExists
-            then "found"
-            else
-              "not found"
-              fi
-          }"
-                    ${
-            if effectiveGemStrategy == "bundix"
-            then ''
-              echo "Checking gemset status: ${
-                if effectiveGemset != null && builtins.isAttrs effectiveGemset
-                then "provided"
-                else
-                  "null or invalid"
-                  fi
-              }"
-              echo "Gemset gem names: ${
-                if effectiveGemset != null && builtins.isAttrs effectiveGemset
-                then builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
-                else
-                  "none"
-                  fi
-              }"
-            ''
-            else ''
-              echo "Vendored strategy: gemset not required"
-            ''
-          }
-                    echo "Checking ${
-            if effectiveGemStrategy == "vendored"
-            then "vendor/cache"
-            else
-              "gemset.nix"
-              fi
-          } contents:"
-                    ${
-            if effectiveGemStrategy == "vendored"
-            then "ls -l vendor/cache || echo 'vendor/cache directory not found'"
-            else
-              "ls -l gemset.nix || echo 'gemset.nix not found in source'"
-              fi
-          }
+                    if [ "${gemsetExists}" = "true" ]; then
+                      echo "Checking for gemset.nix: found"
+                    else
+                      echo "Checking for gemset.nix: not found"
+                    fi
+                    if [ "${effectiveGemStrategy}" = "bundix" ]; then
+                      if [ -n "${effectiveGemset}" ] && [ "$(type -t ${effectiveGemset})" = "associative array" ]; then
+                        echo "Checking gemset status: provided"
+                        echo "Gemset gem names: ${builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)}"
+                      else
+                        echo "Checking gemset status: null or invalid"
+                      fi
+                    else
+                      echo "Vendored strategy: gemset not required"
+                    fi
+                    if [ "${effectiveGemStrategy}" = "vendored" ]; then
+                      echo "Checking vendor/cache contents:"
+                      ls -l vendor/cache || echo "vendor/cache directory not found"
+                    else
+                      echo "Checking gemset.nix contents:"
+                      ls -l gemset.nix || echo "gemset.nix not found in source"
+                    fi
                     echo "Activated gems before bundle install:"
                     gem list || echo "Failed to list gems"
                     echo "********** copying to APP_DIR **********"
@@ -464,7 +436,6 @@
                         echo "Bin directory $out/app/vendor/bundle/bin not found"
                         exit 1
                       fi
-                      # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
                       export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
                       echo "\n********************** bundling done ********************************************\n"
                     elif [ "${effectiveGemStrategy}" = "bundix" ] && [ -n "${effectiveGemset}" ] && [ "$(type -t ${effectiveGemset})" = "associative array" ]; then
@@ -517,7 +488,6 @@
                         echo "Bin directory $out/app/vendor/bundle/bin not found"
                         exit 1
                       fi
-                      # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
                       export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
                       echo "\n********************** bundling done ********************************************\n"
                     else
@@ -525,17 +495,14 @@
                       exit 1
                     fi
                     echo "\n********************** installing javascript dependencies ********************************************\n"
-                    # JavaScript dependencies
                     echo "Checking for JavaScript dependencies..."
                     if [ -f "$APP_DIR/yarn.nix" ]; then
                       echo "Installing Yarn dependencies..."
-                      # Set up Yarn cache
                       export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
                       mkdir -p $YARN_CACHE_FOLDER
                       echo "Checking for tmp/yarn-cache in source:"
                       if [ -d "${src}/tmp/yarn-cache" ]; then
                         echo "Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
-                        # Validate tmp/yarn-cache is non-empty
                         if [ -z "$(ls -A ${src}/tmp/yarn-cache)" ]; then
                           echo "Error: tmp/yarn-cache is empty"
                           exit 1
@@ -551,7 +518,6 @@
                         echo "Error: No tmp/yarn-cache found in app source, yarn install will fail"
                         exit 1
                       fi
-                      # Copy node_modules if available
                       if [ -d "${src}/tmp/node_modules" ]; then
                         mkdir -p $APP_DIR/node_modules
                         cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
@@ -559,7 +525,6 @@
                           exit 1
                         }
                         echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-                        # Validate webpack presence
                         echo "Checking for webpack after node_modules copy:"
                         if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
                           echo "Found webpack executable in node_modules/.bin"
@@ -571,14 +536,12 @@
                           echo "Warning: webpack executable not found in $APP_DIR/node_modules/.bin"
                         fi
                       fi
-                      # Run yarn install offline explicitly
                       if [ -f yarn.lock ]; then
                         ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules || {
                           echo "Error: yarn install --offline failed. Check yarn.lock or tmp/yarn-cache."
                           exit 1
                         }
                         echo "Yarn install completed successfully"
-                        # Re-validate webpack after yarn install
                         echo "Checking for webpack after yarn install:"
                         if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
                           echo "Found webpack executable in node_modules/.bin"
@@ -591,13 +554,11 @@
                           exit 1
                         fi
                       fi
-                      # Link yarnDeps if available
                       if [ "${builtins.any (dep: dep ? yarnModules) extraBuildInputs}" = "true" ]; then
                         yarn_deps_count=$(echo "${builtins.length (builtins.filter (dep: dep ? yarnModules) extraBuildInputs)}")
                         if [ "$yarn_deps_count" -gt 0 ]; then
                           ln -sf ${builtins.head (builtins.filter (dep: dep ? yarnModules) extraBuildInputs).yarnModules}/node_modules/* $APP_DIR/node_modules/
                           echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
-                          # Re-validate webpack after yarnDeps link
                           echo "Checking for webpack after yarnDeps link:"
                           if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
                             echo "Found webpack executable in node_modules/.bin"
@@ -613,14 +574,12 @@
                       else
                         echo "yarnDeps not provided"
                       fi
-                      # Update package.json to use dart-sass binary
                       if [ -f package.json ]; then
                         echo "Updating package.json build:css script to use dart-sass binary"
                         sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.dart-sass}/bin/sass |' package.json
                         echo "Updated package.json:"
                         cat package.json
                       fi
-                      # Patch bin/webpack to ensure node path
                       if [ -f bin/webpack ]; then
                         echo "Patching bin/webpack to use explicit node path"
                         cat > bin/webpack <<EOF
@@ -633,7 +592,6 @@
                         echo "Patched bin/webpack:"
                         cat bin/webpack
                       fi
-                      # Patch webpack_runner.rb to use absolute paths
                       echo "Locating webpacker gem directory:"
                       WEBPACKER_GEM_DIR=$(find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.4.3' -maxdepth 4)
                       if [ -n "$WEBPACKER_GEM_DIR" ] && [ -f "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" ]; then
@@ -645,7 +603,6 @@
                         echo "Error: webpacker-5.4.3 gem or webpack_runner.rb not found in $APP_DIR/vendor/bundle/ruby"
                         exit 1
                       fi
-                      # Explicitly run yarn build:css
                       echo "Running yarn build:css with dart-sass binary:"
                       ${effectivePkgs.yarn}/bin/yarn build:css || {
                         echo "Error: yarn build:css failed"
@@ -662,7 +619,6 @@
                         exit 1
                       }
                       echo "yarn build:css completed successfully"
-                      # Check Webpacker configuration files
                       echo "Checking Webpacker configuration files:"
                       ls -R config/webpack || echo "No config/webpack directory found"
                       if [ -f config/webpacker.yml ]; then
@@ -711,7 +667,6 @@
                       fi
                     fi
                     export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
-                    # Debug sass and webpack availability before assets:precompile
                     echo "Checking for sass before assets:precompile:"
                     if [ -x "$(command -v sass)" ]; then
                       echo "sass found in PATH: $(command -v sass)"
@@ -749,7 +704,6 @@
                         exit 1
                       }
                     fi
-                    # Debug environment before assets:precompile
                     echo "Debugging environment before assets:precompile:"
                     echo "Current working directory: $(pwd)"
                     echo "Checking node_modules/.bin contents:"
@@ -769,7 +723,6 @@
                     which webpack || echo "webpack not found in PATH"
                     echo "\n********************** executing build commands ********************************************\n"
                     ${builtins.concatStringsSep "\n" effectiveBuildCommands}
-                    # Stop services
                     if [ -f "$REDIS_PID" ]; then
                       kill $(cat $REDIS_PID)
                       sleep 1
@@ -887,7 +840,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
+          export REDIS_URL=redis://localhost:6379/0
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
@@ -899,7 +852,6 @@
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
-          # Add Rails bin to PATH after bundle install
           if [ -d "$BUNDLE_PATH/bin" ]; then
             export PATH=$BUNDLE_PATH/bin:$PATH
           fi
@@ -988,7 +940,7 @@
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379/0 # Default Redis URL for runtime
+          export REDIS_URL=redis://localhost:6379/0
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
@@ -1000,7 +952,6 @@
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
           ${bundler}/bin/bundle config set --local bin $BUNDLE_PATH/bin
           ${bundler}/bin/bundle config set --local without development test
-          # Add Rails bin to PATH after bundle install
           if [ -d "$BUNDLE_PATH/bin" ]; then
             export PATH=$BUNDLE_PATH/bin:$PATH
           fi
