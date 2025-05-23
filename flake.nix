@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.22"; # Incremented for fixed mkDockerImage PATH
+    flake_version = "112.23"; # Incremented for sass debug and PATH reinforcement
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -318,7 +318,6 @@
           echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
             echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
-            exit  ascended
             exit 1
           }
           cat > $APP_DIR/.bundle/config <<EOF
@@ -618,6 +617,19 @@
             fi
           fi
           export NODE_PATH=$APP_DIR/node_modules
+          # Debug sass availability before assets:precompile
+          echo "Checking for sass before assets:precompile:"
+          if command -v sass >/dev/null 2>&1; then
+            echo "sass found in PATH: $(command -v sass)"
+          else
+            echo "sass not found in PATH"
+            if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
+              echo "sass executable exists in $APP_DIR/node_modules/.bin but not in PATH"
+            else
+              echo "sass executable missing in $APP_DIR/node_modules/.bin"
+            fi
+            exit 1
+          fi
           echo "\r********************** executing build commands ********************************************\r"
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
           # Stop services
@@ -1054,7 +1066,7 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ ! -f "$1/Gemfile.lock" ]; then
+        if [ -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
