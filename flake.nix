@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.29"; # Incremented for enhanced webpack validation and bin/webpack patch
+    flake_version = "112.30"; # Incremented for webpack execution and webpack_runner.rb patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -176,6 +176,7 @@
         libxslt
         inetutils
         dart-sass
+        nodePackages.webpack-cli
       ];
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
       ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
@@ -255,10 +256,10 @@
           command -v sass || echo "sass not found"
           echo "Checking for node:"
           command -v node || echo "node not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
+          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/node_modules/.bin:$PATH
           export GEM_HOME=$TMPDIR/gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
-          export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
+          export NODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           unset RUBYLIB
 
           export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
@@ -457,7 +458,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else if effectiveGemStrategy == "bundix" && effectiveGemset != null && builtins.isAttrs effectiveGemset
@@ -512,7 +513,7 @@
                 exit 1
               fi
               # Add Rails bin directory to PATH after bundle install, ensuring bundler derivation remains first
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
+              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
               echo "\n********************** bundling done ********************************************\n"
             ''
             else ''
@@ -623,10 +624,17 @@
             # Patch bin/webpack to ensure node path
             if [ -f bin/webpack ]; then
               echo "Patching bin/webpack to use explicit node path"
-              sed -i '1i #!${effectivePkgs.runtimeShell}\nNODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules\nPATH=${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH\n' bin/webpack
+              sed -i '1i #!${effectivePkgs.runtimeShell}\nNODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules\nPATH=${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/node_modules/.bin:$PATH\n' bin/webpack
               chmod +x bin/webpack
               echo "Patched bin/webpack:"
               cat bin/webpack
+            fi
+            # Patch webpack_runner.rb to use absolute paths
+            if [ -f "$APP_DIR/vendor/bundle/ruby/${rubyVersion.dotted}/gems/webpacker-5.4.3/lib/webpacker/webpack_runner.rb" ]; then
+              echo "Patching webpack_runner.rb to use absolute webpack path"
+              sed -i "s|exec(\"\.\/bin\/webpack\",|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\",|" "$APP_DIR/vendor/bundle/ruby/${rubyVersion.dotted}/gems/webpacker-5.4.3/lib/webpacker/webpack_runner.rb"
+              echo "Patched webpack_runner.rb:"
+              cat "$APP_DIR/vendor/bundle/ruby/${rubyVersion.dotted}/gems/webpacker-5.4.3/lib/webpacker/webpack_runner.rb"
             fi
             # Explicitly run yarn build:css
             echo "Running yarn build:css with dart-sass binary:"
@@ -645,6 +653,25 @@
               exit 1
             }
             echo "yarn build:css completed successfully"
+            # Explicitly run webpack to ensure it works
+            echo "Running webpack explicitly:"
+            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --config $APP_DIR/config/webpack/webpack.config.js || {
+              echo "Error: webpack execution failed"
+              echo "PATH in subprocess: $PATH"
+              echo "NODE_PATH in subprocess: $NODE_PATH"
+              echo "Checking webpack binary:"
+              if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                echo "webpack binary exists"
+                ls -l $APP_DIR/node_modules/.bin/webpack
+                readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
+              else
+                echo "webpack binary missing"
+              fi
+              echo "Checking node binary:"
+              ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
+              exit 1
+            }
+            echo "webpack execution completed successfully"
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             if [ -d "${src}/tmp/node_modules" ]; then
@@ -712,11 +739,16 @@
               ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
               echo "Checking webpack symlink:"
               readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
+              echo "Falling back to Nix webpack-cli:"
+              ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || echo "Nix webpack-cli failed"
               exit 1
             }
           else
-            echo "Error: webpack not found in node_modules/.bin"
-            exit 1
+            echo "Error: webpack not found in node_modules/.bin, attempting Nix webpack-cli"
+            ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || {
+              echo "Nix webpack-cli failed"
+              exit 1
+            }
           fi
           echo "\r********************** executing build commands ********************************************\r"
           ${builtins.concatStringsSep "\n" effectiveBuildCommands}
@@ -744,8 +776,8 @@
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:\$PATH
-          export NODE_PATH=/app/node_modules:\$NODE_PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:\$PATH
+          export NODE_PATH=/app/node_modules:${pkgs.nodejs_20}/lib/node_modules:\$NODE_PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
@@ -816,6 +848,7 @@
             shared-mime-info
             tzdata
             dart-sass
+            nodePackages.webpack-cli
           ]
         );
         shellHook = ''
@@ -830,8 +863,8 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$PATH
-          export NODE_PATH=./node_modules:$NODE_PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$PATH
+          export NODE_PATH=./node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -917,6 +950,7 @@
           shared-mime-info
           tzdata
           dart-sass
+          nodePackages.webpack-cli
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -930,8 +964,8 @@
           export BUNDLE_GEMFILE=$PWD/Gemfile
           export BUNDLE_USER_CONFIG=$PWD/.bundle/config
           export BUNDLE_IGNORE_CONFIG=1
-          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$PATH
-          export NODE_PATH=./node_modules:$NODE_PATH
+          export PATH=${bundler}/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$PATH
+          export NODE_PATH=./node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -1016,6 +1050,7 @@
           shared-mime-info
           tzdata
           dart-sass
+          nodePackages.webpack-cli
         ];
         shellHook = ''
           unset GEM_HOME GEM_PATH
@@ -1023,8 +1058,8 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:$PATH
-          export NODE_PATH=./node_modules:$NODE_PATH
+          export PATH=$GEM_HOME/bin:${ruby}/bin:./node_modules/.bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$PATH
+          export NODE_PATH=./node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -1089,6 +1124,7 @@
         pkgs.shared-mime-info
         pkgs.tzdata
         pkgs.dart-sass
+        pkgs.nodePackages.webpack-cli
       ];
       debugPaths = [
         pkgs.coreutils
@@ -1134,13 +1170,13 @@
           WorkingDir = "/app";
           Env =
             [
-              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:/bin"
+              "PATH=${bundler}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:/bin"
               "GEM_HOME=/app/.nix-gems"
               "GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems"
               "BUNDLE_PATH=/app/vendor/bundle"
               "BUNDLE_GEMFILE=/app/Gemfile"
               "BUNDLE_USER_CONFIG=/app/.bundle/config"
-              "NODE_PATH=/app/node_modules"
+              "NODE_PATH=/app/node_modules:${pkgs.nodejs_20}/lib/node_modules"
               "RAILS_ENV=production"
               "RAILS_SERVE_STATIC_FILES=true"
               "DATABASE_URL=postgresql://postgres@localhost/rails_production?host=/var/run/postgresql"
@@ -1215,8 +1251,8 @@
             gccVersion = null;
             packageOverrides = {};
             historicalNixpkgs = null;
-          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:$PATH
-          export NODE_PATH=./node_modules:$NODE_PATH
+          }).bundler}/bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:$PATH
+          export NODE_PATH=./node_modules:${pkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           export XDG_DATA_DIRS=${pkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${pkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
