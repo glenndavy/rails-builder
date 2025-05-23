@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.30"; # Incremented for webpack execution and webpack_runner.rb patch
+    flake_version = "112.30a"; # Incremented for webpack execution and webpack_runner.rb patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -654,24 +654,24 @@
             }
             echo "yarn build:css completed successfully"
             # Explicitly run webpack to ensure it works
-            echo "Running webpack explicitly:"
-            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --config $APP_DIR/config/webpack/webpack.config.js || {
-              echo "Error: webpack execution failed"
-              echo "PATH in subprocess: $PATH"
-              echo "NODE_PATH in subprocess: $NODE_PATH"
-              echo "Checking webpack binary:"
-              if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                echo "webpack binary exists"
-                ls -l $APP_DIR/node_modules/.bin/webpack
-                readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
-              else
-                echo "webpack binary missing"
-              fi
-              echo "Checking node binary:"
-              ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
-              exit 1
-            }
-            echo "webpack execution completed successfully"
+            #echo "Running webpack explicitly:"
+            #${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --config $APP_DIR/config/webpack/webpack.config.js || {
+            #  echo "Error: webpack execution failed"
+            #  echo "PATH in subprocess: $PATH"
+            #  echo "NODE_PATH in subprocess: $NODE_PATH"
+            #  echo "Checking webpack binary:"
+            #  if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+            #    echo "webpack binary exists"
+            #    ls -l $APP_DIR/node_modules/.bin/webpack
+            #    readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
+            #  else
+            #    echo "webpack binary missing"
+            #  fi
+            #  echo "Checking node binary:"
+            #  ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
+            #  exit 1
+            #}
+            #echo "webpack execution completed successfully"
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             if [ -d "${src}/tmp/node_modules" ]; then
