@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.42"; # Incremented for refined webpack_runner.rb patch
+    flake_version = "112.43"; # Incremented for further refined webpack_runner.rb patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -643,10 +643,10 @@
               echo "Patching webpack_runner.rb in $WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
               echo "File permissions before patching:"
               ls -l "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              echo "Original exec line (if present):"
-              grep -n 'exec.*bin/webpack' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || echo "No exec line found"
-              echo "Applying primary sed command: sed -i 's|exec\s*(\"\./bin/webpack\".*\*ARGV)|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\", *ARGV)|' \"$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb\""
-              sed -i 's|exec\s*("\./bin/webpack".*\*ARGV)|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
+              echo "Original exec line with context (if present):"
+              grep -n -C 2 'exec.*bin/webpack' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || echo "No exec line found"
+              echo "Applying primary sed command: sed -i 's|exec\s*(\"\./bin/webpack\"[^\)]*)|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\", *ARGV)|' \"$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb\""
+              sed -i 's|exec\s*("\./bin/webpack"[^\)]*)|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
               sed_exit_code=$?
               echo "Primary sed command exit code: $sed_exit_code"
               if [ $sed_exit_code -ne 0 ]; then
