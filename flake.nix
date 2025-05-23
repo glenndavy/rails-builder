@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.24"; # Incremented for explicit yarn build:css and enhanced sass debug
+    flake_version = "112.25"; # Incremented for explicit sass path and subprocess debug
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -555,6 +555,8 @@
               if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
                 echo "Found sass executable in node_modules/.bin"
                 ls -l $APP_DIR/node_modules/.bin/sass
+                chmod +x $APP_DIR/node_modules/.bin/sass
+                echo "Ensured sass is executable"
               else
                 echo "Error: sass executable not found in $APP_DIR/node_modules/.bin"
                 exit 1
@@ -572,6 +574,8 @@
               if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
                 echo "Found sass executable in node_modules/.bin"
                 ls -l $APP_DIR/node_modules/.bin/sass
+                chmod +x $APP_DIR/node_modules/.bin/sass
+                echo "Ensured sass is executable"
               else
                 echo "Error: sass executable not found in $APP_DIR/node_modules/.bin after yarn install"
                 exit 1
@@ -590,6 +594,8 @@
                 if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
                   echo "Found sass executable in node_modules/.bin"
                   ls -l $APP_DIR/node_modules/.bin/sass
+                  chmod +x $APP_DIR/node_modules/.bin/sass
+                  echo "Ensured sass is executable"
                 else
                   echo "Error: sass executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
                   exit 1
@@ -600,10 +606,27 @@
               echo "yarnDeps not provided"
             ''
           }
+            # Update package.json to use explicit sass path
+            if [ -f package.json ]; then
+              echo "Updating package.json build:css script to use explicit sass path"
+              sed -i 's|"build:css":.*sass |"build:css": "./node_modules/.bin/sass |' package.json
+              echo "Updated package.json:"
+              cat package.json
+            fi
             # Explicitly run yarn build:css
             echo "Running yarn build:css explicitly:"
             ${effectivePkgs.yarn}/bin/yarn build:css || {
               echo "Error: yarn build:css failed"
+              echo "PATH in subprocess: $PATH"
+              echo "NODE_PATH in subprocess: $NODE_PATH"
+              echo "Checking sass in subprocess:"
+              if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
+                echo "sass exists in $APP_DIR/node_modules/.bin"
+                ls -l $APP_DIR/node_modules/.bin/sass
+                $APP_DIR/node_modules/.bin/sass --version || echo "Failed to run sass directly"
+              else
+                echo "sass missing in $APP_DIR/node_modules/.bin"
+              fi
               exit 1
             }
             echo "yarn build:css completed successfully"
@@ -652,11 +675,13 @@
           if command -v sass >/dev/null 2>&1; then
             echo "sass found in PATH: $(command -v sass)"
             ls -l $(command -v sass)
+            sass --version || echo "Failed to run sass from PATH"
           else
             echo "sass not found in PATH"
             if [ -f "$APP_DIR/node_modules/.bin/sass" ]; then
               echo "sass executable exists in $APP_DIR/node_modules/.bin but not in PATH"
               ls -l $APP_DIR/node_modules/.bin/sass
+              $APP_DIR/node_modules/.bin/sass --version || echo "Failed to run sass directly"
             else
               echo "sass executable missing in $APP_DIR/node_modules/.bin"
             fi
@@ -976,7 +1001,7 @@
           echo "PATH: $PATH"
           echo "GEM_HOME: $GEM_HOME"
           echo "GEM_PATH: $GEM_PATH"
-          echo "NODE_PATH: $NODE_PATH"
+          echo "NODE_PATH: $NODE_PATH
           echo "RUBYOPT: $RUBYOPT"
           echo "TZDIR: $TZDIR"
           echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
