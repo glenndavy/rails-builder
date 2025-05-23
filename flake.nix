@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.40"; # Incremented for robust webpack_runner.rb patch
+    flake_version = "112.41"; # Incremented for fixed gcc syntax error
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -222,7 +222,7 @@
       bundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
         #!${pkgs.runtimeShell}
         export GEM_HOME=$TMPDIR/gems
-        export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+        export GEM guitPATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
         unset RUBYLIB
         exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
       '';
@@ -349,15 +349,31 @@
           echo "\n********************** Bundler installed ********************************************\n"
           echo "\n********************** Deciding bundle strategy ********************************************\n"
           echo "Detected gem strategy: ${effectiveGemStrategy}"
-          if [ ${if gemsetExists then "1" else "0"} -eq 1 ]; then
+          if [ ${
+            if gemsetExists
+            then "1"
+            else "0"
+          } -eq 1 ]; then
             echo "Checking for gemset.nix: found"
           else
             echo "Checking for gemset.nix: not found"
           fi
           if [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${if effectiveGemset == null then "" else effectiveGemset}" ] && [ "$(type -t ${if effectiveGemset == null then "{}" else effectiveGemset})" = "associative array" ]; then
+            if [ -n "${
+            if effectiveGemset == null
+            then ""
+            else effectiveGemset
+          }" ] && [ "$(type -t ${
+            if effectiveGemset == null
+            then "{}"
+            else effectiveGemset
+          })" = "associative array" ]; then
               echo "Checking gemset status: provided"
-              echo "Gemset gem names: ${if effectiveGemset == null then "" else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)}"
+              echo "Gemset gem names: ${
+            if effectiveGemset == null
+            then ""
+            else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
+          }"
             else
               echo "Checking gemset status: null or invalid"
             fi
@@ -445,7 +461,15 @@
             export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
             echo "\n********************** bundling done ********************************************\n"
           elif [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${if effectiveGemset == null then "" else effectiveGemset}" ] && [ "$(type -t ${if effectiveGemset == null then "{}" else effectiveGemset})" = "associative array" ]; then
+            if [ -n "${
+            if effectiveGemset == null
+            then ""
+            else effectiveGemset
+          }" ] && [ "$(type -t ${
+            if effectiveGemset == null
+            then "{}"
+            else effectiveGemset
+          })" = "associative array" ]; then
               echo "\n********************** using bundix strategy ********************************************\n"
               echo "\n************************** bundler set config  ********************************************\n"
               rm -rf $APP_DIR/vendor/bundle/*
@@ -566,7 +590,11 @@
               fi
             fi
             yarn_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep: if dep ? yarnModules then dep.yarnModules else "") extraBuildInputs)}; do
+            for dep in ${builtins.concatStringsSep " " (map (dep:
+            if dep ? yarnModules
+            then dep.yarnModules
+            else "")
+          extraBuildInputs)}; do
               if [ -n "$dep" ]; then
                 yarn_deps_count=$((yarn_deps_count + 1))
                 ln -sf $dep/node_modules/* $APP_DIR/node_modules/ || {
@@ -673,7 +701,11 @@
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             fi
             node_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep: if dep ? nodeDependencies then dep.nodeDependencies else "") extraBuildInputs)}; do
+            for dep in ${builtins.concatStringsSep " " (map (dep:
+            if dep ? nodeDependencies
+            then dep.nodeDependencies
+            else "")
+          extraBuildInputs)}; do
               if [ -n "$dep" ]; then
                 node_deps_count=$((node_deps_count + 1))
                 ln -s $dep/lib/node_modules $APP_DIR/node_modules || {
@@ -933,7 +965,7 @@
           (
             if gccVersion != null
             then historicalPkgs."gcc${gccVersion}"
-            elseKILL pkgs.gcc
+            else pkgs.gcc
           );
       bundlerVersion = detectBundlerVersion {inherit src;};
     in
