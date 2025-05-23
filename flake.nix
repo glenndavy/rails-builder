@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.39"; # Incremented for robust webpack_runner.rb patch
+    flake_version = "112.40"; # Incremented for robust webpack_runner.rb patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -349,31 +349,15 @@
           echo "\n********************** Bundler installed ********************************************\n"
           echo "\n********************** Deciding bundle strategy ********************************************\n"
           echo "Detected gem strategy: ${effectiveGemStrategy}"
-          if [ ${
-            if gemsetExists
-            then "1"
-            else "0"
-          } -eq 1 ]; then
+          if [ ${if gemsetExists then "1" else "0"} -eq 1 ]; then
             echo "Checking for gemset.nix: found"
           else
             echo "Checking for gemset.nix: not found"
           fi
           if [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${
-            if effectiveGemset == null
-            then ""
-            else effectiveGemset
-          }" ] && [ "$(type -t ${
-            if effectiveGemset == null
-            then "{}"
-            else effectiveGemset
-          })" = "associative array" ]; then
+            if [ -n "${if effectiveGemset == null then "" else effectiveGemset}" ] && [ "$(type -t ${if effectiveGemset == null then "{}" else effectiveGemset})" = "associative array" ]; then
               echo "Checking gemset status: provided"
-              echo "Gemset gem names: ${
-            if effectiveGemset == null
-            then ""
-            else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
-          }"
+              echo "Gemset gem names: ${if effectiveGemset == null then "" else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)}"
             else
               echo "Checking gemset status: null or invalid"
             fi
@@ -461,15 +445,7 @@
             export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
             echo "\n********************** bundling done ********************************************\n"
           elif [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${
-            if effectiveGemset == null
-            then ""
-            else effectiveGemset
-          }" ] && [ "$(type -t ${
-            if effectiveGemset == null
-            then "{}"
-            else effectiveGemset
-          })" = "associative array" ]; then
+            if [ -n "${if effectiveGemset == null then "" else effectiveGemset}" ] && [ "$(type -t ${if effectiveGemset == null then "{}" else effectiveGemset})" = "associative array" ]; then
               echo "\n********************** using bundix strategy ********************************************\n"
               echo "\n************************** bundler set config  ********************************************\n"
               rm -rf $APP_DIR/vendor/bundle/*
@@ -590,11 +566,7 @@
               fi
             fi
             yarn_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep:
-            if dep ? yarnModules
-            then dep.yarnModules
-            else "")
-          extraBuildInputs)}; do
+            for dep in ${builtins.concatStringsSep " " (map (dep: if dep ? yarnModules then dep.yarnModules else "") extraBuildInputs)}; do
               if [ -n "$dep" ]; then
                 yarn_deps_count=$((yarn_deps_count + 1))
                 ln -sf $dep/node_modules/* $APP_DIR/node_modules/ || {
@@ -636,17 +608,22 @@
               fi
             fi
             echo "Locating webpacker gem directory:"
+            echo "Running find command: find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.*' -maxdepth 4"
             WEBPACKER_GEM_DIR=$(find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.*' -maxdepth 4)
             echo "Found WEBPACKER_GEM_DIR: $WEBPACKER_GEM_DIR"
             if [ -n "$WEBPACKER_GEM_DIR" ] && [ -f "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" ]; then
               echo "Patching webpack_runner.rb in $WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              echo "Original webpack_runner.rb contents:"
-              cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              sed -i 's|exec("\./bin/webpack".*|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || {
+              echo "Original exec line (if present):"
+              grep -n 'exec.*bin/webpack' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || echo "No exec line found"
+              echo "Applying sed command: sed -i 's|exec\s*(\"\./bin/webpack\",\s*\*ARGV)|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\", *ARGV)|' \"$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb\""
+              sed -i 's|exec\s*("\./bin/webpack",\s*\*ARGV)|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack", *ARGV)|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || {
                 echo "Error: Failed to patch webpack_runner.rb"
+                cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
                 exit 1
               }
-              echo "Patched webpack_runner.rb contents:"
+              echo "Patched exec line (if present):"
+              grep -n 'exec.*node.*webpack' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || echo "No patched exec line found"
+              echo "Full patched webpack_runner.rb contents:"
               cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
               if ! grep -q "${effectivePkgs.nodejs_20}/bin/node" "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"; then
                 echo "Error: webpack_runner.rb patch failed, node path not found"
@@ -696,11 +673,7 @@
               echo "Copied tmp/node_modules to $APP_DIR/node_modules"
             fi
             node_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep:
-            if dep ? nodeDependencies
-            then dep.nodeDependencies
-            else "")
-          extraBuildInputs)}; do
+            for dep in ${builtins.concatStringsSep " " (map (dep: if dep ? nodeDependencies then dep.nodeDependencies else "") extraBuildInputs)}; do
               if [ -n "$dep" ]; then
                 node_deps_count=$((node_deps_count + 1))
                 ln -s $dep/lib/node_modules $APP_DIR/node_modules || {
@@ -960,7 +933,7 @@
           (
             if gccVersion != null
             then historicalPkgs."gcc${gccVersion}"
-            else pkgs.gcc
+            elseKILL pkgs.gcc
           );
       bundlerVersion = detectBundlerVersion {inherit src;};
     in
