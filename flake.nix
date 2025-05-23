@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.37"; # Incremented for fixed syntax error in buildPhase
+    flake_version = "112.38"; # Incremented for fixed webpack_runner.rb patch
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -639,9 +639,18 @@
             WEBPACKER_GEM_DIR=$(find $APP_DIR/vendor/bundle/ruby -type d -name 'webpacker-5.4.3' -maxdepth 4)
             if [ -n "$WEBPACKER_GEM_DIR" ] && [ -f "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" ]; then
               echo "Patching webpack_runner.rb in $WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
-              sed -i "s|exec(\"\.\/bin\/webpack\",|exec(\"${effectivePkgs.nodejs_20}/bin/node\", \"$APP_DIR/node_modules/.bin/webpack\",|" "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
+              echo "Original webpack_runner.rb contents:"
+              cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
+              sed -i 's|exec("\./bin/webpack",|exec("${effectivePkgs.nodejs_20}/bin/node", "'$APP_DIR'/node_modules/.bin/webpack",|' "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb" || {
+                echo "Error: Failed to patch webpack_runner.rb"
+                exit 1
+              }
               echo "Patched webpack_runner.rb contents:"
               cat "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"
+              if ! grep -q "${effectivePkgs.nodejs_20}/bin/node" "$WEBPACKER_GEM_DIR/lib/webpacker/webpack_runner.rb"; then
+                echo "Error: webpack_runner.rb patch failed, node path not found"
+                exit 1
+              fi
             else
               echo "Error: webpacker-5.4.3 gem or webpack_runner.rb not found in $APP_DIR/vendor/bundle/ruby"
               exit 1
