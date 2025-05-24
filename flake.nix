@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.45"; # Incremented for corrected Ruby webpackScript
+    flake_version = "112.46"; # Incremented for corrected Ruby webpackScript with writeTextFile
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -226,7 +226,7 @@
         unset RUBYLIB
         exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
       '';
-      webpackScript = pkgs.writeFile {
+      webpackScript = pkgs.writeTextFile {
         name = "webpack";
         text = ''
           #!${ruby}/bin/ruby
