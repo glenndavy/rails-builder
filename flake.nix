@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.46"; # Incremented for corrected Ruby webpackScript with writeTextFile
+    flake_version = "112.47"; # Incremented for Webpack entry point debugging
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -231,7 +231,7 @@
         text = ''
           #!${ruby}/bin/ruby
           ENV['NODE_PATH'] = "#{ENV['APP_DIR']}/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:#{ENV['NODE_PATH']}"
-          exec("${effectivePkgs.nodejs_20}/bin/node", "#{ENV['APP_DIR']}/node_modules/.bin/webpack", *ARGV)
+          exec("${effectivePkgs.nodejs_20}/bin/node", "#{ENV['APP_DIR']}/node_modules/.bin/webpack", "--mode=production", *ARGV)
         '';
         executable = true;
       };
@@ -642,6 +642,36 @@
                 exit 1
               }
             fi
+            echo "Checking Webpacker entry point:"
+            if [ -f "$APP_DIR/app/javascript/packs/application.js" ]; then
+              echo "Found Webpacker entry point: app/javascript/packs/application.js"
+              ls -l $APP_DIR/app/javascript/packs/application.js
+            else
+              echo "Error: Webpacker entry point app/javascript/packs/application.js not found"
+              ls -R $APP_DIR/app/javascript || echo "No app/javascript directory found"
+              exit 1
+            fi
+            echo "Checking Webpacker configuration:"
+            if [ -f config/webpacker.yml ]; then
+              echo "Found config/webpacker.yml:"
+              cat config/webpacker.yml
+            else
+              echo "Warning: config/webpacker.yml not found"
+            fi
+            if [ -d config/webpack ]; then
+              echo "Webpack configuration files:"
+              ls -R config/webpack
+              if [ -f config/webpack/environment.js ]; then
+                echo "Contents of config/webpack/environment.js:"
+                cat config/webpack/environment.js
+              fi
+              if [ -f config/webpack/production.js ]; then
+                echo "Contents of config/webpack/production.js:"
+                cat config/webpack/production.js
+              fi
+            else
+              echo "No config/webpack directory found"
+            fi
             echo "Running yarn build:css with dart-sass binary:"
             ${effectivePkgs.yarn}/bin/yarn build:css || {
               echo "Error: yarn build:css failed"
@@ -658,18 +688,6 @@
               exit 1
             }
             echo "yarn build:css completed successfully"
-            echo "Checking Webpacker configuration files:"
-            ls -R config/webpack || echo "No config/webpack directory found"
-            if [ -f config/webpacker.yml ]; then
-              echo "Found config/webpacker.yml:"
-              cat config/webpacker.yml
-            else
-              echo "Warning: config/webpacker.yml not found"
-            fi
-            if [ ! -f config/webpack/environment.js ] && [ ! -f config/webpack/production.js ]; then
-              echo "Error: No Webpacker configuration files (environment.js or production.js) found in config/webpack"
-              exit 1
-            fi
           elif [ -f "$APP_DIR/node-packages.nix" ]; then
             echo "Installing npm dependencies..."
             if [ -d "${src}/tmp/node_modules" ]; then
