@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.47"; # Incremented for Webpack entry point debugging
+    flake_version = "112.48"; # Incremented for enhanced Webpack entry point debugging
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -406,6 +406,15 @@
           rm -rf $out/app/vendor/bundle
           mkdir -p $out/app/vendor/bundle
 
+          echo "Verifying app/javascript directory:"
+          if [ -d "$APP_DIR/app/javascript" ]; then
+            echo "Found app/javascript:"
+            ls -R $APP_DIR/app/javascript
+          else
+            echo "Error: app/javascript directory not found"
+            exit 1
+          fi
+
           export RAILS_ENV=${railsEnv}
           ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
           echo "\n********************** Bundling... ********************************************\n"
@@ -642,21 +651,48 @@
                 exit 1
               }
             fi
-            echo "Checking Webpacker entry point:"
+            echo "Checking Webpacker entry points:"
             if [ -f "$APP_DIR/app/javascript/packs/application.js" ]; then
               echo "Found Webpacker entry point: app/javascript/packs/application.js"
               ls -l $APP_DIR/app/javascript/packs/application.js
+            elif [ -f "$APP_DIR/src/index.js" ]; then
+              echo "Found alternative entry point: src/index.js"
+              ls -l $APP_DIR/src/index.js
+            elif [ -f "$APP_DIR/app/javascript/application.js" ]; then
+              echo "Found alternative entry point: app/javascript/application.js"
+              ls -l $APP_DIR/app/javascript/application.js
             else
-              echo "Error: Webpacker entry point app/javascript/packs/application.js not found"
+              echo "Error: No Webpacker entry point found (checked app/javascript/packs/application.js, src/index.js, app/javascript/application.js)"
               ls -R $APP_DIR/app/javascript || echo "No app/javascript directory found"
+              ls -R $APP_DIR/src || echo "No src directory found"
               exit 1
             fi
             echo "Checking Webpacker configuration:"
             if [ -f config/webpacker.yml ]; then
               echo "Found config/webpacker.yml:"
               cat config/webpacker.yml
+              grep -q "source_path:.*src" config/webpacker.yml && {
+                echo "Patching config/webpacker.yml to set source_path to app/javascript"
+                sed -i 's/source_path:.*src/source_path: app\/javascript/' config/webpacker.yml
+                echo "Updated config/webpacker.yml:"
+                cat config/webpacker.yml
+              }
             else
-              echo "Warning: config/webpacker.yml not found"
+              echo "Warning: config/webpacker.yml not found, creating default"
+              cat > config/webpacker.yml <<EOF
+              default:
+                source_path: app/javascript
+                source_entry_path: packs
+                public_output_path: packs
+                cache_path: tmp/cache/webpacker
+                cache: true
+                webpack_compile_output: true
+              production:
+                <<: *default
+                cache: false
+              EOF
+              echo "Created default config/webpacker.yml:"
+              cat config/webpacker.yml
             fi
             if [ -d config/webpack ]; then
               echo "Webpack configuration files:"
