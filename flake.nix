@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.48"; # Incremented for enhanced Webpack entry point debugging
+    flake_version = "112.50"; # Incremented for here-document fix and Webpack debugging
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -231,6 +231,7 @@
         text = ''
           #!${ruby}/bin/ruby
           ENV['NODE_PATH'] = "#{ENV['APP_DIR']}/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:#{ENV['NODE_PATH']}"
+          puts "Executing webpack from: #{Dir.pwd}"
           exec("${effectivePkgs.nodejs_20}/bin/node", "#{ENV['APP_DIR']}/node_modules/.bin/webpack", "--mode=production", *ARGV)
         '';
         executable = true;
@@ -251,118 +252,118 @@
         nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
-          echo "******************************************************************"
-          echo "Entering build phase for buildRailsApp"
-          echo "******************************************************************"
-          echo "Initial PATH: $PATH"
-          echo "Checking for mkdir:"
-          command -v mkdir || echo "mkdir not found"
-          echo "Checking for coreutils:"
-          ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
-          echo "Checking for yarn:"
-          command -v yarn || echo "yarn not found"
-          echo "Checking for sass:"
-          command -v sass || echo "sass not found"
-          echo "Checking for node:"
-          command -v node || echo "node not found"
-          export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/node_modules/.bin:$PATH
-          export GEM_HOME=$TMPDIR/gems
-          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
-          export NODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
-          export APP_DIR=$TMPDIR/app
-          unset RUBYLIB
+                    echo "******************************************************************"
+                    echo "Entering build phase for buildRailsApp"
+                    echo "******************************************************************"
+                    echo "Initial PATH: $PATH"
+                    echo "Checking for mkdir:"
+                    command -v mkdir || echo "mkdir not found"
+                    echo "Checking for coreutils:"
+                    ls -l ${effectivePkgs.coreutils}/bin/mkdir || echo "coreutils not found"
+                    echo "Checking for yarn:"
+                    command -v yarn || echo "yarn not found"
+                    echo "Checking for sass:"
+                    command -v sass || echo "sass not found"
+                    echo "Checking for node:"
+                    command -v node || echo "node not found"
+                    export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/node_modules/.bin:$PATH
+                    export GEM_HOME=$TMPDIR/gems
+                    export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+                    export NODE_PATH=$APP_DIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
+                    export APP_DIR=$TMPDIR/app
+                    unset RUBYLIB
 
-          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export HOME=$TMPDIR
-          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
-          mkdir -p $APP_DIR
-          export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
-          export BUNDLE_PATH=$APP_DIR/vendor/bundle
-          export BUNDLE_FROZEN=true
-          export BUNDLE_GEMFILE=$APP_DIR/Gemfile
-          export SECRET_KEY_BASE=dummy_secret_key_for_build
-          export RUBYOPT="-r logger"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
-          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
-          export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
-          export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
-          export REDIS_URL=redis://localhost:6379
-          export CC=${gcc}/bin/gcc
-          export CXX=${gcc}/bin/g++
-          echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
-          export CFLAGS="-Wno-error=incompatible-pointer-types"
+                    export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+                    export HOME=$TMPDIR
+                    unset $(env | grep ^BUNDLE_ | cut -d= -f1)
+                    mkdir -p $APP_DIR
+                    export BUNDLE_USER_CONFIG=$APP_DIR/.bundle/config
+                    export BUNDLE_PATH=$APP_DIR/vendor/bundle
+                    export BUNDLE_FROZEN=true
+                    export BUNDLE_GEMFILE=$APP_DIR/Gemfile
+                    export SECRET_KEY_BASE=dummy_secret_key_for_build
+                    export RUBYOPT="-r logger"
+                    export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
+                    export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
+                    export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
+                    export TZDIR=${effectivePkgs.tzdata}/share/zoneinfo
+                    export REDIS_URL=redis://localhost:6379
+                    export CC=${gcc}/bin/gcc
+                    export CXX=${gcc}/bin/g++
+                    echo "Using GCC version: $(${gcc}/bin/gcc --version | head -n 1)"
+                    export CFLAGS="-Wno-error=incompatible-pointer-types"
 
-          echo "\n********************** Environment is set up ********************************************\n"
-          echo "NODE_PATH: $NODE_PATH"
-          echo "PATH: $PATH"
+                    echo "\n********************** Environment is set up ********************************************\n"
+                    echo "NODE_PATH: $NODE_PATH"
+                    echo "PATH: $PATH"
 
-          echo "\n********************* Setting up postgres ********************************************\n"
-          echo "Checking for libpq.so:"
-          find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
-          ${
+                    echo "\n********************* Setting up postgres ********************************************\n"
+                    echo "Checking for libpq.so:"
+                    find ${effectivePkgs.postgresql}/lib -name 'libpq.so*' || echo "libpq.so not found"
+                    ${
             if railsEnv == "production"
             then "export RAILS_SERVE_STATIC_FILES=true"
             else ""
           }
-          export PGDATA=$TMPDIR/pgdata
-          export PGHOST=$TMPDIR
-          export PGUSER=postgres
-          export PGDATABASE=rails_build
-          mkdir -p $PGDATA
-          initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
-          echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
-          pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
-          sleep 2
-          createdb -h $TMPDIR $PGDATABASE
-          export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
+                    export PGDATA=$TMPDIR/pgdata
+                    export PGHOST=$TMPDIR
+                    export PGUSER=postgres
+                    export PGDATABASE=rails_build
+                    mkdir -p $PGDATA
+                    initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
+                    echo "unix_socket_directories = '$TMPDIR'" >> $PGDATA/postgresql.conf
+                    pg_ctl -D $PGDATA -l $TMPDIR/pg.log -o "-k $TMPDIR" start
+                    sleep 2
+                    createdb -h $TMPDIR $PGDATABASE
+                    export DATABASE_URL="postgresql://$PGUSER@localhost/$PGDATABASE?host=$TMPDIR"
 
-          echo "\n********************* Setting up redis ********************************************\n"
-          export REDIS_SOCKET=$TMPDIR/redis.sock
-          export REDIS_PID=$TMPDIR/redis.pid
-          mkdir -p $TMPDIR
-          ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
-          sleep 2
-          ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
+                    echo "\n********************* Setting up redis ********************************************\n"
+                    export REDIS_SOCKET=$TMPDIR/redis.sock
+                    export REDIS_PID=$TMPDIR/redis.pid
+                    mkdir -p $TMPDIR
+                    ${effectivePkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
+                    sleep 2
+                    ${effectivePkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping || { echo "Redis failed to start"; exit 1; }
 
-          echo "\n********************* Setting up bundler ********************************************\n"
-          mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
-          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
-          ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
-            echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
-            exit 1
-          }
-          cat > $APP_DIR/.bundle/config <<EOF
-          ---
-          BUNDLE_PATH: "$APP_DIR/vendor/bundle"
-          BUNDLE_FROZEN: "true"
+                    echo "\n********************* Setting up bundler ********************************************\n"
+                    mkdir -p $GEM_HOME $APP_DIR/vendor/bundle/bin $APP_DIR/.bundle
+                    echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+                    ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $APP_DIR/vendor/bundle/bin || {
+                      echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+                      exit 1
+                    }
+                    cat > $APP_DIR/.bundle/config <<EOF
+                    ---
+                    BUNDLE_PATH: "$APP_DIR/vendor/bundle"
+                    BUNDLE_FROZEN: "true"
           EOF
-          echo "Contents of $APP_DIR/.bundle/config:"
-          cat $APP_DIR/.bundle/config
+                    echo "Contents of $APP_DIR/.bundle/config:"
+                    cat $APP_DIR/.bundle/config
 
-          echo "Checking for git availability:"
-          git --version || echo "Git not found"
-          echo "Using bundler version:"
-          ${bundlerWrapper}/bin/bundle --version || {
-            echo "Failed to run bundle command"
-            exit 1
-          }
-          echo "Bundler executable path:"
-          ls -l ${bundlerWrapper}/bin/bundle
+                    echo "Checking for git availability:"
+                    git --version || echo "Git not found"
+                    echo "Using bundler version:"
+                    ${bundlerWrapper}/bin/bundle --version || {
+                      echo "Failed to run bundle command"
+                      exit 1
+                    }
+                    echo "Bundler executable path:"
+                    ls -l ${bundlerWrapper}/bin/bundle
 
-          echo "\n********************** Bundler installed ********************************************\n"
-          echo "\n********************** Deciding bundle strategy ********************************************\n"
-          echo "Detected gem strategy: ${effectiveGemStrategy}"
-          if [ ${
+                    echo "\n********************** Bundler installed ********************************************\n"
+                    echo "\n********************** Deciding bundle strategy ********************************************\n"
+                    echo "Detected gem strategy: ${effectiveGemStrategy}"
+                    if [ ${
             if gemsetExists
             then "1"
             else "0"
           } -eq 1 ]; then
-            echo "Checking for gemset.nix: found"
-          else
-            echo "Checking for gemset.nix: not found"
-          fi
-          if [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${
+                      echo "Checking for gemset.nix: found"
+                    else
+                      echo "Checking for gemset.nix: not found"
+                    fi
+                    if [ "${effectiveGemStrategy}" = "bundix" ]; then
+                      if [ -n "${
             if effectiveGemset == null
             then ""
             else effectiveGemset
@@ -371,109 +372,109 @@
             then "{}"
             else effectiveGemset
           })" = "associative array" ]; then
-              echo "Checking gemset status: provided"
-              echo "Gemset gem names: ${
+                        echo "Checking gemset status: provided"
+                        echo "Gemset gem names: ${
             if effectiveGemset == null
             then ""
             else builtins.concatStringsSep ", " (builtins.attrNames effectiveGemset)
           }"
-            else
-              echo "Checking gemset status: null or invalid"
-            fi
-          else
-            echo "Vendored strategy: gemset not required"
-          fi
-          if [ "${effectiveGemStrategy}" = "vendored" ]; then
-            echo "Checking vendor/cache contents:"
-            ls -l vendor/cache || echo "vendor/cache directory not found"
-          else
-            echo "Checking gemset.nix contents:"
-            ls -l gemset.nix || echo "gemset.nix not found in source"
-          fi
-          echo "Activated gems before bundle install:"
-          gem list || echo "Failed to list gems"
-          echo "********** copying to APP_DIR **********"
-          cp -r . $APP_DIR
-          cd $APP_DIR
-          if [ ! -f Gemfile ]; then
-            echo "Gemfile not found in source"
-            exit 1
-          fi
-          if [ ! -f Gemfile.lock ]; then
-            echo "Gemfile.lock not found in source"
-            exit 1
-          fi
-          rm -rf $out/app/vendor/bundle
-          mkdir -p $out/app/vendor/bundle
+                      else
+                        echo "Checking gemset status: null or invalid"
+                      fi
+                    else
+                      echo "Vendored strategy: gemset not required"
+                    fi
+                    if [ "${effectiveGemStrategy}" = "vendored" ]; then
+                      echo "Checking vendor/cache contents:"
+                      ls -l vendor/cache || echo "vendor/cache directory not found"
+                    else
+                      echo "Checking gemset.nix contents:"
+                      ls -l gemset.nix || echo "gemset.nix not found in source"
+                    fi
+                    echo "Activated gems before bundle install:"
+                    gem list || echo "Failed to list gems"
+                    echo "********** copying to APP_DIR **********"
+                    cp -r . $APP_DIR
+                    cd $APP_DIR
+                    if [ ! -f Gemfile ]; then
+                      echo "Gemfile not found in source"
+                      exit 1
+                    fi
+                    if [ ! -f Gemfile.lock ]; then
+                      echo "Gemfile.lock not found in source"
+                      exit 1
+                    fi
+                    rm -rf $out/app/vendor/bundle
+                    mkdir -p $out/app/vendor/bundle
 
-          echo "Verifying app/javascript directory:"
-          if [ -d "$APP_DIR/app/javascript" ]; then
-            echo "Found app/javascript:"
-            ls -R $APP_DIR/app/javascript
-          else
-            echo "Error: app/javascript directory not found"
-            exit 1
-          fi
+                    echo "Verifying app/javascript directory:"
+                    if [ -d "$APP_DIR/app/javascript" ]; then
+                      echo "Found app/javascript:"
+                      ls -R $APP_DIR/app/javascript
+                    else
+                      echo "Error: app/javascript directory not found"
+                      exit 1
+                    fi
 
-          export RAILS_ENV=${railsEnv}
-          ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
-          echo "\n********************** Bundling... ********************************************\n"
+                    export RAILS_ENV=${railsEnv}
+                    ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
+                    echo "\n********************** Bundling... ********************************************\n"
 
-          cd $APP_DIR
-          if [ "${effectiveGemStrategy}" = "vendored" ]; then
-            echo "\n********************** using vendored strategy ********************************************\n"
-            echo "\n************************** bundler set config  ********************************************\n"
-            ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
-            ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
-            ${bundlerWrapper}/bin/bundle config set --local without development test
-            ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
-            echo "Bundler config before install:"
-            ${bundlerWrapper}/bin/bundle config
-            echo "Listing vendor/cache contents:"
-            ls -l vendor/cache || echo "vendor/cache directory not found"
-            echo "Listing gem dependencies from Gemfile.lock:"
-            ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
-            echo "Bundler environment:"
-            env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
-            echo "RubyGems environment:"
-            gem env
-            echo "Attempting bundle install:"
-            ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
-              echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
-              exit 1
-            }
-            echo "Checking for rails gem in vendor/cache:"
-            ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
-            echo "Checking for pg gem in vendor/cache:"
-            ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
-            echo "Copying gems to output path:"
-            cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
-            if [ -d "$out/app/vendor/bundle/bin" ]; then
-              for file in $out/app/vendor/bundle/bin/*; do
-                if [ -f "$file" ]; then
-                  sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
-                fi
-              done
-              echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
-            fi
-            echo "Checking for rails executable:"
-            if [ -d "$out/app/vendor/bundle/bin" ]; then
-              find $out/app/vendor/bundle/bin -type f -name rails
-              if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
-                echo "Rails executable found"
-                ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-              else
-                echo "Rails executable not found"
-                exit 1
-              fi
-            else
-              echo "Bin directory $out/app/vendor/bundle/bin not found"
-              exit 1
-            fi
-            export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
-            echo "\n********************** bundling done ********************************************\n"
-          elif [ "${effectiveGemStrategy}" = "bundix" ]; then
-            if [ -n "${
+                    cd $APP_DIR
+                    if [ "${effectiveGemStrategy}" = "vendored" ]; then
+                      echo "\n********************** using vendored strategy ********************************************\n"
+                      echo "\n************************** bundler set config  ********************************************\n"
+                      ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
+                      ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
+                      ${bundlerWrapper}/bin/bundle config set --local without development test
+                      ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
+                      echo "Bundler config before install:"
+                      ${bundlerWrapper}/bin/bundle config
+                      echo "Listing vendor/cache contents:"
+                      ls -l vendor/cache || echo "vendor/cache directory not found"
+                      echo "Listing gem dependencies from Gemfile.lock:"
+                      ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
+                      echo "Bundler environment:"
+                      env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
+                      echo "RubyGems environment:"
+                      gem env
+                      echo "Attempting bundle install:"
+                      ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                        echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
+                        exit 1
+                      }
+                      echo "Checking for rails gem in vendor/cache:"
+                      ls -l vendor/cache | grep rails || echo "Rails gem not found in vendor/cache"
+                      echo "Checking for pg gem in vendor/cache:"
+                      ls -l vendor/cache | grep pg || echo "pg gem not found in vendor/cache"
+                      echo "Copying gems to output path:"
+                      cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
+                      if [ -d "$out/app/vendor/bundle/bin" ]; then
+                        for file in $out/app/vendor/bundle/bin/*; do
+                          if [ -f "$file" ]; then
+                            sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                          fi
+                        done
+                        echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
+                      fi
+                      echo "Checking for rails executable:"
+                      if [ -d "$out/app/vendor/bundle/bin" ]; then
+                        find $out/app/vendor/bundle/bin -type f -name rails
+                        if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                          echo "Rails executable found"
+                          ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                        else
+                          echo "Rails executable not found"
+                          exit 1
+                        fi
+                      else
+                        echo "Bin directory $out/app/vendor/bundle/bin not found"
+                        exit 1
+                      fi
+                      export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
+                      echo "\n********************** bundling done ********************************************\n"
+                    elif [ "${effectiveGemStrategy}" = "bundix" ]; then
+                      if [ -n "${
             if effectiveGemset == null
             then ""
             else effectiveGemset
@@ -482,384 +483,406 @@
             then "{}"
             else effectiveGemset
           })" = "associative array" ]; then
-              echo "\n********************** using bundix strategy ********************************************\n"
-              echo "\n************************** bundler set config  ********************************************\n"
-              rm -rf $APP_DIR/vendor/bundle/*
-              ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
-              ${bundlerWrapper}/bin/bundle config set --local without development test
-              ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
-              echo "Bundler config before install:"
-              ${bundlerWrapper}/bin/bundle config
-              echo "Listing gemset.nix:"
-              ls -l gemset.nix || echo "gemset.nix not found"
-              echo "Listing gem dependencies from Gemfile.lock:"
-              ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
-              echo "Bundler environment:"
-              env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
-              echo "RubyGems environment:"
-              gem env
-              echo "Activated gems after bundle install:"
-              gem list || echo "Failed to list gems"
-              echo "Bundler executable path:"
-              ls -l ${bundlerWrapper}/bin/bundle
-              echo "Attempting bundle install:"
-              ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
-                echo "Bundle install failed, please check gemset.nix for correctness"
-                exit 1
-              }
-              echo "Copying gems to output path:"
-              cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
-              if [ -d "$out/app/vendor/bundle/bin" ]; then
-                for file in $out/app/vendor/bundle/bin/*; do
-                  if [ -f "$file" ]; then
-                    sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
-                  fi
-                done
-                echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
-              fi
-              echo "Checking for rails executable:"
-              if [ -d "$out/app/vendor/bundle/bin" ]; then
-                find $out/app/vendor/bundle/bin -type f -name rails
-                if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
-                  echo "Rails executable found"
-                  ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
-                else
-                  echo "Rails executable not found"
-                  exit 1
-                fi
-              else
-                echo "Bin directory $out/app/vendor/bundle/bin not found"
-                exit 1
-              fi
-              export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
-              echo "\n********************** bundling done ********************************************\n"
-            else
-              echo "Error: Invalid or missing gemset for bundix strategy"
-              exit 1
-            fi
-          else
-            echo "Error: Invalid gem_strategy '${effectiveGemStrategy}'"
-            exit 1
-          fi
-          echo "\n********************** installing javascript dependencies ********************************************\n"
-          echo "Checking for JavaScript dependencies..."
-          if [ -f "$APP_DIR/yarn.nix" ]; then
-            echo "Installing Yarn dependencies..."
-            export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
-            mkdir -p $YARN_CACHE_FOLDER
-            echo "Checking for tmp/yarn-cache in source:"
-            if [ -d "${src}/tmp/yarn-cache" ]; then
-              echo "Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
-              if [ -z "$(ls -A ${src}/tmp/yarn-cache)" ]; then
-                echo "Error: tmp/yarn-cache is empty"
-                exit 1
-              fi
-              cp -r ${src}/tmp/yarn-cache/. $YARN_CACHE_FOLDER/ || {
-                echo "Error: Failed to copy tmp/yarn-cache"
-                exit 1
-              }
-              echo "Copied tmp/yarn-cache to $YARN_CACHE_FOLDER"
-              echo "Yarn cache contents:"
-              ls -R $YARN_CACHE_FOLDER
-            else
-              echo "Error: No tmp/yarn-cache found in app source, yarn install will fail"
-              exit 1
-            fi
-            if [ -d "${src}/tmp/node_modules" ]; then
-              mkdir -p $APP_DIR/node_modules
-              cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
-                echo "Error: Failed to copy tmp/node_modules"
-                exit 1
-              }
-              echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-              echo "Checking for webpack after node_modules copy:"
-              if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                echo "Found webpack executable in node_modules/.bin"
-                ls -l $APP_DIR/node_modules/.bin/webpack
-                chmod +x $APP_DIR/node_modules/.bin/webpack
-                echo "Ensured webpack is executable"
-                ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
-              else
-                echo "Warning: webpack executable not found in $APP_DIR/node_modules/.bin"
-              fi
-            fi
-            if [ -f yarn.lock ]; then
-              ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules || {
-                echo "Error: yarn install --offline failed. Check yarn.lock or tmp/yarn-cache."
-                exit 1
-              }
-              echo "Yarn install completed successfully"
-              echo "Checking for webpack after yarn install:"
-              if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                echo "Found webpack executable in node_modules/.bin"
-                ls -l $APP_DIR/node_modules/.bin/webpack
-                chmod +x $APP_DIR/node_modules/.bin/webpack
-                echo "Ensured webpack is executable"
-                ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
-              else
-                echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarn install"
-                exit 1
-              fi
-            fi
-            yarn_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep:
+                        echo "\n********************** using bundix strategy ********************************************\n"
+                        echo "\n************************** bundler set config  ********************************************\n"
+                        rm -rf $APP_DIR/vendor/bundle/*
+                        ${bundlerWrapper}/bin/bundle config set --local path $APP_DIR/vendor/bundle
+                        ${bundlerWrapper}/bin/bundle config set --local without development test
+                        ${bundlerWrapper}/bin/bundle config set --local bin $APP_DIR/vendor/bundle/bin
+                        echo "Bundler config before install:"
+                        ${bundlerWrapper}/bin/bundle config
+                        echo "Listing gemset.nix:"
+                        ls -l gemset.nix || echo "gemset.nix not found"
+                        echo "Listing gem dependencies from Gemfile.lock:"
+                        ${bundlerWrapper}/bin/bundle list || echo "Failed to list dependencies"
+                        echo "Bundler environment:"
+                        env | grep BUNDLE_ || echo "No BUNDLE_ variables set"
+                        echo "RubyGems environment:"
+                        gem env
+                        echo "Activated gems after bundle install:"
+                        gem list || echo "Failed to list gems"
+                        echo "Bundler executable path:"
+                        ls -l ${bundlerWrapper}/bin/bundle
+                        echo "Attempting bundle install:"
+                        ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $APP_DIR/vendor/bundle/bin --verbose || {
+                          echo "Bundle install failed, please check gemset.nix for correctness"
+                          exit 1
+                        }
+                        echo "Copying gems to output path:"
+                        cp -r $APP_DIR/vendor/bundle/* $out/app/vendor/bundle/
+                        if [ -d "$out/app/vendor/bundle/bin" ]; then
+                          for file in $out/app/vendor/bundle/bin/*; do
+                            if [ -f "$file" ]; then
+                              sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                            fi
+                          done
+                          echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
+                        fi
+                        echo "Checking for rails executable:"
+                        if [ -d "$out/app/vendor/bundle/bin" ]; then
+                          find $out/app/vendor/bundle/bin -type f -name rails
+                          if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
+                            echo "Rails executable found"
+                            ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                          else
+                            echo "Rails executable not found"
+                            exit 1
+                          fi
+                        else
+                          echo "Bin directory $out/app/vendor/bundle/bin not found"
+                          exit 1
+                        fi
+                        export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$APP_DIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$APP_DIR/node_modules/.bin:$PATH
+                        echo "\n********************** bundling done ********************************************\n"
+                      else
+                        echo "Error: Invalid or missing gemset for bundix strategy"
+                        exit 1
+                      fi
+                    else
+                      echo "Error: Invalid gem_strategy '${effectiveGemStrategy}'"
+                      exit 1
+                    fi
+                    echo "\n********************** installing javascript dependencies ********************************************\n"
+                    echo "Checking for JavaScript dependencies..."
+                    if [ -f "$APP_DIR/yarn.nix" ]; then
+                      echo "Installing Yarn dependencies..."
+                      export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
+                      mkdir -p $YARN_CACHE_FOLDER
+                      echo "Checking for tmp/yarn-cache in source:"
+                      if [ -d "${src}/tmp/yarn-cache" ]; then
+                        echo "Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
+                        if [ -z "$(ls -A ${src}/tmp/yarn-cache)" ]; then
+                          echo "Error: tmp/yarn-cache is empty"
+                          exit 1
+                        fi
+                        cp -r ${src}/tmp/yarn-cache/. $YARN_CACHE_FOLDER/ || {
+                          echo "Error: Failed to copy tmp/yarn-cache"
+                          exit 1
+                        }
+                        echo "Copied tmp/yarn-cache to $YARN_CACHE_FOLDER"
+                        echo "Yarn cache contents:"
+                        ls -R $YARN_CACHE_FOLDER
+                      else
+                        echo "Error: No tmp/yarn-cache found in app source, yarn install will fail"
+                        exit 1
+                      fi
+                      if [ -d "${src}/tmp/node_modules" ]; then
+                        mkdir -p $APP_DIR/node_modules
+                        cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
+                          echo "Error: Failed to copy tmp/node_modules"
+                          exit 1
+                        }
+                        echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                        echo "Checking for webpack after node_modules copy:"
+                        if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                          echo "Found webpack executable in node_modules/.bin"
+                          ls -l $APP_DIR/node_modules/.bin/webpack
+                          chmod +x $APP_DIR/node_modules/.bin/webpack
+                          echo "Ensured webpack is executable"
+                          ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
+                        else
+                          echo "Warning: webpack executable not found in $APP_DIR/node_modules/.bin"
+                        fi
+                      fi
+                      if [ -f yarn.lock ]; then
+                        ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules || {
+                          echo "Error: yarn install --offline failed. Check yarn.lock or tmp/yarn-cache."
+                          exit 1
+                        }
+                        echo "Yarn install completed successfully"
+                        echo "Checking for webpack after yarn install:"
+                        if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                          echo "Found webpack executable in node_modules/.bin"
+                          ls -l $APP_DIR/node_modules/.bin/webpack
+                          chmod +x $APP_DIR/node_modules/.bin/webpack
+                          echo "Ensured webpack is executable"
+                          ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
+                        else
+                          echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarn install"
+                          exit 1
+                        fi
+                      fi
+                      yarn_deps_count=0
+                      for dep in ${builtins.concatStringsSep " " (map (dep:
             if dep ? yarnModules
             then dep.yarnModules
             else "")
           extraBuildInputs)}; do
-              if [ -n "$dep" ]; then
-                yarn_deps_count=$((yarn_deps_count + 1))
-                ln -sf $dep/node_modules/* $APP_DIR/node_modules/ || {
-                  echo "Error: Failed to link yarnDeps node_modules"
-                  exit 1
-                }
-                echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
-                echo "Checking for webpack after yarnDeps link:"
-                if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                  echo "Found webpack executable in node_modules/.bin"
-                  ls -l $APP_DIR/node_modules/.bin/webpack
-                  chmod +x $APP_DIR/node_modules/.bin/webpack
-                  echo "Ensured webpack is executable"
-                  ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
-                else
-                  echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
-                  exit 1
-                fi
-              fi
-            done
-            if [ "$yarn_deps_count" -eq 0 ]; then
-              echo "yarnDeps not provided"
-            fi
-            if [ -f package.json ]; then
-              echo "Updating package.json build:css script to use dart-sass binary"
-              sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.dart-sass}/bin/sass |' package.json
-              echo "Updated package.json:"
-              cat package.json
-            fi
-            if [ -f bin/webpack ]; then
-              echo "Patching bin/webpack to use explicit node path"
-              cp ${webpackScript} bin/webpack
-              chmod +x bin/webpack
-              echo "Patched bin/webpack contents:"
-              cat bin/webpack
-              if ! grep -q "${effectivePkgs.nodejs_20}/bin/node" bin/webpack; then
-                echo "Error: bin/webpack patch failed, incorrect contents"
-                exit 1
-              fi
-              ${ruby}/bin/ruby bin/webpack --version || {
-                echo "Error: Failed to execute bin/webpack"
-                exit 1
-              }
-            fi
-            echo "Checking Webpacker entry points:"
-            if [ -f "$APP_DIR/app/javascript/packs/application.js" ]; then
-              echo "Found Webpacker entry point: app/javascript/packs/application.js"
-              ls -l $APP_DIR/app/javascript/packs/application.js
-            elif [ -f "$APP_DIR/src/index.js" ]; then
-              echo "Found alternative entry point: src/index.js"
-              ls -l $APP_DIR/src/index.js
-            elif [ -f "$APP_DIR/app/javascript/application.js" ]; then
-              echo "Found alternative entry point: app/javascript/application.js"
-              ls -l $APP_DIR/app/javascript/application.js
-            else
-              echo "Error: No Webpacker entry point found (checked app/javascript/packs/application.js, src/index.js, app/javascript/application.js)"
-              ls -R $APP_DIR/app/javascript || echo "No app/javascript directory found"
-              ls -R $APP_DIR/src || echo "No src directory found"
-              exit 1
-            fi
-            echo "Checking Webpacker configuration:"
-            if [ -f config/webpacker.yml ]; then
-              echo "Found config/webpacker.yml:"
-              cat config/webpacker.yml
-              grep -q "source_path:.*src" config/webpacker.yml && {
-                echo "Patching config/webpacker.yml to set source_path to app/javascript"
-                sed -i 's/source_path:.*src/source_path: app\/javascript/' config/webpacker.yml
-                echo "Updated config/webpacker.yml:"
-                cat config/webpacker.yml
-              }
-            else
-              echo "Warning: config/webpacker.yml not found, creating default"
-              cat > config/webpacker.yml <<EOF
-              default:
-                source_path: app/javascript
-                source_entry_path: packs
-                public_output_path: packs
-                cache_path: tmp/cache/webpacker
-                cache: true
-                webpack_compile_output: true
-              production:
-                <<: *default
-                cache: false
-              EOF
-              echo "Created default config/webpacker.yml:"
-              cat config/webpacker.yml
-            fi
-            if [ -d config/webpack ]; then
-              echo "Webpack configuration files:"
-              ls -R config/webpack
-              if [ -f config/webpack/environment.js ]; then
-                echo "Contents of config/webpack/environment.js:"
-                cat config/webpack/environment.js
-              fi
-              if [ -f config/webpack/production.js ]; then
-                echo "Contents of config/webpack/production.js:"
-                cat config/webpack/production.js
-              fi
-            else
-              echo "No config/webpack directory found"
-            fi
-            echo "Running yarn build:css with dart-sass binary:"
-            ${effectivePkgs.yarn}/bin/yarn build:css || {
-              echo "Error: yarn build:css failed"
-              echo "PATH in subprocess: $PATH"
-              echo "NODE_PATH in subprocess: $NODE_PATH"
-              echo "Checking dart-sass binary:"
-              if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
-                echo "dart-sass binary exists"
-                ls -l ${effectivePkgs.dart-sass}/bin/sass
-                ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
-              else
-                echo "dart-sass binary missing"
-              fi
-              exit 1
-            }
-            echo "yarn build:css completed successfully"
-          elif [ -f "$APP_DIR/node-packages.nix" ]; then
-            echo "Installing npm dependencies..."
-            if [ -d "${src}/tmp/node_modules" ]; then
-              mkdir -p $APP_DIR/node_modules
-              cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
-                echo "Error: Failed to copy tmp/node_modules"
-                exit 1
-              }
-              echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-            fi
-            node_deps_count=0
-            for dep in ${builtins.concatStringsSep " " (map (dep:
+                        if [ -n "$dep" ]; then
+                          yarn_deps_count=$((yarn_deps_count + 1))
+                          ln -sf $dep/node_modules/* $APP_DIR/node_modules/ || {
+                            echo "Error: Failed to link yarnDeps node_modules"
+                            exit 1
+                          }
+                          echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
+                          echo "Checking for webpack after yarnDeps link:"
+                          if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                            echo "Found webpack executable in node_modules/.bin"
+                            ls -l $APP_DIR/node_modules/.bin/webpack
+                            chmod +x $APP_DIR/node_modules/.bin/webpack
+                            echo "Ensured webpack is executable"
+                            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
+                          else
+                            echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
+                            exit 1
+                          fi
+                        fi
+                      done
+                      if [ "$yarn_deps_count" -eq 0 ]; then
+                        echo "yarnDeps not provided"
+                      fi
+                      if [ -f package.json ]; then
+                        echo "Updating package.json build:css script to use dart-sass binary"
+                        sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.dart-sass}/bin/sass |' package.json
+                        echo "Updated package.json:"
+                        cat package.json
+                      fi
+                      if [ -f bin/webpack ]; then
+                        echo "Patching bin/webpack to use explicit node path"
+                        cp ${webpackScript} bin/webpack
+                        chmod +x bin/webpack
+                        echo "Patched bin/webpack contents:"
+                        cat bin/webpack
+                        if ! grep -q "${effectivePkgs.nodejs_20}/bin/node" bin/webpack; then
+                          echo "Error: bin/webpack patch failed, incorrect contents"
+                          exit 1
+                        fi
+                        ${ruby}/bin/ruby bin/webpack --version || {
+                          echo "Error: Failed to execute bin/webpack"
+                          exit 1
+                        }
+                      fi
+                      echo "Checking Webpacker entry points:"
+                      if [ -f "$APP_DIR/app/javascript/packs/application.js" ]; then
+                        echo "Found Webpacker entry point: app/javascript/packs/application.js"
+                        ls -l $APP_DIR/app/javascript/packs/application.js
+                      elif [ -f "$APP_DIR/src/index.js" ]; then
+                        echo "Found alternative entry point: src/index.js"
+                        ls -l $APP_DIR/src/index.js
+                      elif [ -f "$APP_DIR/app/javascript/application.js" ]; then
+                        echo "Found alternative entry point: app/javascript/application.js"
+                        ls -l $APP_DIR/app/javascript/application.js
+                      else
+                        echo "Error: No Webpacker entry point found (checked app/javascript/packs/application.js, src/index.js, app/javascript/application.js)"
+                        ls -R $APP_DIR/app/javascript || echo "No app/javascript directory found"
+                        ls -R $APP_DIR/src || echo "No src directory found"
+                        exit 1
+                      fi
+                      echo "Checking for src directory:"
+                      if [ -d "$APP_DIR/src" ]; then
+                        echo "Found src directory:"
+                        ls -R $APP_DIR/src
+                      else
+                        echo "No src directory found"
+                      fi
+                      echo "Checking Webpacker configuration:"
+                      if [ -f config/webpacker.yml ]; then
+                        echo "Found config/webpacker.yml:"
+                        cat config/webpacker.yml
+                        grep -q "source_path:.*src" config/webpacker.yml && {
+                          echo "Patching config/webpacker.yml to set source_path to app/javascript"
+                          sed -i 's/source_path:.*src/source_path: app\/javascript/' config/webpacker.yml
+                          echo "Updated config/webpacker.yml:"
+                          cat config/webpacker.yml
+                        }
+                      else
+                        echo "Warning: config/webpacker.yml not found, creating default"
+                        cat > config/webpacker.yml <<'EOF'
+          default:
+            source_path: app/javascript
+            source_entry_path: packs
+            public_output_path: packs
+            cache_path: tmp/cache/webpacker
+            cache: true
+            webpack_compile_output: true
+          production:
+            <<: *default
+            cache: false
+          EOF
+                        echo "Created default config/webpacker.yml:"
+                        cat config/webpacker.yml
+                      fi
+                      if [ -d config/webpack ]; then
+                        echo "Webpack configuration files:"
+                        ls -R config/webpack
+                        if [ ! -f config/webpack/environment.js ]; then
+                          echo "Creating default config/webpack/environment.js"
+                          cat > config/webpack/environment.js <<'EOF'
+          const { environment } = require('@rails/webpacker')
+          module.exports = environment
+          EOF
+                          echo "Created config/webpack/environment.js:"
+                          cat config/webpack/environment.js
+                        else
+                          echo "Contents of config/webpack/environment.js:"
+                          cat config/webpack/environment.js
+                        fi
+                        if [ -f config/webpack/production.js ]; then
+                          echo "Contents of config/webpack/production.js:"
+                          cat config/webpack/production.js
+                        fi
+                      else
+                        echo "No config/webpack directory found, creating default"
+                        mkdir -p config/webpack
+                        cat > config/webpack/environment.js <<'EOF'
+          const { environment } = require('@rails/webpacker')
+          module.exports = environment
+          EOF
+                        echo "Created config/webpack/environment.js:"
+                        cat config/webpack/environment.js
+                      fi
+                      echo "Running yarn build:css with dart-sass binary:"
+                      ${effectivePkgs.yarn}/bin/yarn build:css || {
+                        echo "Error: yarn build:css failed"
+                        echo "PATH in subprocess: $PATH"
+                        echo "NODE_PATH in subprocess: $NODE_PATH"
+                        echo "Checking dart-sass binary:"
+                        if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
+                          echo "dart-sass binary exists"
+                          ls -l ${effectivePkgs.dart-sass}/bin/sass
+                          ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
+                        else
+                          echo "dart-sass binary missing"
+                        fi
+                        exit 1
+                      }
+                      echo "yarn build:css completed successfully"
+                    elif [ -f "$APP_DIR/node-packages.nix" ]; then
+                      echo "Installing npm dependencies..."
+                      if [ -d "${src}/tmp/node_modules" ]; then
+                        mkdir -p $APP_DIR/node_modules
+                        cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
+                          echo "Error: Failed to copy tmp/node_modules"
+                          exit 1
+                        }
+                        echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                      fi
+                      node_deps_count=0
+                      for dep in ${builtins.concatStringsSep " " (map (dep:
             if dep ? nodeDependencies
             then dep.nodeDependencies
             else "")
           extraBuildInputs)}; do
-              if [ -n "$dep" ]; then
-                node_deps_count=$((node_deps_count + 1))
-                ln -s $dep/lib/node_modules $APP_DIR/node_modules || {
-                  echo "Error: Failed to link nodeDependencies"
-                  exit 1
-                }
-                echo "Linked nodeDependencies to $APP_DIR/node_modules"
-              fi
-            done
-            if [ "$node_deps_count" -eq 0 ]; then
-              echo "nodeDeps not provided"
-            fi
-          elif [ -f "$APP_DIR/config/importmap.rb" ]; then
-            echo "Importmaps detected, running importmap install..."
-            ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
-          else
-            echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
-            if [ -d "${src}/tmp/node_modules" ]; then
-              mkdir -p $APP_DIR/node_modules
-              cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
-                echo "Error: Failed to copy tmp/node_modules"
-                exit 1
-              }
-              echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-            else
-              echo "No tmp/node_modules found in app source, skipping node_modules installation"
-            fi
-          fi
-          export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
-          echo "Checking for sass before assets:precompile:"
-          if [ -x "$(command -v sass)" ]; then
-            echo "sass found in PATH: $(command -v sass)"
-            ls -l $(command -v sass)
-            sass --version || echo "Failed to run sass from PATH"
-          else
-            echo "sass not found in PATH"
-            if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
-              echo "dart-sass binary exists in ${effectivePkgs.dart-sass}/bin/sass but not in PATH"
-              ls -l ${effectivePkgs.dart-sass}/bin/sass
-              ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
-            else
-              echo "dart-sass binary missing in ${effectivePkgs.dart-sass}/bin/sass"
-            fi
-            exit 1
-          fi
-          echo "Checking for webpack before assets:precompile:"
-          if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-            echo "webpack found in node_modules/.bin: $APP_DIR/node_modules/.bin/webpack"
-            ls -l $APP_DIR/node_modules/.bin/webpack
-            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
-              echo "Failed to run webpack directly"
-              echo "Checking node availability:"
-              ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
-              echo "Checking webpack symlink:"
-              readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
-              echo "Falling back to Nix webpack-cli:"
-              ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || echo "Nix webpack-cli failed"
-              exit 1
-            }
-          else
-            echo "Error: webpack not found in node_modules/.bin, attempting Nix webpack-cli"
-            ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || {
-              echo "Nix webpack-cli failed"
-              exit 1
-            }
-          fi
-          echo "Debugging environment before assets:precompile:"
-          echo "Current working directory: $(pwd)"
-          echo "Checking node_modules/.bin contents:"
-          ls -l $APP_DIR/node_modules/.bin || echo "node_modules/.bin directory not found"
-          echo "Checking webpack binary existence:"
-          if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-            echo "webpack binary exists"
-            ls -l $APP_DIR/node_modules/.bin/webpack
-          else
-            echo "webpack binary missing"
-          fi
-          echo "PATH: $PATH"
-          echo "NODE_PATH: $NODE_PATH"
-          echo "Running which node:"
-          which node || echo "node not found in PATH"
-          echo "Running which webpack:"
-          which webpack || echo "webpack not found in PATH"
-          echo "\n********************** executing build commands ********************************************\n"
-          ${builtins.concatStringsSep "\n" effectiveBuildCommands}
-          if [ -f "$REDIS_PID" ]; then
-            kill $(cat $REDIS_PID)
-            sleep 1
-            rm -f $REDIS_PID $REDIS_SOCKET
-          fi
-          pg_ctl -D $PGDATA stop
+                        if [ -n "$dep" ]; then
+                          node_deps_count=$((node_deps_count + 1))
+                          ln -s $dep/lib/node_modules $APP_DIR/node_modules || {
+                            echo "Error: Failed to link nodeDependencies"
+                            exit 1
+                          }
+                          echo "Linked nodeDependencies to $APP_DIR/node_modules"
+                        fi
+                      done
+                      if [ "$node_deps_count" -eq 0 ]; then
+                        echo "nodeDeps not provided"
+                      fi
+                    elif [ -f "$APP_DIR/config/importmap.rb" ]; then
+                      echo "Importmaps detected, running importmap install..."
+                      ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
+                    else
+                      echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
+                      if [ -d "${src}/tmp/node_modules" ]; then
+                        mkdir -p $APP_DIR/node_modules
+                        cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
+                          echo "Error: Failed to copy tmp/node_modules"
+                          exit 1
+                        }
+                        echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                      else
+                        echo "No tmp/node_modules found in app source, skipping node_modules installation"
+                      fi
+                    fi
+                    export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
+                    echo "Checking for sass before assets:precompile:"
+                    if [ -x "$(command -v sass)" ]; then
+                      echo "sass found in PATH: $(command -v sass)"
+                      ls -l $(command -v sass)
+                      sass --version || echo "Failed to run sass from PATH"
+                    else
+                      echo "sass not found in PATH"
+                      if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
+                        echo "dart-sass binary exists in ${effectivePkgs.dart-sass}/bin/sass but not in PATH"
+                        ls -l ${effectivePkgs.dart-sass}/bin/sass
+                        ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
+                      else
+                        echo "dart-sass binary missing in ${effectivePkgs.dart-sass}/bin/sass"
+                      fi
+                      exit 1
+                    fi
+                    echo "Checking for webpack before assets:precompile:"
+                    if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                      echo "webpack found in node_modules/.bin: $APP_DIR/node_modules/.bin/webpack"
+                      ls -l $APP_DIR/node_modules/.bin/webpack
+                      ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
+                        echo "Failed to run webpack directly"
+                        echo "Checking node availability:"
+                        ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
+                        echo "Checking webpack symlink:"
+                        readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
+                        echo "Falling back to Nix webpack-cli:"
+                        ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || echo "Nix webpack-cli failed"
+                        exit 1
+                      }
+                    else
+                      echo "Error: webpack not found in node_modules/.bin, attempting Nix webpack-cli"
+                      ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || {
+                        echo "Nix webpack-cli failed"
+                        exit 1
+                      }
+                    fi
+                    echo "Debugging environment before assets:precompile:"
+                    echo "Current working directory: $(pwd)"
+                    echo "Checking node_modules/.bin contents:"
+                    ls -l $APP_DIR/node_modules/.bin || echo "node_modules/.bin directory not found"
+                    echo "Checking webpack binary existence:"
+                    if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
+                      echo "webpack binary exists"
+                      ls -l $APP_DIR/node_modules/.bin/webpack
+                    else
+                      echo "webpack binary missing"
+                    fi
+                    echo "PATH: $PATH"
+                    echo "NODE_PATH: $NODE_PATH"
+                    echo "Running which node:"
+                    which node || echo "node not found in PATH"
+                    echo "Running which webpack:"
+                    which webpack || echo "webpack not found in PATH"
+                    echo "\n********************** executing build commands ********************************************\n"
+                    ${builtins.concatStringsSep "\n" effectiveBuildCommands}
+                    if [ -f "$REDIS_PID" ]; then
+                      kill $(cat $REDIS_PID)
+                      sleep 1
+                      rm -f $REDIS_PID $REDIS_SOCKET
+                    fi
+                    pg_ctl -D $PGDATA stop
         '';
         installPhase = ''
-          echo "******************************************************************"
-          echo "Entering install phase for buildRailsApp"
-          echo "******************************************************************"
-          export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
-          mkdir -p $out/app/bin $out/app/.bundle
-          cp -r . $out/app
-          cat > $out/app/bin/rails-app <<EOF
-          #!${effectivePkgs.runtimeShell}
+                    echo "******************************************************************"
+                    echo "Entering install phase for buildRailsApp"
+                    echo "******************************************************************"
+                    export LD_LIBRARY_PATH=${effectivePkgs.postgresql}/lib:${effectivePkgs.libyaml}/lib:$LD_LIBRARY_PATH
+                    mkdir -p $out/app/bin $out/app/.bundle
+                    cp -r . $out/app
+                    cat > $out/app/bin/rails-app <<'EOF'
+          #!/${effectivePkgs.runtimeShell}
           export GEM_HOME=/app/.nix-gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems
           unset RUBYLIB
-          unset \$(env | grep ^BUNDLE_ | cut -d= -f1)
+          unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_USER_CONFIG=/app/.bundle/config
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:\$PATH
-          export NODE_PATH=/app/node_modules:${pkgs.nodejs_20}/lib/node_modules:\$NODE_PATH
+          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:$PATH
+          export NODE_PATH=/app/node_modules:${pkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
-          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:\$XDG_DATA_DIRS
+          export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
           export FREEDESKTOP_MIME_TYPES_PATH=${effectivePkgs.shared-mime-info}/share/mime/packages/freedesktop.org.xml
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
           mkdir -p /app/.bundle
           cd /app
-          exec ${bundlerWrapper}/bin/bundle exec /app/vendor/bundle/bin/rails "\$@"
+          exec ${bundlerWrapper}/bin/bundle exec /app/vendor/bundle/bin/rails "$@"
           EOF
-          chmod +x $out/app/bin/rails-app
-          sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/app/bin/rails-app"
+                    chmod +x $out/app/bin/rails-app
+                    sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/app/bin/rails-app"
         '';
       };
       bundler = bundler;
