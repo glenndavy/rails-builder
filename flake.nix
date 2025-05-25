@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.50"; # Incremented for here-document fix and Webpack debugging
+    flake_version = "112.51"; # Incremented for Bundler config fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -332,13 +332,15 @@
                       echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
                       exit 1
                     }
-                    cat > $APP_DIR/.bundle/config <<EOF
-                    ---
-                    BUNDLE_PATH: "$APP_DIR/vendor/bundle"
-                    BUNDLE_FROZEN: "true"
+                    cat > $APP_DIR/.bundle/config <<'EOF'
+          ---
+          BUNDLE_PATH: "$APP_DIR/vendor/bundle"
+          BUNDLE_FROZEN: "true"
+
           EOF
+                    sync
                     echo "Contents of $APP_DIR/.bundle/config:"
-                    cat $APP_DIR/.bundle/config
+                    cat $APP_DIR/.bundle/config || { echo "Failed to read .bundle/config"; exit 1; }
 
                     echo "Checking for git availability:"
                     git --version || echo "Git not found"
