@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.63"; # Incremented for yarn debug output
+    flake_version = "112.64"; # Incremented for enhanced yarn debug
     bundlerGems = import ./bundler-hashes.nix;
 
     # Define ruby and bundler at top level
@@ -395,6 +395,8 @@
                       echo "DEBUG: Copied tmp/yarn-cache to $TMPDIR/yarn-cache"
                       echo "DEBUG: Listing yarn cache contents:"
                       ls -R $TMPDIR/yarn-cache || echo "No files in yarn cache"
+                      echo "DEBUG: Checking for graphql-tag in cache:"
+                      find $TMPDIR/yarn-cache -name "graphql-tag*"
                     else
                       echo "ERROR: No tmp/yarn-cache found in app source"
                       exit 1
@@ -419,8 +421,10 @@
                     if [ -f yarn.lock ]; then
                       echo "DEBUG: Found yarn.lock, contents:"
                       cat yarn.lock
+                      echo "DEBUG: Checking yarn.lock for graphql-tag:"
+                      grep "graphql-tag" yarn.lock || echo "No graphql-tag found in yarn.lock"
                       echo "DEBUG: Running yarn install --offline --frozen-lockfile"
-                      ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $TMPDIR/node_modules || {
+                      ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $TMPDIR/node_modules --verbose || {
                         echo "ERROR: yarn install --offline failed"
                         exit 1
                       }
@@ -434,7 +438,7 @@
                       cp ${webpackScript} bin/webpack
                       chmod +x bin/webpack
                       ${appRuby}/bin/ruby bin/webpack --version || {
-                        echo "ERROR: Failed to run bin/webpack"
+                        echo "ERROR: Failed to execute bin/webpack"
                         exit 1
                       }
                     fi
