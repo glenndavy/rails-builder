@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.61"; # Incremented for directory creation fix
+    flake_version = "112.62"; # Incremented for appBundlerWrapper scoping fix
     bundlerGems = import ./bundler-hashes.nix;
 
     # Define ruby and bundler at top level
@@ -157,7 +157,7 @@
       gccVersion ? null,
       packageOverrides ? {},
       historicalNixpkgs ? null,
-      buildCommands ? ["${appBundlerWrapper}/bin/bundle exec rails assets:precompile"],
+      buildCommands ? null,
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -251,11 +251,12 @@
         dart-sass
         nodePackages.webpack-cli
       ];
+      defaultBuildCommands = ["${appBundlerWrapper}/bin/bundle exec rails assets:precompile"];
       effectiveBuildCommands =
         if buildCommands == true
         then []
         else if buildCommands == null
-        then ["${appBundlerWrapper}/bin/bundle exec rails assets:precompile"]
+        then defaultBuildCommands
         else if builtins.isList buildCommands
         then buildCommands
         else [buildCommands];
