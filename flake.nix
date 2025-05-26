@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.52"; # Incremented for Webpack version and entry point fix
+    flake_version = "112.53"; # Incremented for Webpack debug and entry point fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -231,8 +231,8 @@
         text = ''
           #!${ruby}/bin/ruby
           ENV['NODE_PATH'] = "#{ENV['APP_DIR']}/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:#{ENV['NODE_PATH']}"
-          puts "Executing webpack from: #{Dir.pwd}"
-          puts "Webpack command: ${effectivePkgs.nodejs_20}/bin/node #{ENV['APP_DIR']}/node_modules/.bin/webpack --mode=production #{ARGV.join(' ')}"
+          puts "DEBUG: Executing webpack from: #{Dir.pwd}"
+          puts "DEBUG: Webpack command: ${effectivePkgs.nodejs_20}/bin/node #{ENV['APP_DIR']}/node_modules/.bin/webpack --mode=production #{ARGV.join(' ')}"
           exec("${effectivePkgs.nodejs_20}/bin/node", "#{ENV['APP_DIR']}/node_modules/.bin/webpack", "--mode=production", *ARGV)
         '';
         executable = true;
@@ -247,14 +247,14 @@
         else [buildCommands];
     in {
       app = effectivePkgs.stdenv.mkDerivation {
-        name = "rails-app";
+        name = "rails-app-${flake_version}"; # Modified to force new derivation
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
                     echo "******************************************************************"
-                    echo "Entering build phase for buildRailsApp"
+                    echo "Entering build phase for buildRailsApp (version ${flake_version})"
                     echo "******************************************************************"
                     echo "Initial PATH: $PATH"
                     echo "Checking for mkdir:"
@@ -412,10 +412,10 @@
 
                     echo "Verifying app/javascript directory:"
                     if [ -d "$APP_DIR/app/javascript" ]; then
-                      echo "Found app/javascript:"
+                      echo "DEBUG: Found app/javascript:"
                       ls -R $APP_DIR/app/javascript
                     else
-                      echo "Error: app/javascript directory not found"
+                      echo "ERROR: app/javascript directory not found"
                       exit 1
                     fi
 
@@ -546,63 +546,69 @@
                       exit 1
                     fi
                     echo "\n********************** installing javascript dependencies ********************************************\n"
-                    echo "Checking for JavaScript dependencies..."
+                    echo "DEBUG: Checking for JavaScript dependencies..."
                     if [ -f "$APP_DIR/yarn.nix" ]; then
-                      echo "Installing Yarn dependencies..."
+                      echo "DEBUG: Installing Yarn dependencies..."
                       export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
                       mkdir -p $YARN_CACHE_FOLDER
-                      echo "Checking for tmp/yarn-cache in source:"
+                      echo "DEBUG: Checking for tmp/yarn-cache in source:"
                       if [ -d "${src}/tmp/yarn-cache" ]; then
-                        echo "Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
+                        echo "DEBUG: Found tmp/yarn-cache, copying to $YARN_CACHE_FOLDER"
                         if [ -z "$(ls -A ${src}/tmp/yarn-cache)" ]; then
-                          echo "Error: tmp/yarn-cache is empty"
+                          echo "ERROR: tmp/yarn-cache is empty"
                           exit 1
                         fi
                         cp -r ${src}/tmp/yarn-cache/. $YARN_CACHE_FOLDER/ || {
-                          echo "Error: Failed to copy tmp/yarn-cache"
+                          echo "ERROR: Failed to copy tmp/yarn-cache"
                           exit 1
                         }
-                        echo "Copied tmp/yarn-cache to $YARN_CACHE_FOLDER"
-                        echo "Yarn cache contents:"
+                        echo "DEBUG: Copied tmp/yarn-cache to $YARN_CACHE_FOLDER"
+                        echo "DEBUG: Yarn cache contents:"
                         ls -R $YARN_CACHE_FOLDER
                       else
-                        echo "Error: No tmp/yarn-cache found in app source, yarn install will fail"
+                        echo "ERROR: No tmp/yarn-cache found in app source, yarn install will fail"
                         exit 1
                       fi
                       if [ -d "${src}/tmp/node_modules" ]; then
                         mkdir -p $APP_DIR/node_modules
                         cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
-                          echo "Error: Failed to copy tmp/node_modules"
+                          echo "ERROR: Failed to copy tmp/node_modules"
                           exit 1
                         }
-                        echo "Copied tmp/node_modules to $APP_DIR/node_modules"
-                        echo "Checking for webpack after node_modules copy:"
+                        echo "DEBUG: Copied tmp/node_modules to $APP_DIR/node_modules"
+                        echo "DEBUG: Checking for webpack after node_modules copy:"
                         if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                          echo "Found webpack executable in node_modules/.bin"
+                          echo "DEBUG: Found webpack executable in node_modules/.bin"
                           ls -l $APP_DIR/node_modules/.bin/webpack
                           chmod +x $APP_DIR/node_modules/.bin/webpack
-                          echo "Ensured webpack is executable"
-                          ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
+                          echo "DEBUG: Ensured webpack is executable"
+                          ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
+                            echo "ERROR: Failed to run webpack directly"
+                            exit 1
+                          }
                         else
-                          echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin"
+                          echo "ERROR: webpack executable not found in $APP_DIR/node_modules/.bin"
                           exit 1
                         fi
                       fi
                       if [ -f yarn.lock ]; then
                         ${effectivePkgs.yarn}/bin/yarn install --offline --frozen-lockfile --modules-folder $APP_DIR/node_modules || {
-                          echo "Error: yarn install --offline failed. Check yarn.lock or tmp/yarn-cache."
+                          echo "ERROR: yarn install --offline failed. Check yarn.lock or tmp/yarn-cache."
                           exit 1
                         }
-                        echo "Yarn install completed successfully"
-                        echo "Checking for webpack after yarn install:"
+                        echo "DEBUG: Yarn install completed successfully"
+                        echo "DEBUG: Checking for webpack after yarn install:"
                         if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                          echo "Found webpack executable in node_modules/.bin"
+                          echo "DEBUG: Found webpack executable in node_modules/.bin"
                           ls -l $APP_DIR/node_modules/.bin/webpack
                           chmod +x $APP_DIR/node_modules/.bin/webpack
-                          echo "Ensured webpack is executable"
-                          ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
+                          echo "DEBUG: Ensured webpack is executable"
+                          ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
+                            echo "ERROR: Failed to run webpack directly"
+                            exit 1
+                          }
                         else
-                          echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarn install"
+                          echo "ERROR: webpack executable not found in $APP_DIR/node_modules/.bin after yarn install"
                           exit 1
                         fi
                       fi
@@ -615,88 +621,91 @@
                         if [ -n "$dep" ]; then
                           yarn_deps_count=$((yarn_deps_count + 1))
                           ln -sf $dep/node_modules/* $APP_DIR/node_modules/ || {
-                            echo "Error: Failed to link yarnDeps node_modules"
+                            echo "ERROR: Failed to link yarnDeps node_modules"
                             exit 1
                           }
-                          echo "Linked yarnDeps node_modules to $APP_DIR/node_modules"
-                          echo "Checking for webpack after yarnDeps link:"
+                          echo "DEBUG: Linked yarnDeps node_modules to $APP_DIR/node_modules"
+                          echo "DEBUG: Checking for webpack after yarnDeps link:"
                           if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                            echo "Found webpack executable in node_modules/.bin"
+                            echo "DEBUG: Found webpack executable in node_modules/.bin"
                             ls -l $APP_DIR/node_modules/.bin/webpack
                             chmod +x $APP_DIR/node_modules/.bin/webpack
-                            echo "Ensured webpack is executable"
-                            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
+                            echo "DEBUG: Ensured webpack is executable"
+                            ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
+                              echo "ERROR: Failed to run webpack directly"
+                              exit 1
+                            }
                           else
-                            echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
+                            echo "ERROR: webpack executable not found in $APP_DIR/node_modules/.bin after yarnDeps link"
                             exit 1
                           fi
                         fi
                       done
                       if [ "$yarn_deps_count" -eq 0 ]; then
-                        echo "yarnDeps not provided"
+                        echo "DEBUG: yarnDeps not provided"
                       fi
                       if [ -f package.json ]; then
-                        echo "Updating package.json build:css script to use dart-sass binary"
+                        echo "DEBUG: Updating package.json build:css script to use dart-sass binary"
                         sed -i 's|"build:css":.*sass |"build:css": "${effectivePkgs.dart-sass}/bin/sass |' package.json
-                        echo "Updated package.json:"
+                        echo "DEBUG: Updated package.json:"
                         cat package.json
                       fi
                       if [ -f bin/webpack ]; then
-                        echo "Patching bin/webpack to use explicit node path"
+                        echo "DEBUG: Patching bin/webpack to use explicit node path"
                         cp ${webpackScript} bin/webpack
                         chmod +x bin/webpack
-                        echo "Patched bin/webpack contents:"
+                        echo "DEBUG: Patched bin/webpack contents:"
                         cat bin/webpack
                         if ! grep -q "${effectivePkgs.nodejs_20}/bin/node" bin/webpack; then
-                          echo "Error: bin/webpack patch failed, incorrect contents"
+                          echo "ERROR: bin/webpack patch failed, incorrect contents"
                           exit 1
                         fi
                         ${ruby}/bin/ruby bin/webpack --version || {
-                          echo "Error: Failed to execute bin/webpack"
+                          echo "ERROR: Failed to execute bin/webpack"
                           exit 1
                         }
                       fi
-                      echo "Checking Webpacker entry points:"
+                      echo "DEBUG: Checking Webpacker entry points:"
                       if [ -f "$APP_DIR/app/javascript/packs/application.js" ]; then
-                        echo "Found Webpacker entry point: app/javascript/packs/application.js"
+                        echo "DEBUG: Found Webpacker entry point: app/javascript/packs/application.js"
                         ls -l $APP_DIR/app/javascript/packs/application.js
                       elif [ -f "$APP_DIR/src/index.js" ]; then
-                        echo "Found alternative entry point: src/index.js"
+                        echo "DEBUG: Found alternative entry point: src/index.js"
                         ls -l $APP_DIR/src/index.js
                       elif [ -f "$APP_DIR/app/javascript/application.js" ]; then
-                        echo "Found alternative entry point: app/javascript/application.js"
+                        echo "DEBUG: Found alternative entry point: app/javascript/application.js"
                         ls -l $APP_DIR/app/javascript/application.js
                       else
-                        echo "Error: No Webpacker entry point found (checked app/javascript/packs/application.js, src/index.js, app/javascript/application.js)"
-                        ls -R $APP_DIR/app/javascript || echo "No app/javascript directory found"
-                        ls -R $APP_DIR/src || echo "No src directory found"
+                        echo "ERROR: No Webpacker entry point found (checked app/javascript/packs/application.js, src/index.js, app/javascript/application.js)"
+                        ls -R $APP_DIR/app/javascript || echo "ERROR: No app/javascript directory found"
+                        ls -R $APP_DIR/src || echo "ERROR: No src directory found"
                         exit 1
                       fi
-                      echo "Checking for src directory:"
+                      echo "DEBUG: Checking for src directory:"
                       if [ -d "$APP_DIR/src" ]; then
-                        echo "Found src directory:"
+                        echo "DEBUG: Found src directory:"
                         ls -R $APP_DIR/src
                       else
-                        echo "No src directory found"
+                        echo "DEBUG: No src directory found"
                       fi
                       if [ -d "$APP_DIR/app/javascript/src" ]; then
-                        echo "Found app/javascript/src directory:"
+                        echo "DEBUG: Found app/javascript/src directory:"
                         ls -R $APP_DIR/app/javascript/src
                       else
-                        echo "No app/javascript/src directory found"
+                        echo "DEBUG: No app/javascript/src directory found"
                       fi
-                      echo "Checking Webpacker configuration:"
+                      echo "DEBUG: Checking Webpacker configuration:"
                       if [ -f config/webpacker.yml ]; then
-                        echo "Found config/webpacker.yml:"
+                        echo "DEBUG: Found config/webpacker.yml:"
                         cat config/webpacker.yml
                         grep -q "source_path:.*src" config/webpacker.yml && {
-                          echo "Patching config/webpacker.yml to set source_path to app/javascript"
+                          echo "DEBUG: Patching config/webpacker.yml to set source_path to app/javascript"
                           sed -i 's/source_path:.*src/source_path: app\/javascript/' config/webpacker.yml
-                          echo "Updated config/webpacker.yml:"
+                          echo "DEBUG: Updated config/webpacker.yml:"
                           cat config/webpacker.yml
                         }
                       else
-                        echo "Warning: config/webpacker.yml not found, creating default"
+                        echo "DEBUG: Warning: config/webpacker.yml not found, creating default"
                         cat > config/webpacker.yml <<'EOF'
           default:
             source_path: app/javascript
@@ -709,71 +718,102 @@
             <<: *default
             cache: false
           EOF
-                        echo "Created default config/webpacker.yml:"
+                        echo "DEBUG: Created default config/webpacker.yml:"
                         cat config/webpacker.yml
                       fi
                       if [ -d config/webpack ]; then
-                        echo "Webpack configuration files:"
+                        echo "DEBUG: Webpack configuration files:"
                         ls -R config/webpack
                         if [ ! -f config/webpack/environment.js ]; then
-                          echo "Creating default config/webpack/environment.js"
+                          echo "DEBUG: Creating default config/webpack/environment.js"
+                          if [ -d "$APP_DIR/app/javascript/src" ]; then
+                            cat > config/webpack/environment.js <<'EOF'
+          const { environment } = require('@rails/webpacker')
+          environment.config.merge({ entry: './app/javascript/src/index.js' })
+          module.exports = environment
+          EOF
+                          else
+                            cat > config/webpack/environment.js <<'EOF'
+          const { environment } = require('@rails/webpacker')
+          environment.config.merge({ entry: './app/javascript/packs/application.js' })
+          module.exports = environment
+          EOF
+                          fi
+                          echo "DEBUG: Created config/webpack/environment.js:"
+                          cat config/webpack/environment.js
+                        else
+                          echo "DEBUG: Contents of config/webpack/environment.js:"
+                          cat config/webpack/environment.js
+                          if [ -d "$APP_DIR/app/javascript/src" ]; then
+                            grep -q "entry:.*src" config/webpack/environment.js || {
+                              echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/src/index.js"
+                              echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/src/index.js' })\nmodule.exports = environment" > config/webpack/environment.js
+                              echo "DEBUG: Updated config/webpack/environment.js:"
+                              cat config/webpack/environment.js
+                            }
+                          else
+                            grep -q "entry:.*src" config/webpack/environment.js && {
+                              echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/packs/application.js"
+                              echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/packs/application.js' })\nmodule.exports = environment" > config/webpack/environment.js
+                              echo "DEBUG: Updated config/webpack/environment.js:"
+                              cat config/webpack/environment.js
+                            }
+                          fi
+                        fi
+                        if [ -f config/webpack/production.js ]; then
+                          echo "DEBUG: Contents of config/webpack/production.js:"
+                          cat config/webpack/production.js
+                          grep -q "entry:.*src" config/webpack/production.js && {
+                            echo "DEBUG: Patching config/webpack/production.js to remove src entry"
+                            sed -i '/entry:.*src/d' config/webpack/production.js
+                            echo "DEBUG: Updated config/webpack/production.js:"
+                            cat config/webpack/production.js
+                          }
+                        fi
+                      else
+                        echo "DEBUG: No config/webpack directory found, creating default"
+                        mkdir -p config/webpack
+                        if [ -d "$APP_DIR/app/javascript/src" ]; then
+                          cat > config/webpack/environment.js <<'EOF'
+          const { environment } = require('@rails/webpacker')
+          environment.config.merge({ entry: './app/javascript/src/index.js' })
+          module.exports = environment
+          EOF
+                        else
                           cat > config/webpack/environment.js <<'EOF'
           const { environment } = require('@rails/webpacker')
           environment.config.merge({ entry: './app/javascript/packs/application.js' })
           module.exports = environment
           EOF
-                          echo "Created config/webpack/environment.js:"
-                          cat config/webpack/environment.js
-                        else
-                          echo "Contents of config/webpack/environment.js:"
-                          cat config/webpack/environment.js
-                          grep -q "entry:.*src" config/webpack/environment.js && {
-                            echo "Patching config/webpack/environment.js to set entry to app/javascript/packs/application.js"
-                            sed -i 's|entry:.*src.*|entry: "./app/javascript/packs/application.js"|' config/webpack/environment.js
-                            echo "Updated config/webpack/environment.js:"
-                            cat config/webpack/environment.js
-                          }
                         fi
-                        if [ -f config/webpack/production.js ]; then
-                          echo "Contents of config/webpack/production.js:"
-                          cat config/webpack/production.js
-                        fi
-                      else
-                        echo "No config/webpack directory found, creating default"
-                        mkdir -p config/webpack
-                        cat > config/webpack/environment.js <<'EOF'
-          const { environment } = require('@rails/webpacker')
-          environment.config.merge({ entry: './app/javascript/packs/application.js' })
-          module.exports = environment
-          EOF
-                        echo "Created config/webpack/environment.js:"
+                        echo "DEBUG: Created config/webpack/environment.js:"
                         cat config/webpack/environment.js
                       fi
-                      echo "Running yarn build:css with dart-sass binary:"
+                      echo "DEBUG: Running yarn build:css with dart-sass binary:"
                       ${effectivePkgs.yarn}/bin/yarn build:css || {
-                        echo "Error: yarn build:css failed"
+                        echo "ERROR: yarn build:css failed"
                         echo "PATH in subprocess: $PATH"
                         echo "NODE_PATH in subprocess: $NODE_PATH"
                         echo "Checking dart-sass binary:"
                         if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
-                          echo "dart-sass binary exists"
+                          echo "DEBUG: dart-sass binary exists"
                           ls -l ${effectivePkgs.dart-sass}/bin/sass
-                          ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
+                          ${effectivePkgs.dart-sass}/bin/sass --version || echo "ERROR: Failed to run dart-sass binary"
                         else
-                          echo "dart-sass binary missing"
+                          echo "ERROR: dart-sass binary missing"
                         fi
                         exit 1
                       }
-                      echo "yarn build:css completed successfully"
+                      echo "DEBUG: yarn build:css completed successfully"
                     elif [ -f "$APP_DIR/node-packages.nix" ]; then
-                      echo "Installing npm dependencies..."
+                      echo "DEBUG: Installing npm dependencies..."
                       if [ -d "${src}/tmp/node_modules" ]; then
                         mkdir -p $APP_DIR/node_modules
                         cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
-                          echo "Error: Failed to copy tmp/node_modules"
+                          echo "ERROR: Failed to copy tmp/node_modules"
                           exit 1
                         }
-                        echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                        echo "DEBUG: Copied tmp/node_modules to $APP_DIR/node_modules"
                       fi
                       node_deps_count=0
                       for dep in ${builtins.concatStringsSep " " (map (dep:
@@ -784,86 +824,87 @@
                         if [ -n "$dep" ]; then
                           node_deps_count=$((node_deps_count + 1))
                           ln -s $dep/lib/node_modules $APP_DIR/node_modules || {
-                            echo "Error: Failed to link nodeDependencies"
+                            echo "ERROR: Failed to link nodeDependencies"
                             exit 1
                           }
-                          echo "Linked nodeDependencies to $APP_DIR/node_modules"
+                          echo "DEBUG: Linked nodeDependencies to $APP_DIR/node_modules"
                         fi
                       done
                       if [ "$node_deps_count" -eq 0 ]; then
-                        echo "nodeDeps not provided"
+                        echo "DEBUG: nodeDeps not provided"
                       fi
                     elif [ -f "$APP_DIR/config/importmap.rb" ]; then
-                      echo "Importmaps detected, running importmap install..."
-                      ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "Importmap install skipped or not needed"
+                      echo "DEBUG: Importmaps detected, running importmap install..."
+                      ${bundlerWrapper}/bin/bundle exec rails importmap:install || echo "DEBUG: Importmap install skipped or not needed"
                     else
-                      echo "No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
+                      echo "DEBUG: No JavaScript dependency files (yarn.nix or node-packages.nix) found, using tmp/node_modules"
                       if [ -d "${src}/tmp/node_modules" ]; then
                         mkdir -p $APP_DIR/node_modules
                         cp -r ${src}/tmp/node_modules/. $APP_DIR/node_modules/ || {
-                          echo "Error: Failed to copy tmp/node_modules"
+                          echo "ERROR: Failed to copy tmp/node_modules"
                           exit 1
                         }
-                        echo "Copied tmp/node_modules to $APP_DIR/node_modules"
+                        echo "DEBUG: Copied tmp/node_modules to $APP_DIR/node_modules"
                       else
-                        echo "No tmp/node_modules found in app source, skipping node_modules installation"
+                        echo "DEBUG: No tmp/node_modules found in app source, skipping node_modules installation"
                       fi
                     fi
                     export NODE_PATH=$APP_DIR/node_modules:$NODE_PATH
-                    echo "Checking for sass before assets:precompile:"
+                    echo "DEBUG: Checking for sass before assets:precompile:"
                     if [ -x "$(command -v sass)" ]; then
-                      echo "sass found in PATH: $(command -v sass)"
+                      echo "DEBUG: sass found in PATH: $(command -v sass)"
                       ls -l $(command -v sass)
-                      sass --version || echo "Failed to run sass from PATH"
+                      sass --version || echo "ERROR: Failed to run sass from PATH"
                     else
-                      echo "sass not found in PATH"
+                      echo "DEBUG: sass not found in PATH"
                       if [ -f "${effectivePkgs.dart-sass}/bin/sass" ]; then
-                        echo "dart-sass binary exists in ${effectivePkgs.dart-sass}/bin/sass but not in PATH"
+                        echo "DEBUG: dart-sass binary exists in ${effectivePkgs.dart-sass}/bin/sass but not in PATH"
                         ls -l ${effectivePkgs.dart-sass}/bin/sass
-                        ${effectivePkgs.dart-sass}/bin/sass --version || echo "Failed to run dart-sass binary"
+                        ${effectivePkgs.dart-sass}/bin/sass --version || echo "ERROR: Failed to run dart-sass binary"
                       else
-                        echo "dart-sass binary missing in ${effectivePkgs.dart-sass}/bin/sass"
+                        echo "ERROR: dart-sass binary missing in ${effectivePkgs.dart-sass}/bin/sass"
+                        exit 1
                       fi
-                      exit 1
                     fi
-                    echo "Checking for webpack before assets:precompile:"
+                    echo "DEBUG: Checking for webpack before assets:precompile:"
                     if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                      echo "webpack found in node_modules/.bin: $APP_DIR/node_modules/.bin/webpack"
+                      echo "DEBUG: webpack found in node_modules/.bin: $APP_DIR/node_modules/.bin/webpack"
                       ls -l $APP_DIR/node_modules/.bin/webpack
                       ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || {
-                        echo "Failed to run webpack directly"
-                        echo "Checking node availability:"
-                        ${effectivePkgs.nodejs_20}/bin/node --version || echo "Node not executable"
-                        echo "Checking webpack symlink:"
-                        readlink $APP_DIR/node_modules/.bin/webpack || echo "Failed to read symlink"
-                        echo "Falling back to Nix webpack-cli:"
-                        ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || echo "Nix webpack-cli failed"
+                        echo "ERROR: Failed to run webpack directly"
+                        echo "DEBUG: Checking node availability:"
+                        ${effectivePkgs.nodejs_20}/bin/node --version || echo "ERROR: Node not executable"
+                        echo "DEBUG: Checking webpack symlink:"
+                        readlink $APP_DIR/node_modules/.bin/webpack || echo "ERROR: Failed to read symlink"
+                        echo "DEBUG: Falling back to Nix webpack-cli:"
+                        ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || echo "ERROR: Nix webpack-cli failed"
                         exit 1
                       }
                     else
-                      echo "Error: webpack not found in node_modules/.bin, attempting Nix webpack-cli"
+                      echo "ERROR: webpack not found in node_modules/.bin, attempting Nix webpack-cli"
                       ${effectivePkgs.nodePackages.webpack-cli}/bin/webpack --version || {
-                        echo "Nix webpack-cli failed"
+                        echo "ERROR: Nix webpack-cli failed"
                         exit 1
                       }
                     fi
-                    echo "Debugging environment before assets:precompile:"
-                    echo "Current working directory: $(pwd)"
-                    echo "Checking node_modules/.bin contents:"
-                    ls -l $APP_DIR/node_modules/.bin || echo "node_modules/.bin directory not found"
-                    echo "Checking webpack binary existence:"
+                    echo "DEBUG: Debugging environment before assets:precompile:"
+                    echo "DEBUG: Current working directory: $(pwd)"
+                    echo "DEBUG: Checking node_modules/.bin contents:"
+                    ls -l $APP_DIR/node_modules/.bin || echo "ERROR: node_modules/.bin directory not found"
+                    echo "DEBUG: Checking webpack binary existence:"
                     if [ -f "$APP_DIR/node_modules/.bin/webpack" ]; then
-                      echo "webpack binary exists"
+                      echo "DEBUG: webpack binary exists"
                       ls -l $APP_DIR/node_modules/.bin/webpack
                     else
-                      echo "webpack binary missing"
+                      echo "ERROR: webpack binary missing"
+                      exit 1
                     fi
-                    echo "PATH: $PATH"
-                    echo "NODE_PATH: $NODE_PATH"
-                    echo "Running which node:"
-                    which node || echo "node not found in PATH"
-                    echo "Running which webpack:"
-                    which webpack || echo "webpack not found in PATH"
+                    echo "DEBUG: PATH: $PATH"
+                    echo "DEBUG: NODE_PATH: $NODE_PATH"
+                    echo "DEBUG: Running which node:"
+                    which node || echo "ERROR: node not found in PATH"
+                    echo "DEBUG: Running which webpack:"
+                    which webpack || echo "ERROR: webpack not found in PATH"
                     echo "\n********************** executing build commands ********************************************\n"
                     ${builtins.concatStringsSep "\n" effectiveBuildCommands}
                     if [ -f "$REDIS_PID" ]; then
@@ -881,7 +922,7 @@
                     mkdir -p $out/app/bin $out/app/.bundle
                     cp -r . $out/app
                     cat > $out/app/bin/rails-app <<'EOF'
-          #!/${effectivePkgs.runtimeShell}
+          #!${effectivePkgs.runtimeShell}
           export GEM_HOME=/app/.nix-gems
           export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems
           unset RUBYLIB
@@ -1314,17 +1355,16 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ -f "$1/Gemfile.lock" ]; then
-          cd "$1"
-          ${pkgs.bundix}/bin/bundix
-          if [ -f gemset.nix ]; then
-            echo "Generated gemset.nix successfully."
-          else
-            echo "Error: Failed to generate gemset.nix."
-            exit 1
-          fi
-        else
+        if [ ! -f "$1/Gemfile.lock" ]; then
           echo "Error: Gemfile.lock is missing in $1."
+          exit 1
+        fi
+        cd "$1"
+        ${pkgs.bundix}/bin/bundix
+        if [ -f gemset.nix ]; then
+          echo "Generated gemset.nix successfully."
+        else
+          echo "Error: Failed to generate gemset.nix."
           exit 1
         fi
       '';
