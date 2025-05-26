@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.51"; # Incremented for Bundler config fix
+    flake_version = "112.52"; # Incremented for Webpack version and entry point fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -232,6 +232,7 @@
           #!${ruby}/bin/ruby
           ENV['NODE_PATH'] = "#{ENV['APP_DIR']}/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:#{ENV['NODE_PATH']}"
           puts "Executing webpack from: #{Dir.pwd}"
+          puts "Webpack command: ${effectivePkgs.nodejs_20}/bin/node #{ENV['APP_DIR']}/node_modules/.bin/webpack --mode=production #{ARGV.join(' ')}"
           exec("${effectivePkgs.nodejs_20}/bin/node", "#{ENV['APP_DIR']}/node_modules/.bin/webpack", "--mode=production", *ARGV)
         '';
         executable = true;
@@ -583,7 +584,8 @@
                           echo "Ensured webpack is executable"
                           ${effectivePkgs.nodejs_20}/bin/node $APP_DIR/node_modules/.bin/webpack --version || echo "Failed to run webpack directly"
                         else
-                          echo "Warning: webpack executable not found in $APP_DIR/node_modules/.bin"
+                          echo "Error: webpack executable not found in $APP_DIR/node_modules/.bin"
+                          exit 1
                         fi
                       fi
                       if [ -f yarn.lock ]; then
@@ -677,6 +679,12 @@
                       else
                         echo "No src directory found"
                       fi
+                      if [ -d "$APP_DIR/app/javascript/src" ]; then
+                        echo "Found app/javascript/src directory:"
+                        ls -R $APP_DIR/app/javascript/src
+                      else
+                        echo "No app/javascript/src directory found"
+                      fi
                       echo "Checking Webpacker configuration:"
                       if [ -f config/webpacker.yml ]; then
                         echo "Found config/webpacker.yml:"
@@ -711,6 +719,7 @@
                           echo "Creating default config/webpack/environment.js"
                           cat > config/webpack/environment.js <<'EOF'
           const { environment } = require('@rails/webpacker')
+          environment.config.merge({ entry: './app/javascript/packs/application.js' })
           module.exports = environment
           EOF
                           echo "Created config/webpack/environment.js:"
@@ -718,6 +727,12 @@
                         else
                           echo "Contents of config/webpack/environment.js:"
                           cat config/webpack/environment.js
+                          grep -q "entry:.*src" config/webpack/environment.js && {
+                            echo "Patching config/webpack/environment.js to set entry to app/javascript/packs/application.js"
+                            sed -i 's|entry:.*src.*|entry: "./app/javascript/packs/application.js"|' config/webpack/environment.js
+                            echo "Updated config/webpack/environment.js:"
+                            cat config/webpack/environment.js
+                          }
                         fi
                         if [ -f config/webpack/production.js ]; then
                           echo "Contents of config/webpack/production.js:"
@@ -728,6 +743,7 @@
                         mkdir -p config/webpack
                         cat > config/webpack/environment.js <<'EOF'
           const { environment } = require('@rails/webpacker')
+          environment.config.merge({ entry: './app/javascript/packs/application.js' })
           module.exports = environment
           EOF
                         echo "Created config/webpack/environment.js:"
@@ -1298,16 +1314,17 @@
           echo "Error: Please provide a source directory path."
           exit 1
         fi
-        if [ ! -f "$1/Gemfile.lock" ]; then
-          echo "Error: Gemfile.lock is missing in $1."
-          exit 1
-        fi
-        cd "$1"
-        ${pkgs.bundix}/bin/bundix
-        if [ -f gemset.nix ]; then
-          echo "Generated gemset.nix successfully."
+        if [ -f "$1/Gemfile.lock" ]; then
+          cd "$1"
+          ${pkgs.bundix}/bin/bundix
+          if [ -f gemset.nix ]; then
+            echo "Generated gemset.nix successfully."
+          else
+            echo "Error: Failed to generate gemset.nix."
+            exit 1
+          fi
         else
-          echo "Error: Failed to generate gemset.nix."
+          echo "Error: Gemfile.lock is missing in $1."
           exit 1
         fi
       '';
