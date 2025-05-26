@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.53"; # Incremented for Webpack debug and entry point fix
+    flake_version = "112.54"; # Incremented for Webpack entry point fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -247,7 +247,7 @@
         else [buildCommands];
     in {
       app = effectivePkgs.stdenv.mkDerivation {
-        name = "rails-app-${flake_version}"; # Modified to force new derivation
+        name = "rails-app-${flake_version}";
         inherit src extraBuildInputs;
         buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
         nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
@@ -410,7 +410,7 @@
                     rm -rf $out/app/vendor/bundle
                     mkdir -p $out/app/vendor/bundle
 
-                    echo "Verifying app/javascript directory:"
+                    echo "DEBUG: Verifying app/javascript directory:"
                     if [ -d "$APP_DIR/app/javascript" ]; then
                       echo "DEBUG: Found app/javascript:"
                       ls -R $APP_DIR/app/javascript
@@ -546,7 +546,7 @@
                       exit 1
                     fi
                     echo "\n********************** installing javascript dependencies ********************************************\n"
-                    echo "DEBUG: Checking for JavaScript dependencies..."
+                    echo "DEBUG: Starting JavaScript dependency installation..."
                     if [ -f "$APP_DIR/yarn.nix" ]; then
                       echo "DEBUG: Installing Yarn dependencies..."
                       export YARN_CACHE_FOLDER=$TMPDIR/yarn-cache
@@ -726,7 +726,7 @@
                         ls -R config/webpack
                         if [ ! -f config/webpack/environment.js ]; then
                           echo "DEBUG: Creating default config/webpack/environment.js"
-                          if [ -d "$APP_DIR/app/javascript/src" ]; then
+                          if [ -d "$APP_DIR/app/javascript/src" ] && [ -f "$APP_DIR/app/javascript/src/index.js" ]; then
                             cat > config/webpack/environment.js <<'EOF'
           const { environment } = require('@rails/webpacker')
           environment.config.merge({ entry: './app/javascript/src/index.js' })
@@ -744,36 +744,30 @@
                         else
                           echo "DEBUG: Contents of config/webpack/environment.js:"
                           cat config/webpack/environment.js
-                          if [ -d "$APP_DIR/app/javascript/src" ]; then
-                            grep -q "entry:.*src" config/webpack/environment.js || {
-                              echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/src/index.js"
-                              echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/src/index.js' })\nmodule.exports = environment" > config/webpack/environment.js
-                              echo "DEBUG: Updated config/webpack/environment.js:"
-                              cat config/webpack/environment.js
-                            }
+                          if [ -d "$APP_DIR/app/javascript/src" ] && [ -f "$APP_DIR/app/javascript/src/index.js" ]; then
+                            echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/src/index.js"
+                            echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/src/index.js' })\nmodule.exports = environment" > config/webpack/environment.js
+                            echo "DEBUG: Updated config/webpack/environment.js:"
+                            cat config/webpack/environment.js
                           else
-                            grep -q "entry:.*src" config/webpack/environment.js && {
-                              echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/packs/application.js"
-                              echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/packs/application.js' })\nmodule.exports = environment" > config/webpack/environment.js
-                              echo "DEBUG: Updated config/webpack/environment.js:"
-                              cat config/webpack/environment.js
-                            }
+                            echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/packs/application.js"
+                            echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/packs/application.js' })\nmodule.exports = environment" > config/webpack/environment.js
+                            echo "DEBUG: Updated config/webpack/environment.js:"
+                            cat config/webpack/environment.js
                           fi
                         fi
                         if [ -f config/webpack/production.js ]; then
                           echo "DEBUG: Contents of config/webpack/production.js:"
                           cat config/webpack/production.js
-                          grep -q "entry:.*src" config/webpack/production.js && {
-                            echo "DEBUG: Patching config/webpack/production.js to remove src entry"
-                            sed -i '/entry:.*src/d' config/webpack/production.js
-                            echo "DEBUG: Updated config/webpack/production.js:"
-                            cat config/webpack/production.js
-                          }
+                          echo "DEBUG: Patching config/webpack/production.js to ensure no src entry"
+                          sed -i '/entry:.*src/d' config/webpack/production.js
+                          echo "DEBUG: Updated config/webpack/production.js:"
+                          cat config/webpack/production.js
                         fi
                       else
                         echo "DEBUG: No config/webpack directory found, creating default"
                         mkdir -p config/webpack
-                        if [ -d "$APP_DIR/app/javascript/src" ]; then
+                        if [ -d "$APP_DIR/app/javascript/src" ] && [ -f "$APP_DIR/app/javascript/src/index.js" ]; then
                           cat > config/webpack/environment.js <<'EOF'
           const { environment } = require('@rails/webpacker')
           environment.config.merge({ entry: './app/javascript/src/index.js' })
