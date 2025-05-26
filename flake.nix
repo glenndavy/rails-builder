@@ -25,7 +25,7 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.54"; # Incremented for Webpack entry point fix
+    flake_version = "112.55"; # Incremented for Webpack custom.js fix
     bundlerGems = import ./bundler-hashes.nix;
 
     detectRubyVersion = {
@@ -52,7 +52,7 @@
 
     detectBundlerVersion = {
       src,
-      defaultVersion ? "2.5.17",
+      defaultVersion ? "2.5.16",
     }: let
       lockFile = "${src}/Gemfile.lock";
       fileExists = builtins.pathExists lockFile;
@@ -742,19 +742,31 @@
                           echo "DEBUG: Created config/webpack/environment.js:"
                           cat config/webpack/environment.js
                         else
-                          echo "DEBUG: Contents of config/webpack/environment.js:"
+                          echo "DEBUG: Contents of config/webpack/environment.js before patching:"
                           cat config/webpack/environment.js
                           if [ -d "$APP_DIR/app/javascript/src" ] && [ -f "$APP_DIR/app/javascript/src/index.js" ]; then
                             echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/src/index.js"
-                            echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/src/index.js' })\nmodule.exports = environment" > config/webpack/environment.js
+                            echo "const { environment } = require('@rails/webpacker')\nconst customConfig = require('./custom')\nenvironment.config.merge({ entry: './app/javascript/src/index.js', ...customConfig })\nmodule.exports = environment" > config/webpack/environment.js
                             echo "DEBUG: Updated config/webpack/environment.js:"
                             cat config/webpack/environment.js
                           else
                             echo "DEBUG: Overwriting config/webpack/environment.js to set entry to app/javascript/packs/application.js"
-                            echo "const { environment } = require('@rails/webpacker')\nenvironment.config.merge({ entry: './app/javascript/packs/application.js' })\nmodule.exports = environment" > config/webpack/environment.js
+                            echo "const { environment } = require('@rails/webpacker')\nconst customConfig = require('./custom')\nenvironment.config.merge({ entry: './app/javascript/packs/application.js', ...customConfig })\nmodule.exports = environment" > config/webpack/environment.js
                             echo "DEBUG: Updated config/webpack/environment.js:"
                             cat config/webpack/environment.js
                           fi
+                        fi
+                        if [ -f config/webpack/custom.js ]; then
+                          echo "DEBUG: Contents of config/webpack/custom.js before patching:"
+                          cat config/webpack/custom.js
+                          echo "DEBUG: Patching config/webpack/custom.js to set correct entry point"
+                          if [ -d "$APP_DIR/app/javascript/src" ] && [ -f "$APP_DIR/app/javascript/src/index.js" ]; then
+                            echo "module.exports = { entry: './app/javascript/src/index.js' }" > config/webpack/custom.js
+                          else
+                            echo "module.exports = { entry: './app/javascript/packs/application.js' }" > config/webpack/custom.js
+                          fi
+                          echo "DEBUG: Updated config/webpack/custom.js:"
+                          cat config/webpack/custom.js
                         fi
                         if [ -f config/webpack/production.js ]; then
                           echo "DEBUG: Contents of config/webpack/production.js:"
@@ -1439,7 +1451,7 @@
     };
     flake_version = flake_version;
     templates = {
-      new-app = {
+      new_app = {
         path = ./templates/new-app;
         description = "A template for initializing a Rails application with Nix flake support";
       };
