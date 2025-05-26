@@ -25,13 +25,12 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.60"; # Incremented for bundlerWrapper scoping fix
+    flake_version = "112.61"; # Incremented for directory creation fix
     bundlerGems = import ./bundler-hashes.nix;
 
-    # Define ruby and bundler at top level for bundlerWrapper
-    defaultRubyVersion = "3.3.5"; # Fallback if .ruby-version is missing
-    ruby = pkgs."ruby-${defaultRubyVersion}" or (throw "Ruby version ${defaultRubyVersion} not found in nixpkgs-ruby");
-    bundlerVersion = "2.5.16"; # Default, overridden by detectBundlerVersion
+    # Define ruby and bundler at top level
+    ruby = pkgs."ruby-3.3.5" or (throw "Ruby version 3.3.5 not found in nixpkgs-ruby");
+    bundlerVersion = "2.5.16";
     bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix.");
     bundler = pkgs.stdenv.mkDerivation {
       name = "bundler-${bundlerVersion}";
@@ -44,7 +43,7 @@
       installPhase = ''
         export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:${pkgs.libyaml}/lib:$LD_LIBRARY_PATH
         export HOME=$TMPDIR
-        export GEM_HOME=$out/lib/ruby/gems/${defaultRubyVersion}
+        export GEM_HOME=$out/lib/ruby/gems/3.3.5
         export GEM_PATH=$GEM_HOME
         export PATH=$out/bin:$PATH
         mkdir -p $GEM_HOME $out/bin
@@ -57,7 +56,7 @@
     bundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
       #!${pkgs.runtimeShell}
       export GEM_HOME=$TMPDIR/gems
-      export GEM_PATH=${bundler}/lib/ruby/gems/${defaultRubyVersion}:$GEM_HOME
+      export GEM_PATH=${bundler}/lib/ruby/gems/3.3.5:$GEM_HOME
       unset RUBYLIB
       exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
     '';
@@ -77,7 +76,7 @@
           if cleanedVersion == ""
           then throw "Empty .ruby-version file in ${src}"
           else cleanedVersion
-        else defaultRubyVersion;
+        else throw "Missing .ruby-version file in ${src}";
       underscored = builtins.replaceStrings ["."] ["_"] version;
     in {
       dotted = version;
@@ -111,7 +110,7 @@
           if versionMatch != null
           then builtins.head versionMatch
           else throw "Could not parse bundler_version from line after BUNDLED WITH: '${versionLine}'"
-        else bundlerVersion;
+        else throw "Gemfile.lock is missing in ${src}. Please provide a valid Gemfile.lock.";
     in
       version;
 
@@ -158,7 +157,7 @@
       gccVersion ? null,
       packageOverrides ? {},
       historicalNixpkgs ? null,
-      buildCommands ? ["${bundlerWrapper}/bin/bundle exec rails assets:precompile"],
+      buildCommands ? ["${appBundlerWrapper}/bin/bundle exec rails assets:precompile"],
     }: let
       pkgs = import nixpkgs {
         inherit system;
@@ -358,6 +357,7 @@
                         echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
                         exit 1
                       }
+                      mkdir -p $out/app/vendor/bundle
                       cp -r $TMPDIR/vendor/bundle/* $out/app/vendor/bundle/
                       if [ -d "$out/app/vendor/bundle/bin" ]; then
                         for file in $out/app/vendor/bundle/bin/*; do
@@ -499,6 +499,7 @@
                     export RAILS_ENV=${railsEnv}
                     ${builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (name: value: "export ${name}=${pkgs.lib.escapeShellArg value}") extraEnv))}
                     ${builtins.concatStringsSep "\n" effectiveBuildCommands}
+                    mkdir -p $out/app/public
                     cp -r public $out/app/public
                     if [ -f "$REDIS_PID" ]; then
                       kill $(cat $REDIS_PID)
@@ -621,7 +622,6 @@
           echo "Welcome to the Rails dev shell!"
         '';
       };
-    # ... (other functions like mkBootstrapDevShell, mkRubyShell, mkDockerImage remain unchanged) ...
   in {
     lib.${system} = {
       inherit detectRubyVersion detectBundlerVersion buildRailsApp nixpkgsConfig mkAppDevShell;
