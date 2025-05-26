@@ -25,8 +25,42 @@
       config = nixpkgsConfig;
       overlays = [nixpkgs-ruby.overlays.default];
     };
-    flake_version = "112.59"; # Incremented for syntax fix
+    flake_version = "112.60"; # Incremented for bundlerWrapper scoping fix
     bundlerGems = import ./bundler-hashes.nix;
+
+    # Define ruby and bundler at top level for bundlerWrapper
+    defaultRubyVersion = "3.3.5"; # Fallback if .ruby-version is missing
+    ruby = pkgs."ruby-${defaultRubyVersion}" or (throw "Ruby version ${defaultRubyVersion} not found in nixpkgs-ruby");
+    bundlerVersion = "2.5.16"; # Default, overridden by detectBundlerVersion
+    bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix.");
+    bundler = pkgs.stdenv.mkDerivation {
+      name = "bundler-${bundlerVersion}";
+      buildInputs = [ruby pkgs.git];
+      src = pkgs.fetchurl {
+        url = bundlerGem.url;
+        sha256 = bundlerGem.sha256;
+      };
+      dontUnpack = true;
+      installPhase = ''
+        export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:${pkgs.libyaml}/lib:$LD_LIBRARY_PATH
+        export HOME=$TMPDIR
+        export GEM_HOME=$out/lib/ruby/gems/${defaultRubyVersion}
+        export GEM_PATH=$GEM_HOME
+        export PATH=$out/bin:$PATH
+        mkdir -p $GEM_HOME $out/bin
+        gem install --no-document --local $src --install-dir $GEM_HOME --bindir $out/bin
+        if [ -f "$out/bin/bundle" ]; then
+          sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/bin/bundle"
+        fi
+      '';
+    };
+    bundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
+      #!${pkgs.runtimeShell}
+      export GEM_HOME=$TMPDIR/gems
+      export GEM_PATH=${bundler}/lib/ruby/gems/${defaultRubyVersion}:$GEM_HOME
+      unset RUBYLIB
+      exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
+    '';
 
     detectRubyVersion = {
       src,
@@ -43,7 +77,7 @@
           if cleanedVersion == ""
           then throw "Empty .ruby-version file in ${src}"
           else cleanedVersion
-        else throw "Missing .ruby-version file in ${src}";
+        else defaultRubyVersion;
       underscored = builtins.replaceStrings ["."] ["_"] version;
     in {
       dotted = version;
@@ -77,7 +111,7 @@
           if versionMatch != null
           then builtins.head versionMatch
           else throw "Could not parse bundler_version from line after BUNDLED WITH: '${versionLine}'"
-        else throw "Gemfile.lock is missing in ${src}. Please provide a valid Gemfile.lock.";
+        else bundlerVersion;
     in
       version;
 
@@ -152,15 +186,15 @@
         else gemset;
       effectiveGemStrategy = gem_strategy;
       rubyVersion = detectRubyVersion {inherit src rubyVersionSpecified;};
-      ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
-      bundlerVersion = detectBundlerVersion {inherit src;};
-      bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix or provide custom bundlerHashes.");
-      bundler = effectivePkgs.stdenv.mkDerivation {
-        name = "bundler-${bundlerVersion}";
-        buildInputs = [ruby effectivePkgs.git];
+      appRuby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
+      appBundlerVersion = detectBundlerVersion {inherit src;};
+      appBundlerGem = bundlerGems."${appBundlerVersion}" or (throw "Unsupported bundler version: ${appBundlerVersion}. Update bundler-hashes.nix or provide custom bundlerHashes.");
+      appBundler = effectivePkgs.stdenv.mkDerivation {
+        name = "bundler-${appBundlerVersion}";
+        buildInputs = [appRuby effectivePkgs.git];
         src = effectivePkgs.fetchurl {
-          url = bundlerGem.url;
-          sha256 = bundlerGem.sha256;
+          url = appBundlerGem.url;
+          sha256 = appBundlerGem.sha256;
         };
         dontUnpack = true;
         installPhase = ''
@@ -172,21 +206,21 @@
           mkdir -p $GEM_HOME $out/bin
           gem install --no-document --local $src --install-dir $GEM_HOME --bindir $out/bin
           if [ -f "$out/bin/bundle" ]; then
-            sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/bin/bundle"
+            sed -i 's|#!/usr/bin/env ruby|#!${appRuby}/bin/ruby|' "$out/bin/bundle"
           fi
         '';
       };
-      bundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
+      appBundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
         #!${pkgs.runtimeShell}
         export GEM_HOME=$TMPDIR/gems
-        export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+        export GEM_PATH=${appBundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
         unset RUBYLIB
-        exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
+        exec ${appRuby}/bin/ruby ${appBundler}/bin/bundle "$@"
       '';
       webpackScript = pkgs.writeTextFile {
         name = "webpack";
         text = ''
-          #!${ruby}/bin/ruby
+          #!${appRuby}/bin/ruby
           ENV['NODE_PATH'] = "$TMPDIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:#{ENV['NODE_PATH']}"
           puts "DEBUG: Executing webpack from: #{Dir.pwd}"
           puts "DEBUG: Webpack command: ${effectivePkgs.nodejs_20}/bin/node $TMPDIR/node_modules/.bin/webpack --mode=production #{ARGV.join(' ')}"
@@ -222,7 +256,7 @@
         if buildCommands == true
         then []
         else if buildCommands == null
-        then ["${bundlerWrapper}/bin/bundle exec rails assets:precompile"]
+        then ["${appBundlerWrapper}/bin/bundle exec rails assets:precompile"]
         else if builtins.isList buildCommands
         then buildCommands
         else [buildCommands];
@@ -230,16 +264,16 @@
       app = effectivePkgs.stdenv.mkDerivation {
         name = "rails-app-${flake_version}";
         inherit src extraBuildInputs;
-        buildInputs = [ruby bundler] ++ defaultBuildInputs ++ extraBuildInputs;
-        nativeBuildInputs = [bundlerWrapper ruby effectivePkgs.git effectivePkgs.coreutils gcc];
+        buildInputs = [appRuby appBundler] ++ defaultBuildInputs ++ extraBuildInputs;
+        nativeBuildInputs = [appBundlerWrapper appRuby effectivePkgs.git effectivePkgs.coreutils gcc];
         dontPatchShebangs = true;
         buildPhase = ''
                     echo "******************************************************************"
                     echo "Entering build phase for buildRailsApp (version ${flake_version})"
                     echo "******************************************************************"
-                    export PATH=${bundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${ruby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$TMPDIR/node_modules/.bin:$PATH
+                    export PATH=${appBundlerWrapper}/bin:${effectivePkgs.coreutils}/bin:${appRuby}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodejs_20}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$TMPDIR/node_modules/.bin:$PATH
                     export GEM_HOME=$TMPDIR/gems
-                    export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
+                    export GEM_PATH=${appBundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
                     export NODE_PATH=$TMPDIR/node_modules:${effectivePkgs.nodejs_20}/lib/node_modules:$NODE_PATH
                     export HOME=$TMPDIR
                     unset $(env | grep ^BUNDLE_ | cut -d= -f1)
@@ -284,9 +318,9 @@
 
                     echo "\n********************* Setting up bundler ********************************************\n"
                     mkdir -p $GEM_HOME $TMPDIR/vendor/bundle/bin $TMPDIR/.bundle
-                    echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
-                    ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $TMPDIR/vendor/bundle/bin || {
-                      echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+                    echo "Installing bundler ${appBundlerVersion} into GEM_HOME..."
+                    ${appRuby}/bin/gem install --no-document --local ${appBundler.src} --install-dir $GEM_HOME --bindir $TMPDIR/vendor/bundle/bin || {
+                      echo "Failed to install bundler ${appBundlerVersion} into GEM_HOME"
                       exit 1
                     }
                     cat > $TMPDIR/.bundle/config <<'EOF'
@@ -301,7 +335,7 @@
                     echo "Checking for git availability:"
                     git --version || echo "Git not found"
                     echo "Using bundler version:"
-                    ${bundlerWrapper}/bin/bundle --version || {
+                    ${appBundlerWrapper}/bin/bundle --version || {
                       echo "Failed to run bundle command"
                       exit 1
                     }
@@ -311,16 +345,16 @@
                     echo "Detected gem strategy: ${effectiveGemStrategy}"
                     if [ "${effectiveGemStrategy}" = "vendored" ]; then
                       echo "\n********************** using vendored strategy ********************************************\n"
-                      ${bundlerWrapper}/bin/bundle config set --local path $TMPDIR/vendor/bundle
-                      ${bundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
-                      ${bundlerWrapper}/bin/bundle config set --local without development test
-                      ${bundlerWrapper}/bin/bundle config set --local bin $TMPDIR/vendor/bundle/bin
+                      ${appBundlerWrapper}/bin/bundle config set --local path $TMPDIR/vendor/bundle
+                      ${appBundlerWrapper}/bin/bundle config set --local cache_path vendor/cache
+                      ${appBundlerWrapper}/bin/bundle config set --local without development test
+                      ${appBundlerWrapper}/bin/bundle config set --local bin $TMPDIR/vendor/bundle/bin
                       echo "Bundler config before install:"
-                      ${bundlerWrapper}/bin/bundle config
+                      ${appBundlerWrapper}/bin/bundle config
                       echo "Listing vendor/cache contents:"
                       ls -l vendor/cache || echo "vendor/cache directory not found"
                       echo "Attempting bundle install:"
-                      ${bundlerWrapper}/bin/bundle install --local --no-cache --binstubs $TMPDIR/vendor/bundle/bin --verbose || {
+                      ${appBundlerWrapper}/bin/bundle install --local --no-cache --binstubs $TMPDIR/vendor/bundle/bin --verbose || {
                         echo "Bundle install failed, please check vendor/cache and Gemfile.lock for compatibility"
                         exit 1
                       }
@@ -328,7 +362,7 @@
                       if [ -d "$out/app/vendor/bundle/bin" ]; then
                         for file in $out/app/vendor/bundle/bin/*; do
                           if [ -f "$file" ]; then
-                            sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$file"
+                            sed -i 's|#!/usr/bin/env ruby|#!${appRuby}/bin/ruby|' "$file"
                           fi
                         done
                         echo "Manually patched shebangs in $out/app/vendor/bundle/bin"
@@ -336,12 +370,12 @@
                       echo "Checking for rails executable:"
                       if [ -f "$out/app/vendor/bundle/bin/rails" ]; then
                         echo "Rails executable found"
-                        ${bundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
+                        ${appBundlerWrapper}/bin/bundle exec $out/app/vendor/bundle/bin/rails --version
                       else
                         echo "Rails executable not found"
                         exit 1
                       fi
-                      export PATH=${bundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$TMPDIR/vendor/bundle/bin:${ruby}/bin:${effectivePkgs.nodejs_20}/bin:$TMPDIR/node_modules/.bin:$PATH
+                      export PATH=${appBundlerWrapper}/bin:${effectivePkgs.yarn}/bin:${effectivePkgs.dart-sass}/bin:${effectivePkgs.nodePackages.webpack-cli}/bin:$TMPDIR/vendor/bundle/bin:${appRuby}/bin:${effectivePkgs.nodejs_20}/bin:$TMPDIR/node_modules/.bin:$PATH
                       echo "\n********************** bundling done ********************************************\n"
                     else
                       echo "Error: Only vendored gem strategy is supported in this version"
@@ -393,7 +427,7 @@
                     if [ -f bin/webpack ]; then
                       cp ${webpackScript} bin/webpack
                       chmod +x bin/webpack
-                      ${ruby}/bin/ruby bin/webpack --version || {
+                      ${appRuby}/bin/ruby bin/webpack --version || {
                         echo "ERROR: Failed to execute bin/webpack"
                         exit 1
                       }
@@ -482,12 +516,12 @@
                     cat > $out/app/bin/rails-app <<'EOF'
           #!${effectivePkgs.runtimeShell}
           export GEM_HOME=/app/.nix-gems
-          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems
+          export GEM_PATH=${appBundler}/lib/ruby/gems/${rubyVersion.dotted}:/app/.nix-gems
           unset RUBYLIB
           unset $(env | grep ^BUNDLE_ | cut -d= -f1)
           export BUNDLE_PATH=/app/vendor/bundle
           export BUNDLE_GEMFILE=/app/Gemfile
-          export PATH=${bundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:$PATH
+          export PATH=${appBundlerWrapper}/bin:/app/vendor/bundle/bin:/app/node_modules/.bin:${pkgs.yarn}/bin:${pkgs.dart-sass}/bin:${pkgs.nodejs_20}/bin:${pkgs.nodePackages.webpack-cli}/bin:$PATH
           export NODE_PATH=/app/node_modules:${pkgs.nodejs_20}/lib/node_modules:$NODE_PATH
           export RUBYOPT="-r logger"
           export XDG_DATA_DIRS=${effectivePkgs.shared-mime-info}/share:$XDG_DATA_DIRS
@@ -495,13 +529,13 @@
           export TZDIR=${pkgs.tzdata}/share/zoneinfo
           mkdir -p /app/.bundle
           cd /app
-          exec ${bundlerWrapper}/bin/bundle exec /app/vendor/bundle/bin/rails "$@"
+          exec ${appBundlerWrapper}/bin/bundle exec /app/vendor/bundle/bin/rails "$@"
           EOF
                     chmod +x $out/app/bin/rails-app
-                    sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/app/bin/rails-app"
+                    sed -i 's|#!/usr/bin/env ruby|#!${appRuby}/bin/ruby|' "$out/app/bin/rails-app"
         '';
       };
-      bundler = bundler;
+      bundler = appBundler;
     };
 
     mkAppDevShell = {
@@ -515,8 +549,8 @@
         if historicalNixpkgs != null
         then import historicalNixpkgs {inherit system;}
         else pkgs;
-      bundler = (buildRailsApp {inherit src nixpkgsConfig gccVersion packageOverrides historicalNixpkgs;}).bundler;
-      ruby = effectivePkgs."ruby-${(detectRubyVersion {inherit src;}).dotted}" or (throw "Ruby version ${(detectRubyVersion {inherit src;}).dotted} not found in nixpkgs-ruby");
+      rubyVersion = detectRubyVersion {inherit src;};
+      ruby = effectivePkgs."ruby-${rubyVersion.dotted}" or (throw "Ruby version ${rubyVersion.dotted} not found in nixpkgs-ruby");
       gcc =
         if packageOverrides ? gcc
         then packageOverrides.gcc
@@ -526,7 +560,7 @@
             then historicalPkgs."gcc${gccVersion}"
             else pkgs.gcc
           );
-      bundlerVersion = detectBundlerVersion {inherit src;};
+      appBundlerVersion = detectBundlerVersion {inherit src;};
     in
       effectivePkgs.mkShell {
         buildInputs = with effectivePkgs; [
@@ -556,7 +590,7 @@
           export HOME=$PWD/.nix-home
           mkdir -p $HOME
           export GEM_HOME=$PWD/.nix-gems
-          export GEM_PATH=${bundler}/lib/ruby/gems/${(detectRubyVersion {inherit src;}).dotted}:$GEM_HOME
+          export GEM_PATH=${bundler}/lib/ruby/gems/${rubyVersion.dotted}:$GEM_HOME
           unset RUBYLIB
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
@@ -573,9 +607,9 @@
           export CC=${gcc}/bin/gcc
           export CXX=${gcc}/bin/g++
           mkdir -p .nix-gems $BUNDLE_PATH/bin $PWD/.bundle
-          echo "Installing bundler ${bundlerVersion} into GEM_HOME..."
+          echo "Installing bundler ${appBundlerVersion} into GEM_HOME..."
           ${ruby}/bin/gem install --no-document --local ${bundler.src} --install-dir $GEM_HOME --bindir $BUNDLE_PATH/bin || {
-            echo "Failed to install bundler ${bundlerVersion} into GEM_HOME"
+            echo "Failed to install bundler ${appBundlerVersion} into GEM_HOME"
             exit 1
           }
           ${bundler}/bin/bundle config set --local path $BUNDLE_PATH
