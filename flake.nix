@@ -1,72 +1,91 @@
 {
-  description = "Dentalportal Rails app";
-  version = "2.0.0"; # Frontend version
+  description = "Generic Rails builder flake";
+  version = "2.0.0"; # Backend version
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rails-builder.url = "github:your-org/rails-builder"; # Adjust to your repo
-    flake-compat.url = "github:edolstra/flake-compat";
-    flake-compat.flake = false;
+    nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
+    nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = {
     self,
     nixpkgs,
-    rails-builder,
-    flake-compat,
+    nixpkgs-ruby,
     ...
   }: let
     system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
+    overlays = [nixpkgs-ruby.overlays.default];
+    pkgs = import nixpkgs {inherit system overlays;};
 
-    # Read .ruby-version or error out
-    rubyVersionFile = ./.ruby-version;
-    rubyVersion =
-      if builtins.pathExists rubyVersionFile
-      then builtins.readFile rubyVersionFile
-      else throw "Error: No .ruby-version found in RAILS_ROOT. Please specify a Ruby version.";
-
-    # Read bundler version from Gemfile.lock or default to latest
-    gemfileLock = ./Gemfile.lock;
-    bundlerVersion =
-      if builtins.pathExists gemfileLock
-      then let
-        lockContent = builtins.readFile gemfileLock;
-        match = builtins.match ".*BUNDLED WITH\n   ([0-9.]+).*" lockContent;
-      in
-        if match != null
-        then builtins.head match
-        else "latest"
-      else "latest";
-
-    # App-specific customizations
-    buildConfig = {
-      inherit rubyVersion;
-      bundlerVersion = bundlerVersion;
-      gccVersion = "latest";
-      opensslVersion = "3_2";
-    };
-
-    # Call backend builder
-    railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
-  in {
-    devShells.${system}.buildShell = railsBuild.shell.overrideAttrs (old: {
-      shellHook =
-        old.shellHook
-        + ''
-          export BUNDLE_PATH=/builder/.bundle
-          export BUNDLE_GEMFILE=/builder/Gemfile
+    # Function to create build environment
+    mkRailsBuild = {
+      rubyVersion,
+      bundlerVersion ? "latest",
+      gccVersion ? "latest",
+      opensslVersion ? "3_2",
+    }: let
+      rubyPackage = pkgs."ruby_${builtins.replaceStrings ["."] ["_"] rubyVersion}";
+      bundlerPackage =
+        if bundlerVersion == "latest"
+        then pkgs.bundler
+        else pkgs.bundler.override {version = bundlerVersion;};
+      gccPackage =
+        if gccVersion == "latest"
+        then pkgs.gcc
+        else pkgs."gcc${gccVersion}";
+      opensslPackage = pkgs."openssl_${opensslVersion}";
+    in {
+      shell = pkgs.mkShell {
+        buildInputs = [
+          rubyPackage
+          bundlerPackage
+          gccPackage
+          pkgs.curl
+          opensslPackage
+          pkgs.tzdata
+          pkgs.pkg-config
+          pkgs.zlib
+          pkgs.libyaml
+        ];
+        shellHook = ''
+          export PKG_CONFIG_PATH=${pkgs.curl.dev}/lib/pkgconfig
+          export LD_LIBRARY_PATH=${pkgs.curl}/lib:${opensslPackage}/lib
+          export TZDIR=/usr/share/zoneinfo
+          mkdir -p /usr/share
+          ln -sf ${pkgs.tzdata}/share/zoneinfo /usr/share/zoneinfo
         '';
-    });
-    packages.${system}.buildApp = railsBuild.app;
-    packages.${system}.dockerImage = railsBuild.dockerImage;
-    packages.${system}.flakeVersion = pkgs.writeText "flake-version" ''
-      Frontend Flake Version: ${self.version}
-      Backend Flake Version: ${rails-builder.version}
-    '';
-    apps.${system}.flakeVersion = {
-      type = "app";
-      program = "${self.packages.${system}.flakeVersion}";
+      };
+      app = pkgs.stdenv.mkDerivation {
+        name = "rails-app";
+        src = ./.; # Overridden by frontend
+        buildInputs = [rubyPackage bundlerPackage gccPackage pkgs.curl opensslPackage pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml];
+        buildPhase = ''
+          export HOME=/tmp
+          export BUNDLE_PATH=$out/vendor/bundle
+          export BUNDLE_GEMFILE=$src/Gemfile
+          bundle config set --local path $BUNDLE_PATH
+          bundle install
+          bundle pristine curb
+          bundle exec rails assets:precompile
+        '';
+        installPhase = ''
+          mkdir -p $out
+          cp -r . $out
+        '';
+      };
+      dockerImage = pkgs.dockerTools.buildLayeredImage {
+        name = "rails-app";
+        tag = "latest";
+        contents = [self.app pkgs.curl opensslPackage];
+        config = {
+          Cmd = ["${rubyPackage}/bin/ruby" "${self.app}/bin/rails" "server" "-b" "0.0.0.0"];
+          Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
+          ExposedPorts = {"3000/tcp" = {};};
+        };
+      };
     };
+  in {
+    lib = {inherit mkRailsBuild;};
   };
 }
