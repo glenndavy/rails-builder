@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 git checkout -b builder
 cp /path/to/template-flake.nix flake.nix
