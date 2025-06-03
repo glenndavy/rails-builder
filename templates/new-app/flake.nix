@@ -3,7 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rails-builder.url = "github:glenndavy/rails-builder"; # Corrected
+    rails-builder.url = "github:glenndavy/rails-builder";
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
   };
@@ -17,7 +17,8 @@
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {inherit system;};
-    version = "2.0.13";
+    version = "2.0.13"; # Frontend version
+
     # Read .ruby-version or error out
     rubyVersionFile = ./.ruby-version;
     rubyVersion =
@@ -67,13 +68,16 @@
     });
     packages.${system}.buildApp = railsBuild.app;
     packages.${system}.dockerImage = railsBuild.dockerImage;
-    packages.${system}.flakeVersion = pkgs.writeText "flake-version" ''
-      Frontend Flake Version: ${version}
-      Backend Flake Version: ${rails-builder.lib.version or "2.0.1"}
+    packages.${system}.flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
+      #!${pkgs.runtimeShell}
+      cat ${pkgs.writeText "flake-version" ''
+        Frontend Flake Version: ${version}
+        Backend Flake Version: ${rails-builder.lib.version or "2.0.1"}
+      ''}
     '';
     apps.${system}.flakeVersion = {
       type = "app";
-      program = "${self.packages.${system}.flakeVersion}";
+      program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
     };
   };
 }
