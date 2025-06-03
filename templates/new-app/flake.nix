@@ -1,9 +1,9 @@
 {
-  description = "Dentalportal Rails app";
+  description = "Rails app template";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rails-builder.url = "github:your-org/rails-builder"; # Adjust to your repo
+    rails-builder.url = "github:glenndavy/rails-builder"; # Corrected
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
   };
@@ -16,7 +16,6 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.1"; # Frontend version
     pkgs = import nixpkgs {inherit system;};
 
     # Read .ruby-version or error out
@@ -52,7 +51,7 @@
   in {
     devShells.${system}.buildShell = railsBuild.shell.overrideAttrs (old: {
       buildInputs =
-        old.BuildInputs
+        old.buildInputs
         ++ [
           pkgs.rsync
           self.packages.${system}.manage-postgres
@@ -69,8 +68,8 @@
     packages.${system}.buildApp = railsBuild.app;
     packages.${system}.dockerImage = railsBuild.dockerImage;
     packages.${system}.flakeVersion = pkgs.writeText "flake-version" ''
-      Frontend Flake Version: ${self.version}
-      Backend Flake Version: ${rails-builder.version}
+      Frontend Flake Version: 2.0.1
+      Backend Flake Version: ${rails-builder.lib.version or "2.0.1"}
     '';
     apps.${system}.flakeVersion = {
       type = "app";
