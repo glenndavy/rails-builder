@@ -32,7 +32,7 @@ cd "$REPO_DIR"
 # Run build-stage-02.sh from scripts/
 if [ ! -f scripts/build-stage-02.sh ]; then
   # Attempt to download from rails-builder
-  SCRIPT_URL="https://raw.githubusercontent.com/glenndavy/rails-builder/main/scripts/build-stage-02.sh"
+  SCRIPT_URL="https://raw.githubusercontent.com/glenndavy/rails-builder/master/scripts/build-stage-02.sh"
   if ! curl -s -o scripts/build-stage-02.sh -f "$SCRIPT_URL"; then
     echo "Error: Failed to download build-stage-02.sh from $SCRIPT_URL" >&2
     exit 1
