@@ -43,6 +43,7 @@ echo "Git log:"
 git log --oneline -n 2
 
 # Generate docker-entrypoint.sh in Rails root
+# In build-stage-02.sh, update the here-document
 cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
@@ -61,10 +62,10 @@ if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found in /builder" >&2
   exit 1
 fi
-#echo "flake.nix contents in /builder:"
-#cat ./flake.nix
-# Run commands in buildShell
-nix run .#flakeVersion
+echo "flake.nix contents in /builder:"
+cat ./flake.nix
+# Run flakeVersion and commands
+nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app && $BUILD_STAGE_3"
 # Copy artifacts back to /source

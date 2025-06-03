@@ -17,7 +17,7 @@
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {inherit system;};
-    version = "2.0.13"; # Frontend version
+    version = "2.0.14"; # Frontend version
 
     # Read .ruby-version or error out
     rubyVersionFile = ./.ruby-version;
@@ -73,7 +73,7 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.1"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.6"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
