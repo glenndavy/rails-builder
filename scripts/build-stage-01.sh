@@ -30,7 +30,7 @@ git clone --depth 1 "$REPO_URL" "$REPO_DIR"
 cd "$REPO_DIR"
 
 # Run build-stage-02.sh from scripts/
-if [ ! -f scripts/build-stage-02.sh ]; then
+if [ ! -f build-stage-02.sh ]; then
   # Attempt to download from rails-builder
   SCRIPT_URL="https://raw.githubusercontent.com/glenndavy/rails-builder/master/scripts/build-stage-02.sh"
   if ! curl -s -o build-stage-02.sh -f "$SCRIPT_URL"; then
