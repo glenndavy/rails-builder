@@ -15,19 +15,23 @@ if [ -e ./flake.nix ]; then
   nix flake update
 else
   nix flake init -t github:glenndavy/rails-builder#new-app
-  nix flake lock
+  git add flake.nix
+  git commit -m "Add flake.nix for Rails build"
 fi
+nix flake lock
+git add flake.lock
+git commit -m "Add flake.lock"
 
 # Verify flake.nix
 if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found after initialization" >&2
   exit 1
 fi
-echo "flake.nix contents:"
+echo "flake.nix contents in /source:"
 cat ./flake.nix
 
-# Generate docker-entrypoint.sh
-cat <<'EOF' > scripts/docker-entrypoint.sh
+# Generate docker-entrypoint.sh in Rails root
+cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 mkdir -p /builder
@@ -38,13 +42,17 @@ if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found in /builder" >&2
   exit 1
 fi
+echo "flake.nix contents in /builder:"
+cat ./flake.nix
 # Run commands in buildShell
 nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app && $BUILD_STAGE_3"
 # Copy artifacts back to /source
 rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/
 rsync -a --delete /builder/public/packs/ /source/public/packs/
 EOF
-chmod +x scripts/docker-entrypoint.sh
+chmod +x docker-entrypoint.sh
+git add docker-entrypoint.sh
+git commit -m "Add docker-entrypoint.sh for build orchestration"
 
 # Run Docker container
-docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/scripts/docker-entrypoint.sh nixos/nix
+docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
