@@ -34,4 +34,4 @@ EOF
 chmod +x docker-entrypoint.sh
 
 # Run Docker container
-docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/scripts/docker-entrypoint.sh nixos/nix
+docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
