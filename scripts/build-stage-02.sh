@@ -19,7 +19,7 @@ else
 fi
 
 # Generate docker-entrypoint.sh using here-document
-cat <<'EOF' > scripts/docker-entrypoint.sh
+cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 mkdir -p /builder
@@ -31,7 +31,7 @@ nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --co
 rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/
 rsync -a --delete /builder/public/packs/ /source/public/packs/
 EOF
-chmod +x scripts/docker-entrypoint.sh
+chmod +x docker-entrypoint.sh
 
 # Run Docker container
 docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/scripts/docker-entrypoint.sh nixos/nix
