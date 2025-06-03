@@ -17,7 +17,7 @@
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {inherit system;};
-
+    version = "2.0.13";
     # Read .ruby-version or error out
     rubyVersionFile = ./.ruby-version;
     rubyVersion =
@@ -68,7 +68,7 @@
     packages.${system}.buildApp = railsBuild.app;
     packages.${system}.dockerImage = railsBuild.dockerImage;
     packages.${system}.flakeVersion = pkgs.writeText "flake-version" ''
-      Frontend Flake Version: 2.0.1
+      Frontend Flake Version: ${version}
       Backend Flake Version: ${rails-builder.lib.version or "2.0.1"}
     '';
     apps.${system}.flakeVersion = {
