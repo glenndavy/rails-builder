@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.1"; # Backend version
+    version = "2.0.2";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -86,6 +86,13 @@
       };
     };
   in {
-    lib = {inherit mkRailsBuild;};
+    lib = {
+      inherit mkRailsBuild;
+      version = version;
+    };
+    templates.new-app = {
+      path = ./templates/new-app;
+      description = "A template for a Rails application";
+    };
   };
 }
