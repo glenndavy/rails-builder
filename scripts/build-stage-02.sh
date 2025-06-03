@@ -36,7 +36,7 @@ if [ ! -f ./flake.nix ]; then
   exit 1
 fi
 echo "flake.nix contents in /source:"
-cat ./flake.nix
+#cat ./flake.nix
 echo "Git status:"
 git status
 echo "Git log:"
@@ -72,6 +72,6 @@ EOF
 chmod +x docker-entrypoint.sh
 git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration"
-
+echo "Generated docker-entrypoint.sh"
 # Run Docker container
 docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
