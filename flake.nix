@@ -1,6 +1,5 @@
 {
   description = "Generic Rails builder flake";
-  version = "2.0.0"; # Backend version
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -15,6 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
+    version = "2.0.1"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 

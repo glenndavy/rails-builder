@@ -1,6 +1,5 @@
 {
   description = "Dentalportal Rails app";
-  version = "2.0.0"; # Frontend version
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,6 +16,7 @@
     ...
   }: let
     system = "x86_64-linux";
+    version = "2.0.1"; # Frontend version
     pkgs = import nixpkgs {inherit system;};
 
     # Read .ruby-version or error out
