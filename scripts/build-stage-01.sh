@@ -33,15 +33,15 @@ cd "$REPO_DIR"
 if [ ! -f scripts/build-stage-02.sh ]; then
   # Attempt to download from rails-builder
   SCRIPT_URL="https://raw.githubusercontent.com/glenndavy/rails-builder/master/scripts/build-stage-02.sh"
-  if ! curl -s -o scripts/build-stage-02.sh -f "$SCRIPT_URL"; then
+  if ! curl -s -o build-stage-02.sh -f "$SCRIPT_URL"; then
     echo "Error: Failed to download build-stage-02.sh from $SCRIPT_URL" >&2
     exit 1
   fi
-  if ! grep -q '^#!/bin/sh' scripts/build-stage-02.sh; then
+  if ! grep -q '^#!/bin/sh' build-stage-02.sh; then
     echo "Error: Downloaded build-stage-02.sh is invalid (not a shell script)" >&2
-    cat scripts/build-stage-02.sh
+    cat build-stage-02.sh
     exit 1
   fi
 fi
-chmod +x scripts/build-stage-02.sh
-scripts/build-stage-02.sh
+chmod +x build-stage-02.sh
+./build-stage-02.sh
