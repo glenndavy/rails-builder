@@ -15,27 +15,46 @@ if [ -e ./flake.nix ]; then
   nix flake update
 else
   nix flake init -t github:glenndavy/rails-builder#new-app
+  if [ ! -f ./flake.nix ]; then
+    echo "Error: nix flake init failed to create flake.nix" >&2
+    exit 1
+  fi
   git add flake.nix
   git commit -m "Add flake.nix for Rails build"
 fi
 nix flake lock
+if [ ! -f ./flake.lock ]; then
+  echo "Error: nix flake lock failed to create flake.lock" >&2
+  exit 1
+fi
 git add flake.lock
 git commit -m "Add flake.lock"
 
-# Verify flake.nix
+# Verify flake.nix and Git status
 if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found after initialization" >&2
   exit 1
 fi
 echo "flake.nix contents in /source:"
 cat ./flake.nix
+echo "Git status:"
+git status
+echo "Git log:"
+git log --oneline -n 2
 
 # Generate docker-entrypoint.sh in Rails root
 cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 mkdir -p /builder
-cp -r /source/* /builder/
+# Explicitly copy flake.nix and other files
+if [ -f /source/flake.nix ]; then
+  cp /source/flake.nix /builder/
+else
+  echo "Error: flake.nix not found in /source" >&2
+  exit 1
+fi
+cp -r /source/* /builder/ 2>/dev/null || true
 cd /builder
 # Verify flake.nix in /builder
 if [ ! -f ./flake.nix ]; then
