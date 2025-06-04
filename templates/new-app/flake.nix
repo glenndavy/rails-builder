@@ -21,16 +21,17 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.20"; # Frontend version
+    version = "2.0.21"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
       parseVersion = version: let
-        cleaned = builtins.replaceStrings ["ruby-" "ruby"] ["" ""] version;
+        trimmed = builtins.replaceStrings ["\n" "\r" " "] ["" "" ""] version; # Remove newlines and spaces
+        cleaned = builtins.replaceStrings ["ruby-" "ruby"] ["" ""] trimmed;
       in
-        builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" cleaned;
+        builtins.match "^([0-9]+\\.[0-9]+\\.[0-9]+)$" cleaned;
       fromRubyVersion =
         if builtins.pathExists rubyVersionFile
         then let
@@ -119,7 +120,7 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.8"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.9"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
