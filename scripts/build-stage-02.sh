@@ -73,7 +73,7 @@ fi
 echo ".ruby-version contents in /builder:"
 cat ./.ruby-version
 # Run commands in buildShell
-nix run .#flakeVersion
+nix run .#flakeVersion  --extra-experimental-features 'flakes nix-command'
 echo "about to run nix develop"
 nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app && $BUILD_STAGE_3"
 # Copy artifacts back to /source
