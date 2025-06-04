@@ -4,6 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     rails-builder.url = "github:glenndavy/rails-builder";
+    nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
+    nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
   };
@@ -12,18 +14,17 @@
     self,
     nixpkgs,
     rails-builder,
+    nixpkgs-ruby,
     flake-compat,
     ...
   }: let
     system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
-    version = "2.0.16"; # Frontend version
+    overlays = [nixpkgs-ruby.overlays.default];
+    pkgs = import nixpkgs {inherit system overlays;};
+    version = "2.0.17"; # Frontend version
 
-    # Restore detectRubyVersion
-    detectRubyVersion = {
-      src,
-      defaultVersion ? "2.7.4",
-    }: let
+    # Detect Ruby version
+    detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
       parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.replaceStrings ["ruby-"] [""] version);
@@ -34,8 +35,8 @@
         in
           if parseVersion version != null
           then builtins.head (parseVersion version)
-          else defaultVersion
-        else defaultVersion;
+          else throw "Error: Invalid Ruby version in .ruby-version: ${version}"
+        else throw "Error: No .ruby-version found in RAILS_ROOT";
       fromGemfile =
         if builtins.pathExists gemfile
         then let
@@ -49,7 +50,7 @@
     in
       fromGemfile;
 
-    # Restore detectBundlerVersion
+    # Detect Bundler version
     detectBundlerVersion = {
       src,
       defaultVersion ? "2.3.26",
@@ -93,7 +94,7 @@
 
     # Call backend builder
     railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
-    rubyPackage = pkgs."ruby_${builtins.replaceStrings ["."] ["_"] rubyVersion}";
+    rubyPackage = pkgs.ruby-versions."ruby-${rubyVersion}";
   in {
     devShells.${system}.buildShell = railsBuild.shell.overrideAttrs (old: {
       buildInputs =

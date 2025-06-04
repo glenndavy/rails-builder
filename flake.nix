@@ -25,7 +25,7 @@
       gccVersion ? "latest",
       opensslVersion ? "3_2",
     }: let
-      rubyPackage = pkgs."ruby_${builtins.replaceStrings ["."] ["_"] rubyVersion}";
+      rubyPackage = pkgs.ruby-versions."ruby-${rubyVersion}";
       bundlerPackage =
         if bundlerVersion == "latest"
         then pkgs.bundler
