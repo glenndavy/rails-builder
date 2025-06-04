@@ -17,27 +17,71 @@
   }: let
     system = "x86_64-linux";
     pkgs = import nixpkgs {inherit system;};
-    version = "2.0.14"; # Frontend version
+    version = "2.0.16"; # Frontend version
 
-    # Read .ruby-version or error out
-    rubyVersionFile = ./.ruby-version;
-    rubyVersion =
-      if builtins.pathExists rubyVersionFile
-      then builtins.readFile rubyVersionFile
-      else throw "Error: No .ruby-version found in RAILS_ROOT. Please specify a Ruby version.";
+    # Restore detectRubyVersion
+    detectRubyVersion = {
+      src,
+      defaultVersion ? "2.7.4",
+    }: let
+      rubyVersionFile = src + "/.ruby-version";
+      gemfile = src + "/Gemfile";
+      parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.replaceStrings ["ruby-"] [""] version);
+      fromRubyVersion =
+        if builtins.pathExists rubyVersionFile
+        then let
+          version = builtins.readFile rubyVersionFile;
+        in
+          if parseVersion version != null
+          then builtins.head (parseVersion version)
+          else defaultVersion
+        else defaultVersion;
+      fromGemfile =
+        if builtins.pathExists gemfile
+        then let
+          content = builtins.readFile gemfile;
+          match = builtins.match ".*ruby ['\"]([0-9]+\\.[0-9]+\\.[0-9]+)['\"].*" content;
+        in
+          if match != null
+          then builtins.head match
+          else fromRubyVersion
+        else fromRubyVersion;
+    in
+      fromGemfile;
 
-    # Read bundler version from Gemfile.lock or default to latest
-    gemfileLock = ./Gemfile.lock;
-    bundlerVersion =
-      if builtins.pathExists gemfileLock
-      then let
-        lockContent = builtins.readFile gemfileLock;
-        match = builtins.match ".*BUNDLED WITH\n   ([0-9.]+).*" lockContent;
-      in
-        if match != null
-        then builtins.head match
-        else "latest"
-      else "latest";
+    # Restore detectBundlerVersion
+    detectBundlerVersion = {
+      src,
+      defaultVersion ? "2.3.26",
+    }: let
+      gemfileLock = src + "/Gemfile.lock";
+      gemfile = src + "/Gemfile";
+      parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
+      fromGemfileLock =
+        if builtins.pathExists gemfileLock
+        then let
+          content = builtins.readFile gemfileLock;
+          match = builtins.match ".*BUNDLED WITH\n   ([0-9.]+).*" content;
+        in
+          if match != null && parseVersion (builtins.head match) != null
+          then builtins.head match
+          else defaultVersion
+        else defaultVersion;
+      fromGemfile =
+        if builtins.pathExists gemfile
+        then let
+          content = builtins.readFile gemfile;
+          match = builtins.match ".*gem ['\"]bundler['\"], ['\"](~> )?([0-9.]+)['\"].*" content;
+        in
+          if match != null && parseVersion (builtins.elemAt match 1) != null
+          then builtins.elemAt match 1
+          else fromGemfileLock
+        else fromGemfileLock;
+    in
+      fromGemfile;
+
+    rubyVersion = detectRubyVersion {src = ./.;};
+    bundlerVersion = detectBundlerVersion {src = ./.;};
 
     # App-specific customizations
     buildConfig = {
@@ -49,6 +93,7 @@
 
     # Call backend builder
     railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
+    rubyPackage = pkgs."ruby_${builtins.replaceStrings ["."] ["_"] rubyVersion}";
   in {
     devShells.${system}.buildShell = railsBuild.shell.overrideAttrs (old: {
       buildInputs =
@@ -162,7 +207,7 @@
         export BUNDLE_GEMFILE=/builder/Gemfile
         export PATH=$BUNDLE_PATH/bin:$PATH
         echo "build-rails-app (Flake Version: ${version})"
-        echo "Ruby version: $(${pkgs.ruby_2_7}/bin/ruby -v)"
+        echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
         echo "Bundler version: $(${pkgs.bundler}/bin/bundler -v)"
         echo "Running bundle install..."
         ${pkgs.bundler}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
