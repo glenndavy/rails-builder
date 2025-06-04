@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.11"; # Backend version
+    version = "2.0.13"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -31,32 +31,35 @@
         if gccVersion == "latest"
         then pkgs.gcc
         else pkgs."gcc${gccVersion}";
-      opensslPackage = pkgs."openssl_${opensslVersion}";
+      opensslPackage =
+        if opensslVersion == "3_2"
+        then pkgs.openssl_3 # Map 3_2 to openssl_3
+        else pkgs."openssl_${opensslVersion}";
     in {
       shell = pkgs.mkShell {
         buildInputs = [
           rubyPackage
           bundlerPackage
           gccPackage
-          pkgs.curl
           opensslPackage
+          pkgs.curl
           pkgs.tzdata
           pkgs.pkg-config
           pkgs.zlib
           pkgs.libyaml
         ];
         shellHook = ''
-          export PKG_CONFIG_PATH=${pkgs.curl.dev}/lib/pkgconfig
-          export LD_LIBRARY_PATH=${pkgs.curl}/lib:${opensslPackage}/lib
-          export TZDIR=/usr/share/zoneinfo
-          mkdir -p /usr/share
-          ln -sf ${pkgs.tzdata}/share/zoneinfo /usr/share/zoneinfo
+          export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig"
+          export LD_LIBRARY_PATH="${pkgs.curl}/lib:${opensslPackage}/lib"
+          export TZDIR="$HOME/zoneinfo"
+          mkdir -p "$HOME/zoneinfo"
+          ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"
         '';
       };
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         src = ./.; # Overridden by frontend
-        buildInputs = [rubyPackage bundlerPackage gccPackage pkgs.curl opensslPackage pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml];
+        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml];
         buildPhase = ''
           export HOME=/tmp
           export BUNDLE_PATH=$out/vendor/bundle
