@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.26"; # Frontend version
+    version = "2.0.27"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -121,35 +121,47 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.15"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.14"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
-        #!${pkgs.runtimeShell}
-        set -e
-        export PGDATA=/builder/pgdata
-        export PGHOST=/builder
-        export PGUSER=1000 # Use UID 1000 instead of named user
-        export PGDATABASE=rails_build
-        # Ensure PGDATA and PGHOST are owned by UID 1000
-        mkdir -p $PGDATA
-        chown 1000:1000 $PGDATA
-        chown 1000:1000 /builder
-        case "$1" in
-          start)
-            if [ -d "$PGDATA" ]; then
+            #!${pkgs.runtimeShell}
+            set -e
+            export PGDATA=/builder/pgdata
+            export PGHOST=/builder
+            export PGUSER=1000 # Use UID 1000
+            export PGDATABASE=rails_build
+            # Ensure PGDATA and PGHOST are owned by UID 1000
+            mkdir -p $PGDATA
+            chown 1000:1000 $PGDATA
+            chown 1000:1000 /builder
+            # Check if PGDATA is a valid database cluster
+            if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
               if ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
                 echo "PostgreSQL is already running."
                 exit 0
               fi
             else
-              ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8
+              rm -rf $PGDATA # Remove invalid directory
+              mkdir -p $PGDATA
+              chown 1000:1000 $PGDATA
+              echo "Running initdb..."
+              if ! ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
+                echo "initdb failed. Log:"
+                cat /builder/initdb.log
+                exit 1
+              fi
               echo "unix_socket_directories = '$PGHOST'" >> $PGDATA/postgresql.conf
             fi
-            ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l /builder/pg.log -o "-k $PGHOST" start
+            echo "Starting PostgreSQL..."
+            if ! ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
+              echo "pg_ctl start failed. Log:"
+              cat /builder/pg_ctl.log
+              exit 1
+            fi
             sleep 2
             if ! ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
-              echo "Failed to start PostgreSQL."
+              echo "PostgreSQL failed to start."
               exit 1
             fi
             if ! ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/psql -h $PGHOST -lqt | cut -d \| -f 1 | grep -qw $PGDATABASE; then
