@@ -4,7 +4,8 @@ set -e
 # Validate BUILD_STAGE_3
 if [ -z "$BUILD_STAGE_3" ]; then
   echo "Error: BUILD_STAGE_3 not set" >&2
-  exit 1
+else
+  BUILD_STAGE_3=" && ${BUILD_STAGE_3}"
 fi
 
 # Create builder branch
@@ -75,7 +76,7 @@ cat ./.ruby-version
 # Run commands in buildShell
 nix run .#flakeVersion  --extra-experimental-features 'flakes nix-command'
 echo "about to run nix develop"
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app && $BUILD_STAGE_3"
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app ${BUILD_STAGE_3}"
 # Copy artifacts back to /source
 rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/
 rsync -a --delete /builder/public/packs/ /source/public/packs/
