@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.27"; # Frontend version
+    version = "2.0.28"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -125,16 +125,18 @@
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
-            #!${pkgs.runtimeShell}
-            set -e
-            export PGDATA=/builder/pgdata
-            export PGHOST=/builder
-            export PGUSER=1000 # Use UID 1000
-            export PGDATABASE=rails_build
-            # Ensure PGDATA and PGHOST are owned by UID 1000
-            mkdir -p $PGDATA
-            chown 1000:1000 $PGDATA
-            chown 1000:1000 /builder
+        #!${pkgs.runtimeShell}
+        set -e
+        export PGDATA=/builder/pgdata
+        export PGHOST=/builder
+        export PGUSER=1000 # Use UID 1000
+        export PGDATABASE=rails_build
+        # Ensure PGDATA and PGHOST are owned by UID 1000
+        mkdir -p $PGDATA
+        chown 1000:1000 $PGDATA
+        chown 1000:1000 /builder
+        case "$1" in
+          start)
             # Check if PGDATA is a valid database cluster
             if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
               if ${pkgs.gosu}/bin/gosu 1000 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
