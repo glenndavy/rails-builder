@@ -21,13 +21,16 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.17"; # Frontend version
+    version = "2.0.19"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
-      parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.replaceStrings ["ruby-"] [""] version);
+      parseVersion = version: let
+        cleaned = builtins.replaceStrings ["ruby-" "ruby"] ["" ""] version;
+      in
+        builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" cleaned;
       fromRubyVersion =
         if builtins.pathExists rubyVersionFile
         then let
@@ -51,10 +54,7 @@
       fromGemfile;
 
     # Detect Bundler version
-    detectBundlerVersion = {
-      src,
-      defaultVersion ? "2.3.26",
-    }: let
+    detectBundlerVersion = {src}: let
       gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
       parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
@@ -66,8 +66,8 @@
         in
           if match != null && parseVersion (builtins.head match) != null
           then builtins.head match
-          else defaultVersion
-        else defaultVersion;
+          else throw "Error: Invalid or missing Bundler version in Gemfile.lock"
+        else throw "Error: No Gemfile.lock found";
       fromGemfile =
         if builtins.pathExists gemfile
         then let
@@ -94,7 +94,7 @@
 
     # Call backend builder
     railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
-    rubyPackage = pkgs.ruby-versions."ruby-${rubyVersion}";
+    rubyPackage = pkgs."ruby-${rubyVersion}";
   in {
     devShells.${system}.buildShell = railsBuild.shell.overrideAttrs (old: {
       buildInputs =
@@ -119,7 +119,7 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.6"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.8"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''

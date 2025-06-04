@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.6"; # Backend version
+    version = "2.0.8"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -25,7 +25,7 @@
       gccVersion ? "latest",
       opensslVersion ? "3_2",
     }: let
-      rubyPackage = pkgs.ruby-versions."ruby-${rubyVersion}";
+      rubyPackage = pkgs."ruby-${rubyVersion}";
       bundlerPackage =
         if bundlerVersion == "latest"
         then pkgs.bundler
