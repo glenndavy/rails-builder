@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.24"; # Frontend version
+    version = "2.0.25"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -121,42 +121,50 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.13"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.14"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
         set -e
-        export PGDATA=$HOME/pgdata
-        export PGHOST=$HOME
+        export PGDATA=/builder/pgdata
+        export PGHOST=/builder
         export PGUSER=postgres
         export PGDATABASE=rails_build
+        # Create postgres user if not exists
+        if ! id -u $PGUSER >/dev/null 2>&1; then
+          useradd -ms /bin/sh -d /builder/postgres $PGUSER
+        fi
+        # Ensure PGDATA is owned by postgres user
+        mkdir -p $PGDATA
+        chown $PGUSER:$PGUSER $PGDATA
+        # Ensure PGHOST directory is accessible
+        chown $PGUSER:$PGUSER /builder
         case "$1" in
           start)
             if [ -d "$PGDATA" ]; then
-              if ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+              if ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
                 echo "PostgreSQL is already running."
                 exit 0
               fi
             else
-              mkdir -p $PGDATA
-              ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
-              echo "unix_socket_directories = '$HOME'" >> $PGDATA/postgresql.conf
+              ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8 --username=$PGUSER
+              echo "unix_socket_directories = '$PGHOST'" >> $PGDATA/postgresql.conf
             fi
-            ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l $HOME/pg.log -o "-k $HOME" start
+            ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l /builder/pg.log -o "-k $PGHOST" start
             sleep 2
-            if ! ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+            if ! ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
               echo "Failed to start PostgreSQL."
               exit 1
             fi
-            if ! ${pkgs.postgresql}/bin/psql -h $HOME -lqt | cut -d \| -f 1 | grep -qw $PGDATABASE; then
-              ${pkgs.postgresql}/bin/createdb -h $HOME $PGDATABASE
+            if ! ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/psql -h $PGHOST -lqt | cut -d \| -f 1 | grep -qw $PGDATABASE; then
+              ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/createdb -h $PGHOST $PGDATABASE
             fi
-            echo "PostgreSQL started successfully. DATABASE_URL: postgresql://$PGUSER@localhost/$PGDATABASE?host=$HOME"
+            echo "PostgreSQL started successfully. DATABASE_URL: postgresql://$PGUSER@localhost/$PGDATABASE?host=$PGHOST"
             ;;
           stop)
-            if [ -d "$PGDATA" ] && ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
-              ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA stop
+            if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+              ${pkgs.gosu}/bin/gosu $PGUSER ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA stop
               echo "PostgreSQL stopped."
             else
               echo "PostgreSQL is not running or PGDATA not found."
@@ -171,15 +179,15 @@
       manage-redis = pkgs.writeShellScriptBin "manage-redis" ''
         #!${pkgs.runtimeShell}
         set -e
-        export REDIS_SOCKET=$HOME/redis.sock
-        export REDIS_PID=$HOME/redis.pid
+        export REDIS_SOCKET=/builder/redis.sock
+        export REDIS_PID=/builder/redis.pid
         case "$1" in
           start)
             if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
               echo "Redis is already running."
               exit 0
             fi
-            mkdir -p $HOME
+            mkdir -p /builder
             ${pkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
             sleep 2
             if ! ${pkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping | grep -q PONG; then
