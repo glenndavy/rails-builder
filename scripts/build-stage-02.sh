@@ -4,10 +4,16 @@ set -e
 # Validate BUILD_STAGE_3
 if [ -z "$BUILD_STAGE_3" ]; then
   echo "Error: BUILD_STAGE_3 not set" >&2
-else
-  export BUILD_STAGE_3=" && ${BUILD_STAGE_3}"
+  exit 1
 fi
+# Remove leading '&&' and validate syntax
+export BUILD_STAGE_3="$BUILD_STAGE_3"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
+# Test BUILD_STAGE_3 syntax
+if ! sh -n -c "$BUILD_STAGE_3" >/dev/null 2>&1; then
+  echo "Error: Invalid BUILD_STAGE_3 syntax: $BUILD_STAGE_3" >&2
+  exit 1
+fi
 
 # Create builder branch
 git checkout -b builder
@@ -81,7 +87,8 @@ echo ".ruby-version contents in /builder (if present):"
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes' --option download-buffer-size 20971520
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --option download-buffer-size 20971520 --command sh -c "manage-postgres start && manage-redis start && build-rails-app ${BUILD_STAGE_3}"
+echo "DEBUG: sh -c command: manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3" >&2
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --option download-buffer-size 20971520 --command sh -c "manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3"
 # Copy artifacts back to /source
 rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/
 rsync -a --delete /builder/public/packs/ /source/public/packs/
