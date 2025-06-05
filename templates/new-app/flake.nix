@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.33"; # Frontend version
+    version = "2.0.34"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -133,8 +133,8 @@
         export PGDATABASE=rails_build
         # Ensure PGDATA and PGHOST are owned by nobody (UID 65534)
         mkdir -p "$PGDATA"
-        chown nobody:nogroup "$PGDATA"
-        chown nobody:nogroup /builder
+        chown nobody:nobody "$PGDATA"
+        chown nobody:nobody /builder
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2
@@ -148,7 +148,7 @@
               echo "DEBUG: No valid cluster, initializing" >&2
               rm -rf "$PGDATA"
               mkdir -p "$PGDATA"
-              chown nobody:nogroup "$PGDATA"
+              chown nobody:nobody "$PGDATA"
               echo "Running initdb..."
               if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
