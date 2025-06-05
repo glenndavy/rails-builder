@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.29"; # Frontend version
+    version = "2.0.30"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -56,7 +56,7 @@
 
     # Detect Bundler version
     detectBundlerVersion = {src}: let
-      gemfileLock = src + "/Gemfile.lock";
+      gemfileLock = src + "/.Gemfile.lock";
       gemfile = src + "/Gemfile";
       parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
       fromGemfileLock =
@@ -121,7 +121,7 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.15"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.16"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
@@ -130,24 +130,27 @@
         export PGDATA=/builder/pgdata
         export PGHOST=/builder
         export PGDATABASE=rails_build
-        # Ensure PGDATA and PGHOST are writable
+        # Set up minimal user environment for UID 999
+        mkdir -p /builder/etc
+        echo "postgres:x:999:999:Postgres User:/builder:/bin/sh" > /builder/etc/passwd
+        # Ensure PGDATA and PGHOST are owned by UID 999
         mkdir -p $PGDATA
-        chmod 700 $PGDATA
-        chmod 700 /builder
+        chown 999:999 $PGDATA
+        chown 999:999 /builder
         case "$1" in
           start)
             # Check if PGDATA is a valid database cluster
             if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
-              if ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+              if ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
                 echo "PostgreSQL is already running."
                 exit 0
               fi
             else
               rm -rf $PGDATA # Remove invalid directory
               mkdir -p $PGDATA
-              chmod 700 $PGDATA
+              chown 999:999 $PGDATA
               echo "Running initdb..."
-              if ! ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
+              if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
                 echo "initdb failed. Log:"
                 cat /builder/initdb.log
                 exit 1
@@ -155,24 +158,24 @@
               echo "unix_socket_directories = '$PGHOST'" >> $PGDATA/postgresql.conf
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
+            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
               echo "pg_ctl start failed. Log:"
               cat /builder/pg_ctl.log
               exit 1
             fi
             sleep 2
-            if ! ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
               echo "PostgreSQL failed to start."
               exit 1
             fi
-            if ! ${pkgs.postgresql}/bin/psql -h $PGHOST -lqt | cut -d \| -f 1 | grep -qw $PGDATABASE; then
-              ${pkgs.postgresql}/bin/createdb -h $PGHOST $PGDATABASE
+            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/psql -h $PGHOST -lqt | cut -d \| -f 1 | grep -qw $PGDATABASE; then
+              ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/createdb -h $PGHOST $PGDATABASE
             fi
             echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST"
             ;;
           stop)
-            if [ -d "$PGDATA" ] && ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
-              ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA stop
+            if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+              ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA stop
               echo "PostgreSQL stopped."
             else
               echo "PostgreSQL is not running or PGDATA not found."

@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.15"; # Backend version
+    version = "2.0.16"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -47,6 +47,7 @@
           pkgs.pkg-config
           pkgs.zlib
           pkgs.libyaml
+          pkgs.gosu # Re-added for manage-postgres
         ];
         shellHook = ''
           export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig"

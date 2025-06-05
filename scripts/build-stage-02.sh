@@ -4,8 +4,7 @@ set -e
 # Validate BUILD_STAGE_3
 if [ -z "$BUILD_STAGE_3" ]; then
   echo "Error: BUILD_STAGE_3 not set" >&2
-else
-  BUILD_STAGE_3=" && ${BUILD_STAGE_3}"
+  exit 1
 fi
 
 # Create builder branch
@@ -13,9 +12,9 @@ git checkout -b builder
 
 # Update or initialize flake
 if [ -e ./flake.nix ]; then
-  nix flake update
+  nix flake update --option download-buffer-size 10485760
 else
-  nix flake init -t github:glenndavy/rails-builder#new-app
+  nix flake init -t github:glenndavy/rails-builder#new-app --option download-buffer-size 10485760
   if [ ! -f ./flake.nix ]; then
     echo "Error: nix flake init failed to create flake.nix" >&2
     exit 1
@@ -23,7 +22,7 @@ else
   git add flake.nix
   git commit -m "Add flake.nix for Rails build" || true
 fi
-nix flake lock
+nix flake lock --option download-buffer-size 10485760
 if [ ! -f ./flake.lock ]; then
   echo "Error: nix flake lock failed to create flake.lock" >&2
   exit 1
@@ -36,6 +35,8 @@ if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found after initialization" >&2
   exit 1
 fi
+echo "flake.nix contents in /source:"
+cat ./flake.nix
 echo "Git status:"
 git status
 echo "Git log:"
@@ -46,37 +47,37 @@ cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 mkdir -p /builder
-# Explicitly copy flake.nix and .ruby-version
-if [ -f /source/flake.nix ]; then
-  cp /source/flake.nix /builder/
-else
-  echo "Error: flake.nix not found in /source" >&2
-  exit 1
-fi
-if [ -f /source/.ruby-version ]; then
-  cp /source/.ruby-version /builder/
-else
-  echo "Warning: .ruby-version not found in /source" >&2
-fi
-# Copy all files, including .*
-shopt -s dotglob
-cp -r /source/* /builder/ 2>/dev/null || true
+# Explicitly copy critical files
+for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/Gemfile; do
+  if [ -f "$file" ]; then
+    cp "$file" /builder/
+  else
+    echo "Warning: $file not found in /source" >&2
+  fi
+done
+# Copy all files, including directories
+for item in /source/* /source/.*; do
+  if [ -e "$item" ] && [ "$(basename "$item")" != "." ] && [ "$(basename "$item")" != ".." ]; then
+    cp -r "$item" /builder/ 2>/dev/null || true
+  fi
+done
 cd /builder
 # Verify files in /builder
 if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found in /builder" >&2
   exit 1
 fi
-if [ ! -f ./.ruby-version ]; then
-  echo "Error: .ruby-version not found in /builder" >&2
-  exit 1
+if [ ! -f ./Gemfile ]; then
+  echo "Warning: Gemfile not found in /builder" >&2
 fi
-echo ".ruby-version contents in /builder:"
-cat ./.ruby-version
+echo "flake.nix contents in /builder:"
+cat ./flake.nix
+echo ".ruby-version contents in /builder (if present):"
+[ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Run commands in buildShell
-nix run .#flakeVersion  --extra-experimental-features 'flakes nix-command'
+nix run .#flakeVersion --extra-experimental-features 'nix-command flakes' --option download-buffer-size 10485760
 echo "about to run nix develop"
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app ${BUILD_STAGE_3}"
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --option download-buffer-size 10485760 --command sh -c "manage-postgres start && manage-redis start && build-rails-app && $BUILD_STAGE_3"
 # Copy artifacts back to /source
 rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/
 rsync -a --delete /builder/public/packs/ /source/public/packs/
