@@ -81,7 +81,7 @@ echo ".ruby-version contents in /builder (if present):"
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes' --option download-buffer-size 20971520
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --option download-buffer-size 20971520 --command sh -c "manage-postgres start && manage-redis start && build-rails-app && $BUILD_STAGE_3"
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --option download-buffer-size 20971520 --command sh -c "manage-postgres start && manage-redis start && build-rails-app ${BUILD_STAGE_3}"
 # Copy artifacts back to /source
 rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/
 rsync -a --delete /builder/public/packs/ /source/public/packs/
