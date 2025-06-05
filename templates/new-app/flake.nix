@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.30"; # Frontend version
+    version = "2.0.31"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -56,7 +56,7 @@
 
     # Detect Bundler version
     detectBundlerVersion = {src}: let
-      gemfileLock = src + "/.Gemfile.lock";
+      gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
       parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
       fromGemfileLock =
@@ -127,6 +127,7 @@
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
         set -e
+        echo "DEBUG: Starting manage-postgres $1" >&2
         export PGDATA=/builder/pgdata
         export PGHOST=/builder
         export PGDATABASE=rails_build
@@ -134,62 +135,67 @@
         mkdir -p /builder/etc
         echo "postgres:x:999:999:Postgres User:/builder:/bin/sh" > /builder/etc/passwd
         # Ensure PGDATA and PGHOST are owned by UID 999
-        mkdir -p $PGDATA
-        chown 999:999 $PGDATA
+        mkdir -p "$PGDATA"
+        chown 999:999 "$PGDATA"
         chown 999:999 /builder
         case "$1" in
           start)
-            # Check if PGDATA is a valid database cluster
+            echo "DEBUG: Checking PGDATA validity" >&2
             if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
-              if ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
+              echo "DEBUG: Valid cluster found, checking status" >&2
+              if ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
                 echo "PostgreSQL is already running."
                 exit 0
               fi
             else
-              rm -rf $PGDATA # Remove invalid directory
-              mkdir -p $PGDATA
-              chown 999:999 $PGDATA
+              echo "DEBUG: No valid cluster, initializing" >&2
+              rm -rf "$PGDATA"
+              mkdir -p "$PGDATA"
+              chown 999:999 "$PGDATA"
               echo "Running initdb..."
-              if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/initdb -D $PGDATA --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
-                echo "initdb failed. Log:"
-                cat /builder/initdb.log
+              if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
+                echo "initdb failed. Log:" >&2
+                cat /builder/initdb.log >&2
                 exit 1
               fi
-              echo "unix_socket_directories = '$PGHOST'" >> $PGDATA/postgresql.conf
+              echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
-              echo "pg_ctl start failed. Log:"
-              cat /builder/pg_ctl.log
+            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
+              echo "pg_ctl start failed. Log:" >&2
+              cat /builder/pg_ctl.log >&2
               exit 1
             fi
             sleep 2
-            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
-              echo "PostgreSQL failed to start."
+            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+              echo "PostgreSQL failed to start." >&2
               exit 1
             fi
-            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/psql -h $PGHOST -lqt | cut -d \| -f 1 | grep -qw $PGDATABASE; then
-              ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/createdb -h $PGHOST $PGDATABASE
+            if ! ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
+              ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
             fi
             echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST"
             ;;
           stop)
-            if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA status; then
-              ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D $PGDATA stop
+            echo "DEBUG: Stopping PostgreSQL" >&2
+            if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+              ${pkgs.gosu}/bin/gosu 999 ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
               echo "PostgreSQL stopped."
             else
               echo "PostgreSQL is not running or PGDATA not found."
             fi
             ;;
           *)
-            echo "Usage: manage-postgres {start|stop}"
+            echo "Usage: manage-postgres {start|stop}" >&2
             exit 1
             ;;
         esac
+        echo "DEBUG: manage-postgres completed" >&2
       '';
       manage-redis = pkgs.writeShellScriptBin "manage-redis" ''
         #!${pkgs.runtimeShell}
         set -e
+        echo "DEBUG: Starting manage-redis $1" >&2
         export REDIS_SOCKET=/builder/redis.sock
         export REDIS_PID=/builder/redis.pid
         case "$1" in
@@ -221,10 +227,12 @@
             exit 1
             ;;
         esac
+        echo "DEBUG: manage-redis completed" >&2
       '';
       build-rails-app = pkgs.writeShellScriptBin "build-rails-app" ''
         #!${pkgs.runtimeShell}
         set -e
+        echo "DEBUG: Starting build-rails-app" >&2
         export BUNDLE_PATH=/builder/vendor/bundle
         export BUNDLE_GEMFILE=/builder/Gemfile
         export PATH=$BUNDLE_PATH/bin:$PATH
@@ -236,6 +244,7 @@
         echo "Running rails assets:precompile..."
         ${pkgs.bundler}/bin/bundle exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
+        echo "DEBUG: build-rails-app completed" >&2
       '';
     };
     apps.${system}.flakeVersion = {
