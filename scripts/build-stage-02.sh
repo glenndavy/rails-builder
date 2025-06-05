@@ -6,14 +6,13 @@ if [ -z "$BUILD_STAGE_3" ]; then
   echo "Error: BUILD_STAGE_3 not set" >&2
   exit 1
 fi
-# Remove leading '&&' and validate syntax
-export BUILD_STAGE_3="$BUILD_STAGE_3"
-echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-# Test BUILD_STAGE_3 syntax
+# Validate BUILD_STAGE_3 syntax
 if ! sh -n -c "$BUILD_STAGE_3" >/dev/null 2>&1; then
   echo "Error: Invalid BUILD_STAGE_3 syntax: $BUILD_STAGE_3" >&2
   exit 1
 fi
+export BUILD_STAGE_3=" && $BUILD_STAGE_3"
+echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 
 # Create builder branch
 git checkout -b builder

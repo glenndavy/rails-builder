@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.31"; # Frontend version
+    version = "2.0.32"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -110,7 +110,7 @@
       shellHook =
         old.shellHook
         + ''
-          export BUNDLE_PATH=/builder/.bundle
+          export BUNDLE_PATH=/builder/vendor/bundle
           export BUNDLE_GEMFILE=/builder/Gemfile
         '';
     });
@@ -121,7 +121,7 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.16"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.18"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
@@ -131,9 +131,13 @@
         export PGDATA=/builder/pgdata
         export PGHOST=/builder
         export PGDATABASE=rails_build
-        # Set up minimal user environment for UID 999
-        mkdir -p /builder/etc
-        echo "postgres:x:999:999:Postgres User:/builder:/bin/sh" > /builder/etc/passwd
+        # Set up NSS wrapper for UID 999
+        mkdir -p /builder/nss
+        echo "postgres:x:999:999:Postgres User:/builder:/bin/sh" > /builder/nss/passwd
+        echo "postgres:x:999:" > /builder/nss/group
+        export LD_PRELOAD=${pkgs.libnss_wrapper}/lib/libnss_wrapper.so
+        export NSS_WRAPPER_PASSWD=/builder/nss/passwd
+        export NSS_WRAPPER_GROUP=/builder/nss/group
         # Ensure PGDATA and PGHOST are owned by UID 999
         mkdir -p "$PGDATA"
         chown 999:999 "$PGDATA"
