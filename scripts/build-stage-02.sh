@@ -4,7 +4,8 @@ set -e
 # Validate BUILD_STAGE_3
 if [ -z "$BUILD_STAGE_3" ]; then
   echo "Error: BUILD_STAGE_3 not set" >&2
-  exit 1
+else
+  export BUILD_STAGE_3=" && ${BUILD_STAGE_3}"
 fi
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 
@@ -50,7 +51,7 @@ set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
 mkdir -p /builder
 # Explicitly copy critical files
-for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/Gemfile; do
+for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/Gemfile /source/Gemfile.lock; do
   if [ -f "$file" ]; then
     cp "$file" /builder/
   else
@@ -90,5 +91,7 @@ chmod +x docker-entrypoint.sh
 git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
-# Run Docker container
-docker run -it --rm -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
+# Ensure Nix store volume exists
+docker volume create nix-store || true
+# Run Docker container with Nix store volume
+docker run -it --rm -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix

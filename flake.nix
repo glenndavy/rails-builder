@@ -47,7 +47,7 @@
           pkgs.pkg-config
           pkgs.zlib
           pkgs.libyaml
-          pkgs.gosu # Re-added for manage-postgres
+          pkgs.gosu # For manage-postgres
         ];
         shellHook = ''
           export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig"
