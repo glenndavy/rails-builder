@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.36"; # Frontend version
+    version = "2.0.37"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -233,6 +233,7 @@
         export BUNDLE_PATH=/builder/vendor/bundle
         export BUNDLE_GEMFILE=/builder/Gemfile
         export PATH=$BUNDLE_PATH/bin:$PATH
+        export RAILS_ENV=production
         echo "build-rails-app (Flake Version: ${version})"
         echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
         echo "Bundler version: $(${pkgs.bundler}/bin/bundler -v)"

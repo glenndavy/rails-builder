@@ -42,8 +42,6 @@ if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found after initialization" >&2
   exit 1
 fi
-echo "flake.nix contents in /source:"
-cat ./flake.nix
 echo "Git status:"
 git status
 echo "Git log:"
@@ -57,7 +55,10 @@ echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Configure nix.conf for download-buffer-size
 mkdir -p /etc/nix
 echo "download-buffer-size = 20971520" >> /etc/nix/nix.conf
+# Set up /builder and ownership
 mkdir -p /builder
+chown root:root /builder
+export HOME=/builder
 # Explicitly copy critical files
 for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/Gemfile /source/Gemfile.lock; do
   if [ -f "$file" ]; then
@@ -81,8 +82,6 @@ fi
 if [ ! -f ./Gemfile ]; then
   echo "Warning: Gemfile not found in /builder" >&2
 fi
-echo "flake.nix contents in /builder:"
-cat ./flake.nix
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Run commands in buildShell
