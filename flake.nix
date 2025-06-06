@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.21"; # Backend version
+    version = "2.0.22"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -49,6 +49,7 @@
           pkgs.libyaml
           pkgs.gosu # For manage-postgres
           pkgs.postgresql # For pg gem native extension
+          pkgs.rsync # For artifact copying
         ];
         shellHook = ''
           export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
@@ -61,7 +62,7 @@
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         src = ./.; # Overridden by frontend
-        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql];
+        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql pkgs.rsync];
         buildPhase = ''
           export HOME=/tmp
           export BUNDLE_PATH=$out/vendor/bundle
@@ -79,7 +80,7 @@
       dockerImage = pkgs.dockerTools.buildLayeredImage {
         name = "rails-app";
         tag = "latest";
-        contents = [self.app pkgs.curl opensslPackage pkgs.postgresql];
+        contents = [self.app pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync];
         config = {
           Cmd = ["${rubyPackage}/bin/ruby" "${self.app}/bin/rails" "server" "-b" "0.0.0.0"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];

@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.35"; # Frontend version
+    version = "2.0.36"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -121,7 +121,7 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.21"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.22"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
