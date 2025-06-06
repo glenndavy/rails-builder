@@ -240,6 +240,7 @@
         echo "Bundler version: $(${pkgs.bundler}/bin/bundler -v)"
         echo "Running bundle install..."
         ${pkgs.bundler}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
+        echo "Rails secret key base $SECRET_KEY_BASE"
         echo "Running rails assets:precompile..."
         ${pkgs.bundler}/bin/bundle exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
