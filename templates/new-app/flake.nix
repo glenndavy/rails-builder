@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.38"; # Frontend version
+    version = "2.0.39"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -235,12 +235,12 @@
         export PATH=$BUNDLE_PATH/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
+        echo "DEBUG: Rails secret key base $SECRET_KEY_BASE"
         echo "build-rails-app (Flake Version: ${version})"
         echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
         echo "Bundler version: $(${pkgs.bundler}/bin/bundler -v)"
         echo "Running bundle install..."
         ${pkgs.bundler}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
-        echo "Rails secret key base $SECRET_KEY_BASE"
         echo "Running rails assets:precompile..."
         ${pkgs.bundler}/bin/bundle exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
