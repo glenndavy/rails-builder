@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.20"; # Backend version
+    version = "2.0.21"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -48,10 +48,11 @@
           pkgs.zlib
           pkgs.libyaml
           pkgs.gosu # For manage-postgres
+          pkgs.postgresql # For pg gem native extension
         ];
         shellHook = ''
-          export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig"
-          export LD_LIBRARY_PATH="${pkgs.curl}/lib:${opensslPackage}/lib"
+          export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
+          export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
           export TZDIR="$HOME/zoneinfo"
           mkdir -p "$HOME/zoneinfo"
           ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"
@@ -60,7 +61,7 @@
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         src = ./.; # Overridden by frontend
-        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml];
+        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql];
         buildPhase = ''
           export HOME=/tmp
           export BUNDLE_PATH=$out/vendor/bundle
@@ -78,7 +79,7 @@
       dockerImage = pkgs.dockerTools.buildLayeredImage {
         name = "rails-app";
         tag = "latest";
-        contents = [self.app pkgs.curl opensslPackage];
+        contents = [self.app pkgs.curl opensslPackage pkgs.postgresql];
         config = {
           Cmd = ["${rubyPackage}/bin/ruby" "${self.app}/bin/rails" "server" "-b" "0.0.0.0"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
