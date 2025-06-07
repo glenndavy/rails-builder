@@ -67,9 +67,9 @@ for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/G
     echo "Warning: $file not found in /source" >&2
   fi
 done
-# Copy all files, including directories
+# Copy all files, excluding .git
 for item in /source/* /source/.*; do
-  if [ -e "$item" ] && [ "$(basename "$item")" != "." ] && [ "$(basename "$item")" != ".." ]; then
+  if [ -e "$item" ] && [ "$(basename "$item")" != "." ] && [ "$(basename "$item")" != ".." ] && [ "$(basename "$item")" != ".git" ]; then
     cp -r "$item" /builder/ 2>/dev/null || true
   fi
 done
@@ -84,14 +84,12 @@ if [ ! -f ./Gemfile ]; then
 fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
-# Run commands in buildShell
+# Run commands in buildShell, including rsync
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-echo "DEBUG: sh -c command: manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3"
-# Copy artifacts back to /source within buildShell
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/ && rsync -a --delete /builder/public/packs/ /source/public/packs/"
+echo "DEBUG: sh -c command: manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/ && rsync -a --delete /builder/public/packs/ /source/public/packs/" >&2
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/ && rsync -a --delete /builder/public/packs/ /source/public/packs/"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh

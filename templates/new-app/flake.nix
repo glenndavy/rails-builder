@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.39"; # Frontend version
+    version = "2.0.40"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -235,7 +235,7 @@
         export PATH=$BUNDLE_PATH/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
-        echo "DEBUG: Rails secret key base $SECRET_KEY_BASE"
+        echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
         echo "build-rails-app (Flake Version: ${version})"
         echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
         echo "Bundler version: $(${pkgs.bundler}/bin/bundler -v)"
