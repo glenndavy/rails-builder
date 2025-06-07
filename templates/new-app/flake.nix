@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.40"; # Frontend version
+    version = "2.0.41"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
