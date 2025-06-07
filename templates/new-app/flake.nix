@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.41"; # Frontend version
+    version = "2.0.42"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -93,8 +93,8 @@
       opensslVersion = "3"; # Use valid OpenSSL version
     };
 
-    # Call backend builder
-    railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
+    # Call backend builder with source including build artifacts
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
     rubyPackage = pkgs."ruby-${rubyVersion}";
     bundlerPackage = pkgs.bundler; # Use default bundler version
   in {
