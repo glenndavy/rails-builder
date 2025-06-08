@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.22"; # Backend version
+    version = "2.0.23"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -24,6 +24,7 @@
       bundlerVersion ? "latest",
       gccVersion ? "latest",
       opensslVersion ? "3_2",
+      src ? ./., # Default to current directory if not provided
     }: let
       rubyPackage = pkgs."ruby-${rubyVersion}";
       bundlerPackage = pkgs.bundler; # Use default bundler version
@@ -61,7 +62,7 @@
       };
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
-        src = ./.; # Overridden by frontend
+        inherit src; # Use provided src
         buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql pkgs.rsync];
         buildPhase = ''
           export HOME=/tmp
