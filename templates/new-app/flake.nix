@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.42"; # Frontend version
+    version = "2.0.43"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -115,13 +115,14 @@
         '';
     });
     packages.${system} = {
-      buildApp = railsBuild.app;
+      app = railsBuild.app; # Expose app explicitly
+      buildApp = railsBuild.app; # Maintain compatibility
       dockerImage = railsBuild.dockerImage;
       flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.22"}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.23"}
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
