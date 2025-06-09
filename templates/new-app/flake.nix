@@ -19,8 +19,8 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [ nixpkgs-ruby.overlays.default ];
-    pkgs = import nixpkgs { inherit system overlays; };
+    overlays = [nixpkgs-ruby.overlays.default];
+    pkgs = import nixpkgs {inherit system overlays;};
     version = "2.0.56"; # Frontend version
 
     # Detect Ruby version
@@ -93,7 +93,7 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
     rubyPackage = pkgs."ruby-${rubyVersion}";
     bundlerPackage = pkgs.bundler;
   in {
@@ -136,7 +136,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-        '')}
+        ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
