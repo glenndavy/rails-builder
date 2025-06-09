@@ -1,5 +1,5 @@
 {
-  description = "Rails app template";
+  description = "Rails app";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -19,9 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.55"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.56"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -45,7 +45,7 @@
         if builtins.pathExists gemfile
         then let
           content = builtins.readFile gemfile;
-          match = builtins.match ".*ruby ['\"]([0-9]+\\.[0-9]+\\.[0-9]+)['\"].*" content;
+          match = builtins.match ".*ruby ['\"]([0-9]+\\.[0-9]+\\.[0-9]+)['\"''].*" content;
         in
           if match != null
           then builtins.head match
@@ -93,7 +93,7 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     bundlerPackage = pkgs.bundler;
   in {
@@ -102,7 +102,7 @@
         shellHook = ''
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/2.7.0
+          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${builtins.concatStringsSep "." (builtins.take 2 (builtins.splitVersion rubyVersion))}.0
           export PATH=$GEM_HOME/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
@@ -136,8 +136,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-          n line 139 of 2.0.55, you've mad exactly the same mistake again.
-        ''}
+        '')}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
