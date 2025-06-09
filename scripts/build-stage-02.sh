@@ -52,9 +52,12 @@ cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
-# Configure nix.conf for download-buffer-size
+# Configure nix.conf for download-buffer-size and experimental features
 mkdir -p /etc/nix
-echo "download-buffer-size = 41943040" >> /etc/nix/nix.conf
+cat <<NIX_CONF > /etc/nix/nix.conf
+download-buffer-size = 83886080
+experimental-features = nix-command flakes
+NIX_CONF
 # Set up /builder and ownership
 mkdir -p /builder
 chown root:root /builder
@@ -85,7 +88,7 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --command ruby -v)" >&2
+echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
 # Run commands in buildShell, sequencing services
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
