@@ -19,14 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [
-      nixpkgs-ruby.overlays.default
-      (final: prev: {
-        ruby-3_3_0 = prev.ruby-3_3.override {version = "3.3.0";}; # Pin exact version if needed
-      })
-    ];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.46"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.47"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -99,18 +94,20 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     bundlerPackage = pkgs.bundler;
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
         shellHook = ''
-          export GEM_HOME=$HOME/.gems
+          export RAILS_ROOT=$(pwd)
+          export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME
           export PATH=$GEM_HOME/bin:$PATH
+          mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
-            bundle install --path vendor/bundle
+            bundle install --path $GEM_HOME
           fi
         '';
       });
@@ -127,7 +124,7 @@
           old.shellHook
           + ''
             export BUNDLE_PATH=/builder/vendor/bundle
-            export BUILD_GEMFILE=/builder/Gemfile
+            export BUNDLE_GEMFILE=/builder/Gemfile
           '';
       });
     };
@@ -139,15 +136,15 @@
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "build"}
-        ''}
+          Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
+        '')
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-postgres $1" >&2
-        export PGDATA=/builder/pdata
-        export PGHOST=/build
+        export PGDATA=/builder/pgdata
+        export PGHOST=/builder
         export PGDATABASE=rails_build
         # Ensure PGDATA and PGHOST are owned by nobody (UID 65534)
         mkdir -p "$PGDATA"
@@ -176,7 +173,7 @@
               echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /dev/null -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
+            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
               echo "pg_ctl start failed. Log:" >&2
               cat /builder/pg_ctl.log >&2
               exit 1

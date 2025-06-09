@@ -21,7 +21,7 @@ git checkout -b builder
 if [ -e ./flake.nix ]; then
   nix flake update
 else
-  nix flake init -t github:glenndavy/rails-builder#new-app
+  nix flake init -t github:glenndavy/rails-builder${REF:+?ref=$REF}${REV:+${REF:+&}rev=$REV}#new-app
   if [ ! -f ./flake.nix ]; then
     echo "Error: nix flake init failed to create flake.nix" >&2
     exit 1
@@ -67,9 +67,9 @@ for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/G
     echo "Warning: $file not found in /source" >&2
   fi
 done
-# Copy all files, excluding .git
+# Copy all files, excluding .git and .nix-gems
 for item in /source/* /source/.*; do
-  if [ -e "$item" ] && [ "$(basename "$item")" != "." ] && [ "$(basename "$item")" != ".." ] && [ "$(basename "$item")" != ".git" ]; then
+  if [ -e "$item" ] && [ "$(basename "$item")" != "." ] && [ "$(basename "$item")" != ".." ] && [ "$(basename "$item")" != ".git" ] && [ "$(basename "$item")" != ".nix-gems" ]; then
     cp -r "$item" /builder/ 2>/dev/null || true
   fi
 done
@@ -84,12 +84,14 @@ if [ ! -f ./Gemfile ]; then
 fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
+# Debug Ruby version
+echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --command ruby -v)" >&2
 # Run commands in buildShell, including rsync
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete /builder/public/packs/ /source/public/packs/ || true" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete /builder/public/packs/ /source/public/packs/ || true"
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
