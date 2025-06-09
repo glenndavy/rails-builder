@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.23"; # Backend version
+    version = "2.0.24"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -36,6 +36,24 @@
         if opensslVersion == "3_2"
         then pkgs.openssl_3 # Map 3_2 to openssl_3
         else pkgs."openssl_${opensslVersion}";
+      app = pkgs.stdenv.mkDerivation {
+        name = "rails-app";
+        inherit src; # Use provided src
+        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql pkgs.rsync];
+        buildPhase = ''
+          export HOME=/tmp
+          export BUNDLE_PATH=$out/vendor/bundle
+          export BUNDLE_GEMFILE=$src/Gemfile
+          bundle config set --local path $BUNDLE_PATH
+          bundle install
+          bundle pristine curb
+          bundle exec rails assets:precompile
+        '';
+        installPhase = ''
+          mkdir -p $out
+          cp -r . $out
+        '';
+      };
     in {
       shell = pkgs.mkShell {
         buildInputs = [
@@ -60,30 +78,13 @@
           ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"
         '';
       };
-      app = pkgs.stdenv.mkDerivation {
-        name = "rails-app";
-        inherit src; # Use provided src
-        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql pkgs.rsync];
-        buildPhase = ''
-          export HOME=/tmp
-          export BUNDLE_PATH=$out/vendor/bundle
-          export BUNDLE_GEMFILE=$src/Gemfile
-          bundle config set --local path $BUNDLE_PATH
-          bundle install
-          bundle pristine curb
-          bundle exec rails assets:precompile
-        '';
-        installPhase = ''
-          mkdir -p $out
-          cp -r . $out
-        '';
-      };
+      inherit app; # Expose app from mkRailsBuild
       dockerImage = pkgs.dockerTools.buildLayeredImage {
         name = "rails-app";
         tag = "latest";
-        contents = [self.app pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync];
+        contents = [app pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync]; # Use app from mkRailsBuild
         config = {
-          Cmd = ["${rubyPackage}/bin/ruby" "${self.app}/bin/rails" "server" "-b" "0.0.0.0"];
+          Cmd = ["${rubyPackage}/bin/ruby" "${app}/bin/rails" "server" "-b" "0.0.0.0"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
           ExposedPorts = {"3000/tcp" = {};};
         };
