@@ -14,7 +14,7 @@
     ...
   }: let
     system = "x86_64-linux";
-    version = "2.0.24"; # Backend version
+    version = "2.0.25"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
 
@@ -24,7 +24,7 @@
       bundlerVersion ? "latest",
       gccVersion ? "latest",
       opensslVersion ? "3_2",
-      src ? ./., # Default to current directory if not provided
+      src ? ./., # Default to current directory
     }: let
       rubyPackage = pkgs."ruby-${rubyVersion}";
       bundlerPackage = pkgs.bundler; # Use default bundler version
@@ -36,22 +36,21 @@
         if opensslVersion == "3_2"
         then pkgs.openssl_3 # Map 3_2 to openssl_3
         else pkgs."openssl_${opensslVersion}";
+      # Package prebuilt artifacts
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
-        inherit src; # Use provided src
-        buildInputs = [rubyPackage bundlerPackage gccPackage opensslPackage pkgs.curl pkgs.tzdata pkgs.pkg-config pkgs.zlib pkgs.libyaml pkgs.postgresql pkgs.rsync];
-        buildPhase = ''
-          export HOME=/tmp
-          export BUNDLE_PATH=$out/vendor/bundle
-          export BUNDLE_GEMFILE=$src/Gemfile
-          bundle config set --local path $BUNDLE_PATH
-          bundle install
-          bundle pristine curb
-          bundle exec rails assets:precompile
-        '';
+        inherit src;
+        buildInputs = [pkgs.rsync];
         installPhase = ''
           mkdir -p $out
           cp -r . $out
+          # Copy prebuilt artifacts if they exist
+          if [ -d "$src/vendor/bundle" ]; then
+            rsync -a --delete "$src/vendor/bundle/" "$out/vendor/bundle/"
+          fi
+          if [ -d "$src/public/packs" ]; then
+            rsync -a --delete "$src/public/packs/" "$out/public/packs/"
+          fi
         '';
       };
     in {
@@ -67,7 +66,7 @@
           pkgs.zlib
           pkgs.libyaml
           pkgs.gosu # For manage-postgres
-          pkgs.postgresql # For pg gem native extension
+          pkgs.postgresql # For pg gem
           pkgs.rsync # For artifact copying
         ];
         shellHook = ''
@@ -78,11 +77,11 @@
           ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"
         '';
       };
-      inherit app; # Expose app from mkRailsBuild
+      inherit app;
       dockerImage = pkgs.dockerTools.buildLayeredImage {
         name = "rails-app";
         tag = "latest";
-        contents = [app pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync]; # Use app from mkRailsBuild
+        contents = [app rubyPackage bundlerPackage pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync];
         config = {
           Cmd = ["${rubyPackage}/bin/ruby" "${app}/bin/rails" "server" "-b" "0.0.0.0"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
