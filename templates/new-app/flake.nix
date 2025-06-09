@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.54"; # Frontend version
+    version = "2.0.55"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -102,7 +102,7 @@
         shellHook = ''
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0
+          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/2.7.0
           export PATH=$GEM_HOME/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
@@ -136,6 +136,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
+          n line 139 of 2.0.55, you've mad exactly the same mistake again.
         ''}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
