@@ -101,4 +101,4 @@ echo "Generated docker-entrypoint.sh"
 # Ensure Nix store volume exists
 docker volume create nix-store || true
 # Run Docker container with increased memory
-docker run -it --rm --memory=4g -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
+docker run -it --rm --memory=8g -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
