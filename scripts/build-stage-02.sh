@@ -54,7 +54,7 @@ set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Configure nix.conf for download-buffer-size
 mkdir -p /etc/nix
-echo "download-buffer-size = 20971520" >> /etc/nix/nix.conf
+echo "download-buffer-size = 41943040" >> /etc/nix/nix.conf
 # Set up /builder and ownership
 mkdir -p /builder
 chown root:root /builder
@@ -86,12 +86,12 @@ echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
 echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --command ruby -v)" >&2
-# Run commands in buildShell, including rsync
+# Run commands in buildShell, sequencing services
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-echo "DEBUG: sh -c command: manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete /builder/public/packs/ /source/public/packs/ || true" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && manage-redis start && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
+echo "DEBUG: sh -c command: manage-postgres start && sleep 2 && manage-redis start && sleep 2 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true" >&2
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 2 && manage-redis start && sleep 2 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
@@ -100,5 +100,5 @@ git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
 # Ensure Nix store volume exists
 docker volume create nix-store || true
-# Run Docker container with Nix store volume
-docker run -it --rm -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
+# Run Docker container with increased memory
+docker run -it --rm --memory=4g -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
