@@ -19,16 +19,21 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.44"; # Frontend version
+    overlays = [
+      nixpkgs-ruby.overlays.default
+      (final: prev: {
+        ruby-3_3_0 = prev.ruby-3_3.override { version = "3.3.0"; }; # Pin exact version if needed
+      })
+    ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.46"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
       parseVersion = version: let
-        trimmed = builtins.replaceStrings ["\n" "\r" " "] ["" "" ""] version; # Remove newlines and spaces
+        trimmed = builtins.replaceStrings ["\n" "\r" " "] ["" "" ""] version;
         cleaned = builtins.replaceStrings ["ruby-" "ruby"] ["" ""] trimmed;
       in
         builtins.match "^([0-9]+\\.[0-9]+\\.[0-9]+)$" cleaned;
@@ -90,47 +95,59 @@
       inherit rubyVersion;
       bundlerVersion = bundlerVersion;
       gccVersion = "latest";
-      opensslVersion = "3"; # Use valid OpenSSL version
+      opensslVersion = "3";
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
-    bundlerPackage = pkgs.bundler; # Use default bundler version
+    bundlerPackage = pkgs.bundler;
   in {
-    devShells.${system}.buildShell = railsBuild.shell.overrideAttrs (old: {
-      buildInputs =
-        old.buildInputs
-        ++ [
-          pkgs.rsync
-          self.packages.${system}.manage-postgres
-          self.packages.${system}.manage-redis
-          self.packages.${system}.build-rails-app
-        ];
-      shellHook =
-        old.shellHook
-        + ''
-          export BUNDLE_PATH=/builder/vendor/bundle
-          export BUNDLE_GEMFILE=/builder/Gemfile
+    devShells.${system} = {
+      default = railsBuild.shell.overrideAttrs (old: {
+        shellHook = ''
+          export GEM_HOME=$HOME/.gems
+          export GEM_PATH=$GEM_HOME
+          export PATH=$GEM_HOME/bin:$PATH
+          if [ -f Gemfile ]; then
+            bundle install --path vendor/bundle
+          fi
         '';
-    });
+      });
+      buildShell = railsBuild.shell.overrideAttrs (old: {
+        buildInputs =
+          old.buildInputs
+          ++ [
+            pkgs.rsync
+            self.packages.${system}.manage-postgres
+            self.packages.${system}.manage-redis
+            self.packages.${system}.build-rails-app
+          ];
+        shellHook =
+          old.shellHook
+          + ''
+            export BUNDLE_PATH=/builder/vendor/bundle
+            export BUILD_GEMFILE=/builder/Gemfile
+          '';
+      });
+    };
     packages.${system} = {
-      app = railsBuild.app; # Expose app explicitly
-      buildApp = railsBuild.app; # Maintain compatibility
+      app = railsBuild.app;
+      buildApp = railsBuild.app;
       dockerImage = railsBuild.dockerImage;
       flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
         #!${pkgs.runtimeShell}
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
-          Backend Flake Version: ${rails-builder.lib.version or "2.0.23"}
-        ''}
+          Backend Flake Version: ${rails-builder.lib.version or "build"}
+        '')
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-postgres $1" >&2
-        export PGDATA=/builder/pgdata
-        export PGHOST=/builder
+        export PGDATA=/builder/pdata
+        export PGHOST=/build
         export PGDATABASE=rails_build
         # Ensure PGDATA and PGHOST are owned by nobody (UID 65534)
         mkdir -p "$PGDATA"
@@ -159,7 +176,7 @@
               echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
+            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /dev/null -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
               echo "pg_ctl start failed. Log:" >&2
               cat /builder/pg_ctl.log >&2
               exit 1
