@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.4
+# Version: 2.0.5
 set -e
 
 # Validate BUILD_STAGE_3
@@ -59,6 +59,7 @@ mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
 download-buffer-size = 83886080
 experimental-features = nix-command flakes
+accept-flake-config = true
 NIX_CONF
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
@@ -93,13 +94,13 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
+echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
 # Run commands in buildShell, sequencing services
-nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
+nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
+nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh

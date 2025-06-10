@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.71"; # Frontend version
+    version = "2.0.73"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -97,27 +97,27 @@
     rubyPackage = pkgs."ruby-${rubyVersion}";
     # Override bundler to be specific to the project's Ruby version
     bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
-    # Explicitly include uri gem
-    uriGem = pkgs.rubyPackages.uri.override {ruby = rubyPackage;};
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [rubyPackage bundlerPackage uriGem]; # Include uriGem explicitly
+        buildInputs = (old.buildInputs or []) ++ [rubyPackage bundlerPackage];
         shellHook = ''
           unset RUBYLIB GEM_PATH # Clear conflicting environment variables
+          export NIXPKGS_ALLOW_INSECURE=1
+          echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems:${uriGem}/lib/ruby/gems/${rubyMajorMinor}.0
-          export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0/x86_64-linux:${uriGem}/lib/ruby/${rubyMajorMinor}.0
+          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
+          export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export PATH=${rubyPackage}/bin:${bundlerPackage}/bin:$GEM_HOME/bin:$PATH
           echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
           echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
           echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
-          find ${rubyPackage}/lib/ruby ${uriGem}/lib/ruby -name uri.rb 2>/dev/null || echo "DEBUG: uri.rb not found" >&2
+          find ${rubyPackage}/lib/ruby -name uri.rb 2>/dev/null || echo "DEBUG: uri.rb not found" >&2
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
@@ -130,7 +130,6 @@
           ++ [
             rubyPackage
             bundlerPackage
-            uriGem
             pkgs.rsync
             self.packages.${system}.manage-postgres
             self.packages.${system}.manage-redis
