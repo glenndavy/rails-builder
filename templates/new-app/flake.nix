@@ -19,9 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.73"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.75"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -93,21 +93,23 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     # Override bundler to be specific to the project's Ruby version
-    bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
+    bundlerPackage = pkgs.bundler.override { ruby = rubyPackage; };
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [rubyPackage bundlerPackage];
+        buildInputs = (old.buildInputs or []) ++ [ rubyPackage bundlerPackage ];
         shellHook = ''
           unset RUBYLIB GEM_PATH # Clear conflicting environment variables
           export NIXPKGS_ALLOW_INSECURE=1
           echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
+          echo "DEBUG: Local nix.conf contents:" >&2
+          cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
@@ -125,16 +127,14 @@
         '';
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
-        buildInputs =
-          (old.buildInputs or [])
-          ++ [
-            rubyPackage
-            bundlerPackage
-            pkgs.rsync
-            self.packages.${system}.manage-postgres
-            self.packages.${system}.manage-redis
-            self.packages.${system}.build-rails-app
-          ];
+        buildInputs = (old.buildInputs or []) ++ [
+          rubyPackage
+          bundlerPackage
+          pkgs.rsync
+          self.packages.${system}.manage-postgres
+          self.packages.${system}.manage-redis
+          self.packages.${system}.build-rails-app
+        ];
         shellHook =
           old.shellHook
           + ''
@@ -152,7 +152,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-        ''}
+        '')}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}

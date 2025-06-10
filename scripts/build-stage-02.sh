@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.5
+# Version: 2.0.7
 set -e
 
 # Validate BUILD_STAGE_3
@@ -54,16 +54,21 @@ cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
-# Configure nix.conf for download-buffer-size and experimental features
+# Debug Nix version
+echo "DEBUG: Nix version: $(nix --version)" >&2
+# Configure nix.conf for download-buffer-size, experimental features, and insecure packages
 mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
 download-buffer-size = 83886080
 experimental-features = nix-command flakes
 accept-flake-config = true
+permittedInsecurePackages = ruby-2.7.5
 NIX_CONF
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
+echo "DEBUG: nix.conf contents:" >&2
+cat /etc/nix/nix.conf >&2
 # Set up /builder and ownership
 mkdir -p /builder
 chown root:root /builder
@@ -94,13 +99,13 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
+echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
 # Run commands in buildShell, sequencing services
-nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
+nix run .#flakeVersion --insecure --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true" >&2
-nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
+nix develop .#buildShell --insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
@@ -110,4 +115,4 @@ echo "Generated docker-entrypoint.sh"
 # Ensure Nix store volume exists
 docker volume create nix-store || true
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
+docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
