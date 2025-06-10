@@ -19,9 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.68"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.69"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -93,24 +93,25 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     # Override bundler to be specific to the project's Ruby version
-    bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
+    bundlerPackage = pkgs.bundler.override { ruby = rubyPackage; };
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [rubyPackage bundlerPackage]; # Include rubyPackage explicitly
+        buildInputs = (old.buildInputs or []) ++ [ rubyPackage bundlerPackage ]; # Include rubyPackage explicitly
         shellHook = ''
+          unset RUBYLIB GEM_PATH # Clear conflicting environment variables
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems
+          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=${bundlerPackage}/bin:$GEM_HOME/bin:${rubyPackage}/bin:$PATH
+          export PATH=${rubyPackage}/bin:${bundlerPackage}/bin:$GEM_HOME/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
@@ -118,16 +119,14 @@
         '';
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
-        buildInputs =
-          (old.buildInputs or [])
-          ++ [
-            rubyPackage
-            bundlerPackage
-            pkgs.rsync
-            self.packages.${system}.manage-postgres
-            self.packages.${system}.manage-redis
-            self.packages.${system}.build-rails-app
-          ];
+        buildInputs = (old.buildInputs or []) ++ [
+          rubyPackage
+          bundlerPackage
+          pkgs.rsync
+          self.packages.${system}.manage-postgres
+          self.packages.${system}.manage-redis
+          self.packages.${system}.build-rails-app
+        ];
         shellHook =
           old.shellHook
           + ''
@@ -145,7 +144,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-        ''}
+        '')}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
@@ -173,17 +172,17 @@
               mkdir -p "$PGDATA"
               chown nobody:nobody "$PGDATA"
               echo "Running initdb..."
-              if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/initdb.log 2>&1; then
+              if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/tmp/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
-                cat /builder/initdb.log >&2
+                cat /builder/tmp/initdb.log >&2
                 exit 1
               fi
               echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
+            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/tmp/pg.log -o "-k $PGHOST" start > /builder/tmp/pg_ctl.log 2>&1; then
               echo "pg_ctl start failed. Log:" >&2
-              cat /builder/pg_ctl.log >&2
+              cat /builder/tmp/pg_ctl.log >&2
               exit 1
             fi
             sleep 2
