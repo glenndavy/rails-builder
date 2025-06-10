@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.64"; # Frontend version
+    version = "2.0.65"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -88,6 +88,7 @@
     # App-specific customizations
     buildConfig = {
       inherit rubyVersion bundlerVersion;
+      bundlerPackage = bundlerPackage; # Pass to rails-builder
       gccVersion = "latest";
       opensslVersion = "3";
     };
@@ -103,11 +104,12 @@
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
+        buildInputs = old.buildInputs ++ [bundlerPackage]; # Ensure bundlerPackage is used
         shellHook = ''
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=$GEM_HOME/bin:$PATH
+          export PATH=$GEM_HOME/bin:${bundlerPackage}/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
@@ -260,8 +262,8 @@
         echo "Bundler version: $(${bundlerPackage}/bin/bundler -v)"
         echo "Running bundle install..."
         ${bundlerPackage}/bin/bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
-        #echo "Running rails assets:precompile..."
-        #${bundlerPackage}/bin/bundler exec rails assets:precompile
+        echo "Running rails assets:precompile..."
+        ${bundlerPackage}/bin/bundler exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';

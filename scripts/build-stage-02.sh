@@ -1,4 +1,5 @@
 #!/bin/sh
+# Version: 2.0.1
 set -e
 
 # Validate BUILD_STAGE_3
@@ -51,6 +52,7 @@ git log --oneline -n 2
 cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
+ export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Configure nix.conf for download-buffer-size and experimental features
 mkdir -p /etc/nix
