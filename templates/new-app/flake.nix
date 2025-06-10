@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.75"; # Frontend version
+    version = "2.0.76"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -163,16 +163,16 @@
         export PGDATA=/builder/pgdata
         export PGHOST=/builder
         export PGDATABASE=rails_build
-        # Ensure PGDATA and PGHOST are owned by nobody (UID 65534)
+        # Ensure PGDATA is owned by app-builder (UID 1000)
         mkdir -p "$PGDATA"
-        chown nobody:nobody "$PGDATA"
-        chown nobody:nobody /builder
+        chown app-builder:app-builder "$PGDATA"
+        chown app-builder:app-builder /builder
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2
             if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
               echo "DEBUG: Valid cluster found, checking status" >&2
-              if ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+              if ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
                 echo "PostgreSQL is already running."
                 exit 0
               fi
@@ -180,9 +180,9 @@
               echo "DEBUG: No valid cluster, initializing" >&2
               rm -rf "$PGDATA"
               mkdir -p "$PGDATA"
-              chown nobody:nobody "$PGDATA"
+              chown app-builder:app-builder "$PGDATA"
               echo "Running initdb..."
-              if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/tmp/initdb.log 2>&1; then
+              if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/tmp/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
                 cat /builder/tmp/initdb.log >&2
                 exit 1
@@ -190,25 +190,25 @@
               echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/tmp/pg.log -o "-k $PGHOST" start > /builder/tmp/pg_ctl.log 2>&1; then
+            if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/tmp/pg.log -o "-k $PGHOST" start > /builder/tmp/pg_ctl.log 2>&1; then
               echo "pg_ctl start failed. Log:" >&2
               cat /builder/tmp/pg_ctl.log >&2
               exit 1
             fi
             sleep 2
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+            if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
               echo "PostgreSQL failed to start." >&2
               exit 1
             fi
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
-              ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
+            if ! ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
+              ${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
             fi
             echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST"
             ;;
           stop)
             echo "DEBUG: Stopping PostgreSQL" >&2
-            if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
-              ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
+            if [ -d "$PGDATA" ] && ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+              ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
               echo "PostgreSQL stopped."
             else
               echo "PostgreSQL is not running or PGDATA not found."

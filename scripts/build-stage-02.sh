@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.7
+# Version: 2.0.8
 set -e
 
 # Validate BUILD_STAGE_3
@@ -69,24 +69,10 @@ export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
 echo "DEBUG: nix.conf contents:" >&2
 cat /etc/nix/nix.conf >&2
-# Set up /builder and ownership
+# Set up /builder (owned by app-builder)
 mkdir -p /builder
-chown root:root /builder
-export HOME=/builder
-# Explicitly copy critical files
-for file in /source/flake.nix /source/.ruby-version /source/.gitignore /source/Gemfile /source/Gemfile.lock; do
-  if [ -f "$file" ]; then
-    cp "$file" /builder/
-  else
-    echo "Warning: $file not found in /source" >&2
-  fi
-done
-# Copy all files, excluding .git and .nix-gems
-for item in /source/* /source/.*; do
-  if [ -e "$item" ] && [ "$(basename "$item")" != "." ] && [ "$(basename "$item")" != ".." ] && [ "$(basename "$item")" != ".git" ] && [ "$(basename "$item")" != ".nix-gems" ]; then
-    cp -r "$item" /builder/ 2>/dev/null || true
-  fi
-done
+# Copy source files, preserving ownership
+cp -r /source/* /source/.* /builder/ 2>/dev/null || true
 cd /builder
 # Verify files in /builder
 if [ ! -f ./flake.nix ]; then
@@ -99,13 +85,13 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
+echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
 # Run commands in buildShell, sequencing services
-nix run .#flakeVersion --insecure --extra-experimental-features 'nix-command flakes'
+nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true" >&2
-nix develop .#buildShell --insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
+echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
+nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
