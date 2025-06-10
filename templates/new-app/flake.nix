@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.60"; # Frontend version
+    version = "2.0.62"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -98,7 +98,7 @@
     # Override bundler to be specific to the project's Ruby version
     bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
-    rubyMajorMinor = builtins.concatStringsSep "." (builtins.take 2 (builtins.splitVersion rubyVersion));
+    rubyMajorMinor = builtins.concatStringsSep "." (builtins.sublist 0 2 (builtins.splitVersion rubyVersion));
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
@@ -176,35 +176,35 @@
             fi
             echo "Starting PostgreSQL..."
             if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/pg.log -o "-k $PGHOST" start > /builder/pg_ctl.log 2>&1; then
-              echo "pg_ctl start failed. Log:" >&2
-              cat /builder/pg_ctl.log >&2
+                echo "pg_ctl start failed. Log:" >&2
+                cat /builder/pg_ctl.log >&2
+                exit 1
+              fi
+              sleep 2
+              if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+                echo "PostgreSQL failed to start." >&2
+                exit 1
+              fi
+              if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
+                ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
+              fi
+              echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST"
+              ;;
+            stop)
+              echo "DEBUG: Stopping PostgreSQL" >&2
+              if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+                ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
+                echo "PostgreSQL stopped."
+              else
+                echo "PostgreSQL is not running or PGDATA not found."
+              fi
+              ;;
+            *)
+              echo "Usage: manage-postgres {start|stop}" >&2
               exit 1
-            fi
-            sleep 2
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
-              echo "PostgreSQL failed to start." >&2
-              exit 1
-            fi
-            if ! ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
-              ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
-            fi
-            echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST"
-            ;;
-          stop)
-            echo "DEBUG: Stopping PostgreSQL" >&2
-            if [ -d "$PGDATA" ] && ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
-              ${pkgs.gosu}/bin/gosu nobody ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
-              echo "PostgreSQL stopped."
-            else
-              echo "PostgreSQL is not running or PGDATA not found."
-            fi
-            ;;
-          *)
-            echo "Usage: manage-postgres {start|stop}" >&2
-            exit 1
-            ;;
-        esac
-        echo "DEBUG: manage-postgres completed" >&2
+              ;;
+          esac
+          echo "DEBUG: manage-postgres completed" >&2
       '';
       manage-redis = pkgs.writeShellScriptBin "manage-redis" ''
         #!${pkgs.runtimeShell}
