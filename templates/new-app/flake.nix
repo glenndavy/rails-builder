@@ -259,7 +259,7 @@
         echo "Running bundle install..."
         ${pkgs.bundler}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
         echo "Running rails assets:precompile..."
-        ${pkgs.bundler}/bin/bundle exec rails assets:precompile
+        ${pkgs.bundler}/bin/bundle exec rake assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';
