@@ -52,13 +52,13 @@ git log --oneline -n 2
 cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
- export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
-# Configure nix.conf for download-buffer-size and experimental features
+# Configure nix.conf for download-buffer-size, experimental features, and allow insecure packages
 mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
 download-buffer-size = 83886080
 experimental-features = nix-command flakes
+allow-insecure = true
 NIX_CONF
 # Set up /builder and ownership
 mkdir -p /builder

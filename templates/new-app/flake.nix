@@ -19,9 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.66"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.68"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -93,22 +93,24 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     # Override bundler to be specific to the project's Ruby version
-    bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
+    bundlerPackage = pkgs.bundler.override { ruby = rubyPackage; };
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [bundlerPackage]; # Ensure bundlerPackage overrides default
+        buildInputs = (old.buildInputs or []) ++ [ rubyPackage bundlerPackage ]; # Include rubyPackage explicitly
         shellHook = ''
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=${bundlerPackage}/bin:$GEM_HOME/bin:$PATH
+          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems
+          export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+          export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
+          export PATH=${bundlerPackage}/bin:$GEM_HOME/bin:${rubyPackage}/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
@@ -116,15 +118,14 @@
         '';
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
-        buildInputs =
-          (old.buildInputs or [])
-          ++ [
-            bundlerPackage
-            pkgs.rsync
-            self.packages.${system}.manage-postgres
-            self.packages.${system}.manage-redis
-            self.packages.${system}.build-rails-app
-          ];
+        buildInputs = (old.buildInputs or []) ++ [
+          rubyPackage
+          bundlerPackage
+          pkgs.rsync
+          self.packages.${system}.manage-postgres
+          self.packages.${system}.manage-redis
+          self.packages.${system}.build-rails-app
+        ];
         shellHook =
           old.shellHook
           + ''
@@ -142,7 +143,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-        ''}
+        '')}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
@@ -255,7 +256,6 @@
         export BUNDLE_GEMFILE=/builder/Gemfile
         export PATH=$BUNDLE_PATH/bin:$PATH
         export RAILS_ENV=production
-        export NIXPKGS_ALLOW_INSECURE=1
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
         echo "build-rails-app (Flake Version: ${version})"
