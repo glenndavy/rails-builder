@@ -255,6 +255,7 @@
         export BUNDLE_GEMFILE=/builder/Gemfile
         export PATH=$BUNDLE_PATH/bin:$PATH
         export RAILS_ENV=production
+        export NIXPKGS_ALLOW_INSECURE=1
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
         echo "build-rails-app (Flake Version: ${version})"
