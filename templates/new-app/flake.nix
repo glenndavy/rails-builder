@@ -260,8 +260,8 @@
         echo "Bundler version: $(${bundlerPackage}/bin/bundler -v)"
         echo "Running bundle install..."
         ${bundlerPackage}/bin/bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
-        echo "Running rails assets:precompile..."
-        ${bundlerPackage}/bin/bundler exec rails assets:precompile
+        #echo "Running rails assets:precompile..."
+        #${bundlerPackage}/bin/bundler exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';
