@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.3
+# Version: 2.0.4
 set -e
 
 # Validate BUILD_STAGE_3
@@ -39,27 +39,30 @@ git add flake.lock
 git commit -m "Add flake.lock" || true
 
 # Verify flake.nix and Git status
-if [ ! -f ./flake.nix ]; then
+if [ -f ./flake.nix ]; then
+  echo "Git status:"
+  git status
+  echo "Git log:"
+  git log --oneline -n 2
+else
   echo "Error: flake.nix not found after initialization" >&2
   exit 1
 fi
-echo "Git status:"
-git status
-echo "Git log:"
-git log --oneline -n 2
 
 # Generate docker-entrypoint.sh in Rails root
 cat <<'EOF' > docker-entrypoint.sh
 #!/bin/sh
 set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
-# Configure nix.conf for download-buffer-size, experimental features, and allow insecure packages
+# Configure nix.conf for download-buffer-size and experimental features
 mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
 download-buffer-size = 83886080
 experimental-features = nix-command flakes
-allow-insecure = true
 NIX_CONF
+# Allow insecure packages
+export NIXPKGS_ALLOW_INSECURE=1
+echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
 # Set up /builder and ownership
 mkdir -p /builder
 chown root:root /builder
