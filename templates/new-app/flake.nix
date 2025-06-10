@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.65"; # Frontend version
+    version = "2.0.66"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -88,7 +88,6 @@
     # App-specific customizations
     buildConfig = {
       inherit rubyVersion bundlerVersion;
-      bundlerPackage = bundlerPackage; # Pass to rails-builder
       gccVersion = "latest";
       opensslVersion = "3";
     };
@@ -104,12 +103,12 @@
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = old.buildInputs ++ [bundlerPackage]; # Ensure bundlerPackage is used
+        buildInputs = (old.buildInputs or []) ++ [bundlerPackage]; # Ensure bundlerPackage overrides default
         shellHook = ''
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=$GEM_HOME/bin:${bundlerPackage}/bin:$PATH
+          export PATH=${bundlerPackage}/bin:$GEM_HOME/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
@@ -118,8 +117,9 @@
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
         buildInputs =
-          old.buildInputs
+          (old.buildInputs or [])
           ++ [
+            bundlerPackage
             pkgs.rsync
             self.packages.${system}.manage-postgres
             self.packages.${system}.manage-redis
