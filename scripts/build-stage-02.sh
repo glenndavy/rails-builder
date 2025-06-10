@@ -59,9 +59,6 @@ cat <<NIX_CONF > /etc/nix/nix.conf
 download-buffer-size = 83886080
 experimental-features = nix-command flakes
 allow-insecure = true
-nixpkgs.config.permittedInsecurePackages = [
-  "openssl-1.1.1w"
-];
 NIX_CONF
 # Set up /builder and ownership
 mkdir -p /builder

@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [ nixpkgs-ruby.overlays.default ];
     pkgs = import nixpkgs { inherit system overlays; };
-    version = "2.0.69"; # Frontend version
+    version = "2.0.70"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -109,9 +109,13 @@
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems
-          export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+          export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/2.7.0/x86_64-linux
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export PATH=${rubyPackage}/bin:${bundlerPackage}/bin:$GEM_HOME/bin:$PATH
+          echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
+          echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
+          echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
+          find ${rubyPackage}/lib/ruby -name uri.rb 2>/dev/null || echo "DEBUG: uri.rb not found" >&2
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
