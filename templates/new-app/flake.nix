@@ -1,5 +1,5 @@
 {
-  description = "Rails app";
+  description = "Rails app template";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.56"; # Frontend version
+    version = "2.0.59"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -45,7 +45,7 @@
         if builtins.pathExists gemfile
         then let
           content = builtins.readFile gemfile;
-          match = builtins.match ".*ruby ['\"]([0-9]+\\.[0-9]+\\.[0-9]+)['\"''].*" content;
+          match = builtins.match ".*ruby ['\"]([0-9]+\\.[0-9]+\\.[0-9]+)['\"].*" content;
         in
           if match != null
           then builtins.head match
@@ -96,13 +96,15 @@
     railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
     rubyPackage = pkgs."ruby-${rubyVersion}";
     bundlerPackage = pkgs.bundler;
+    # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
+    rubyMajorMinor = builtins.concatStringsSep "." (builtins.take 2 (builtins.splitVersion rubyVersion));
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
         shellHook = ''
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${builtins.concatStringsSep "." (builtins.take 2 (builtins.splitVersion rubyVersion))}.0
+          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${builtins.replaceStrings ["."] [""] rubyVersion}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export PATH=$GEM_HOME/bin:$PATH
           mkdir -p $GEM_HOME
           if [ -f Gemfile ]; then
@@ -225,6 +227,7 @@
             echo "Redis started successfully. REDIS_URL: redis://localhost:6379/0"
             ;;
           stop)
+            echo "DEBUG: Stopping Redis" >&2
             if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
               kill $(cat $REDIS_PID)
               rm -f $REDIS_PID

@@ -55,7 +55,7 @@ echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Configure nix.conf for download-buffer-size and experimental features
 mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
-download-buffer-size = 83886080
+download-buffer-size = 167772160
 experimental-features = nix-command flakes
 NIX_CONF
 # Set up /builder and ownership
@@ -93,8 +93,8 @@ echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --extra-exper
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-echo "DEBUG: sh -c command: manage-postgres start && sleep 2 && manage-redis start && sleep 2 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 2 && manage-redis start && sleep 2 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
+echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true" >&2
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3 && rsync -a --delete --exclude .nix-gems /builder/vendor/bundle/ /source/vendor/bundle/ && [ -d /builder/public/packs ] && rsync -a --delete --exclude .nix-gems /builder/public/packs/ /source/public/packs/ || true"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
@@ -103,5 +103,5 @@ git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
 # Ensure Nix store volume exists
 docker volume create nix-store || true
-# Run Docker container with increased memory
-docker run -it --rm --memory=8g -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
+# Run Docker container with increased memory and CPU
+docker run -it --rm --memory=12g --cpus=4 -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
