@@ -19,9 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.59"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.60"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -93,9 +93,10 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
-    bundlerPackage = pkgs.bundler;
+    # Override bundler to be specific to the project's Ruby version
+    bundlerPackage = pkgs.bundler.override { ruby = rubyPackage; };
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyMajorMinor = builtins.concatStringsSep "." (builtins.take 2 (builtins.splitVersion rubyVersion));
   in {
@@ -138,7 +139,7 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-        ''}
+        '')}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
@@ -255,11 +256,11 @@
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
         echo "build-rails-app (Flake Version: ${version})"
         echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
-        echo "Bundler version: $(${pkgs.bundler}/bin/bundler -v)"
+        echo "Bundler version: $(${bundlerPackage}/bin/bundler -v)"
         echo "Running bundle install..."
-        ${pkgs.bundler}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
+        ${bundlerPackage}/bin/bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
         echo "Running rails assets:precompile..."
-        ${pkgs.bundler}/bin/bundle exec rake assets:precompile
+        ${bundlerPackage}/bin/bundler exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';

@@ -55,7 +55,7 @@ echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Configure nix.conf for download-buffer-size and experimental features
 mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
-download-buffer-size = 167772160
+download-buffer-size = 83886080
 experimental-features = nix-command flakes
 NIX_CONF
 # Set up /builder and ownership
@@ -104,4 +104,4 @@ echo "Generated docker-entrypoint.sh"
 # Ensure Nix store volume exists
 docker volume create nix-store || true
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=12g --cpus=4 -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
+docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh nixos/nix
