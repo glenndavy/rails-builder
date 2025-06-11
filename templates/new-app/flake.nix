@@ -19,9 +19,9 @@
     ...
   }: let
     system = "x86_64-linux";
-    overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.84"; # Frontend version
+    overlays = [ nixpkgs-ruby.overlays.default ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    version = "2.0.86"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -93,17 +93,17 @@
     };
 
     # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     # Override bundler to be specific to the project's Ruby version
-    bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
+    bundlerPackage = pkgs.bundler.override { ruby = rubyPackage; };
     # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
   in {
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [rubyPackage bundlerPackage];
+        buildInputs = (old.buildInputs or []) ++ [ rubyPackage bundlerPackage ];
         shellHook = ''
           unset RUBYLIB GEM_PATH # Clear conflicting environment variables
           export NIXPKGS_ALLOW_INSECURE=1
@@ -127,21 +127,19 @@
         '';
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
-        buildInputs =
-          (old.buildInputs or [])
-          ++ [
-            rubyPackage
-            bundlerPackage
-            pkgs.rsync
-            self.packages.${system}.manage-postgres
-            self.packages.${system}.manage-redis
-            self.packages.${system}.build-rails-app
-          ];
+        buildInputs = (old.buildInputs or []) ++ [
+          rubyPackage
+          bundlerPackage
+          pkgs.rsync
+          self.packages.${system}.manage-postgres
+          self.packages.${system}.manage-redis
+          self.packages.${system}.build-rails-app
+        ];
         shellHook =
           old.shellHook
           + ''
-            export BUNDLE_PATH=/builder/vendor/bundle
-            export BUNDLE_GEMFILE=/builder/Gemfile
+            export BUNDLE_PATH=/source/vendor/bundle
+            export BUNDLE_GEMFILE=/source/Gemfile
           '';
       });
     };
@@ -154,19 +152,19 @@
         cat ${pkgs.writeText "flake-version" ''
           Frontend Flake Version: ${version}
           Backend Flake Version: ${rails-builder.lib.version or "2.0.25"}
-        ''}
+        '')}
       '';
       manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-postgres $1" >&2
-        export PGDATA=/builder/pgdata
-        export PGHOST=/builder
+        export PGDATA=/source/pgdata
+        export PGHOST=/source
         export PGDATABASE=rails_build
         # Ensure PGDATA is owned by app-builder
         mkdir -p "$PGDATA"
         chown app-builder:app-builder "$PGDATA"
-        chown app-builder:app-builder /builder
+        chown app-builder:app-builder /source
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2
@@ -182,18 +180,18 @@
               mkdir -p "$PGDATA"
               chown app-builder:app-builder "$PGDATA"
               echo "Running initdb..."
-              if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /builder/tmp/initdb.log 2>&1; then
+              if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /source/tmp/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
-                cat /builder/tmp/initdb.log >&2
+                cat /source/tmp/initdb.log >&2
                 exit 1
               fi
               echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /builder/tmp/pg.log -o "-k $PGHOST" start > /builder/tmp/pg_ctl.log 2>&1; then
-              echo "pg_ctl start failed. Log:" >&2
-              cat /builder/tmp/pg_ctl.log >&2
-              exit 1
+            if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /source/tmp/pg.log -o "-k $PGHOST" start > /source/tmp/pg_ctl.log 2>&1; then
+                echo "pg_ctl start failed. Log:" >&2
+                cat /source/tmp/pg_ctl.log >&2
+                exit 1
             fi
             sleep 2
             if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
@@ -225,15 +223,15 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-redis $1" >&2
-        export REDIS_SOCKET=/builder/redis.sock
-        export REDIS_PID=/builder/redis.pid
+        export REDIS_SOCKET=/source/redis.sock
+        export REDIS_PID=/source/redis.pid
         case "$1" in
           start)
             if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
               echo "Redis is already running."
               exit 0
             fi
-            mkdir -p /builder
+            mkdir -p /source
             ${pkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
             sleep 2
             if ! ${pkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping | grep -q PONG; then
@@ -263,19 +261,19 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting build-rails-app" >&2
-        export BUNDLE_PATH=/builder/vendor/bundle
-        export BUNDLE_GEMFILE=/builder/Gemfile
+        export BUNDLE_PATH=/source/vendor/bundle
+        export BUNDLE_GEMFILE=/source/Gemfile
         export PATH=$BUNDLE_PATH/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
         echo "build-rails-app (Flake Version: ${version})"
         echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
-        echo "Bundler version: $(${rubyPackage}/bin/bundler -v)"
+        echo "Bundler version: $(${bundlerPackage}/bin/bundler -v)"
         echo "Running bundle install..."
-        ${rubyPackage}/bin/bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
+        ${bundlerPackage}/bin/bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
         echo "Running rails assets:precompile..."
-        ${rubyPackage}/bin/bundler exec rails assets:precompile
+        ${bundlerPackage}/bin/bundler exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.21
+# Version: 2.0.22
 set -e
 
 # Validate BUILD_STAGE_3
@@ -76,29 +76,27 @@ cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
+# Debug source directory contents
+echo "DEBUG: /source contents: $(ls -la /source 2>/dev/null)" >&2
 # Detect UID of /source
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
+/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /source -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
-# Set up /builder (owned by app-builder)
-mkdir -p /builder
-# Copy source files, preserving ownership
-cp -r /source/* /source/.* /builder/ 2>/dev/null || true
-# Recursively set ownership to app-builder
-/sbin/chown -R app-builder:app-builder /builder
-cd /builder
-# Verify files in /builder
+# Set ownership of /source
+/sbin/chown -R app-builder:app-builder /source
+cd /source
+# Verify files in /source
 if [ ! -f ./flake.nix ]; then
-  echo "Error: flake.nix not found in /builder" >&2
+  echo "Error: flake.nix not found in /source" >&2
   exit 1
 fi
-if [ -f ./Gemfile ]; then
-  echo "Warning: Gemfile not found in /builder" >&2
+if [ ! -f ./Gemfile ]; then
+  echo "Warning: Gemfile not found in /source" >&2
 fi
-echo ".ruby-version contents in /builder (if present):"
+echo ".ruby-version contents in /source (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
 echo "DEBUG: Ruby version before build: $(gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
@@ -115,4 +113,4 @@ git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
+docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /source -e HOME=/source --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
