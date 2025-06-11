@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.16
+# Version: 2.0.18
 set -e
 
 # Validate BUILD_STAGE_3
@@ -65,27 +65,19 @@ echo "DEBUG: Checking /sbin/chown: $(ls -l /sbin/chown 2>/dev/null || echo 'Not 
 echo "DEBUG: ldd /sbin/useradd: $(ldd /sbin/useradd 2>/dev/null || echo 'ldd failed')" >&2
 # Debug Nix binary
 echo "DEBUG: Checking nix: $(ls -l /bin/nix 2>/dev/null || echo 'nix not found')" >&2
-# Debug Nix version
+# Debug Nix version and nix.conf
 echo "DEBUG: Nix version: $(/bin/nix --version 2>/dev/null || echo 'nix not found')" >&2
-# Configure nix.conf for download-buffer-size, experimental features, and insecure packages
-mkdir -p /etc/nix
-cat <<NIX_CONF > /etc/nix/nix.conf
-download-buffer-size = 83886080
-experimental-features = nix-command flakes
-accept-flake-config = true
-permittedInsecurePackages = openssl-1.1 openssl-1.0
-NIX_CONF
+echo "DEBUG: nix.conf contents:" >&2
+cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
-echo "DEBUG: nix.conf contents:" >&2
-cat /etc/nix/nix.conf >&2
 # Detect UID of /source
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
+/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
@@ -104,13 +96,13 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(gosu app-builder /bin/nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
+echo "DEBUG: Ruby version before build: $(gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
 # Run commands in buildShell, sequencing services
-gosu app-builder /bin/nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
+gosu app-builder /bin/nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
-gosu app-builder /bin/nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
+gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
