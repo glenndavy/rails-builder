@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.22
+# Version: 2.0.23
 set -e
 
 # Validate BUILD_STAGE_3
@@ -60,6 +60,9 @@ export PATH=/sbin:/bin:$PATH
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 echo "DEBUG: SSL_CERT_FILE=$SSL_CERT_FILE" >&2
 echo "DEBUG: Checking SSL certificate file: $(ls -l /etc/ssl/certs/ca-bundle.crt 2>/dev/null || echo 'Not found')" >&2
+# Relax Nix Git ownership checks
+export NIX_GIT_CHECKOUT_SAFE=0
+echo "DEBUG: NIX_GIT_CHECKOUT_SAFE=$NIX_GIT_CHECKOUT_SAFE" >&2
 # Debug filesystem
 echo "DEBUG: /sbin contents: $(ls -l /sbin 2>/dev/null | head -n 5)" >&2
 echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
@@ -77,7 +80,7 @@ cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >
 export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
 # Debug source directory contents
-echo "DEBUG: /source contents: $(ls -la /source 2>/dev/null)" >&2
+echo "DEBUG: /source contents before chown: $(ls -la /source 2>/dev/null)" >&2
 # Detect UID of /source
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
@@ -87,6 +90,7 @@ echo "DEBUG: Source UID: $SOURCE_UID" >&2
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set ownership of /source
 /sbin/chown -R app-builder:app-builder /source
+echo "DEBUG: /source contents after chown: $(ls -la /source 2>/dev/null)" >&2
 cd /source
 # Verify files in /source
 if [ ! -f ./flake.nix ]; then
