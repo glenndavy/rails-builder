@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.14
+# Version: 2.0.16
 set -e
 
 # Validate BUILD_STAGE_3
@@ -62,9 +62,7 @@ echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
 echo "DEBUG: Checking /sbin/groupadd: $(ls -l /sbin/groupadd 2>/dev/null || echo 'Not found')" >&2
 echo "DEBUG: Checking /sbin/useradd: $(ls -l /sbin/useradd 2>/dev/null || echo 'Not found')" >&2
 echo "DEBUG: Checking /sbin/chown: $(ls -l /sbin/chown 2>/dev/null || echo 'Not found')" >&2
-echo "DEBUG: ldd /sbin/groupadd: $(ldd /sbin/groupadd 2>/dev/null || echo 'ldd failed')" >&2
 echo "DEBUG: ldd /sbin/useradd: $(ldd /sbin/useradd 2>/dev/null || echo 'ldd failed')" >&2
-echo "DEBUG: Dynamic linker: $(ls -l /lib/ld-linux-x86-64.so.2 2>/dev/null || echo 'Not found')" >&2
 # Debug Nix binary
 echo "DEBUG: Checking nix: $(ls -l /bin/nix 2>/dev/null || echo 'nix not found')" >&2
 # Debug Nix version
@@ -75,7 +73,7 @@ cat <<NIX_CONF > /etc/nix/nix.conf
 download-buffer-size = 83886080
 experimental-features = nix-command flakes
 accept-flake-config = true
-permittedInsecurePackages = ruby-2.7.5
+permittedInsecurePackages = openssl-1.1 openssl-1.0
 NIX_CONF
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
@@ -119,7 +117,5 @@ chmod +x docker-entrypoint.sh
 git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
-# Ensure Nix store volume exists
-docker volume create nix-store || true
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -v nix-store:/nix/store -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
+docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /builder -e HOME=/builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
