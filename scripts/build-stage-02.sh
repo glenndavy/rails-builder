@@ -69,7 +69,6 @@ echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
 echo "DEBUG: Checking /sbin/groupadd: $(ls -l /sbin/groupadd 2>/dev/null || echo 'Not found')" >&2
 echo "DEBUG: Checking /sbin/useradd: $(ls -l /sbin/useradd 2>/dev/null || echo 'Not found')" >&2
 echo "DEBUG: Checking /sbin/chown: $(ls -l /sbin/chown 2>/dev/null || echo 'Not found')" >&2
-echo "DEBUG: ldd /sbin/useradd: $(ldd /sbin/useradd 2>/dev/null || echo 'ldd failed')" >&2
 # Debug Nix binary
 echo "DEBUG: Checking nix: $(ls -l /bin/nix 2>/dev/null || echo 'nix not found')" >&2
 # Debug Nix version and nix.conf
@@ -88,7 +87,7 @@ SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /home/app-builder -s /bin/bash app-builder
+/sbin/useradd -u $SOURCE_UID -g $SOURCE_UID -d /home/app-builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 cd /source
 # Verify files in /source
