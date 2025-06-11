@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.11
+# Version: 2.0.14
 set -e
 
 # Validate BUILD_STAGE_3
@@ -56,8 +56,19 @@ set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Ensure PATH includes /sbin and /bin
 export PATH=/sbin:/bin:$PATH
+# Debug filesystem
+echo "DEBUG: /sbin contents: $(ls -l /sbin 2>/dev/null | head -n 5)" >&2
+echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
+echo "DEBUG: Checking /sbin/groupadd: $(ls -l /sbin/groupadd 2>/dev/null || echo 'Not found')" >&2
+echo "DEBUG: Checking /sbin/useradd: $(ls -l /sbin/useradd 2>/dev/null || echo 'Not found')" >&2
+echo "DEBUG: Checking /sbin/chown: $(ls -l /sbin/chown 2>/dev/null || echo 'Not found')" >&2
+echo "DEBUG: ldd /sbin/groupadd: $(ldd /sbin/groupadd 2>/dev/null || echo 'ldd failed')" >&2
+echo "DEBUG: ldd /sbin/useradd: $(ldd /sbin/useradd 2>/dev/null || echo 'ldd failed')" >&2
+echo "DEBUG: Dynamic linker: $(ls -l /lib/ld-linux-x86-64.so.2 2>/dev/null || echo 'Not found')" >&2
+# Debug Nix binary
+echo "DEBUG: Checking nix: $(ls -l /bin/nix 2>/dev/null || echo 'nix not found')" >&2
 # Debug Nix version
-echo "DEBUG: Nix version: $(nix --version)" >&2
+echo "DEBUG: Nix version: $(/bin/nix --version 2>/dev/null || echo 'nix not found')" >&2
 # Configure nix.conf for download-buffer-size, experimental features, and insecure packages
 mkdir -p /etc/nix
 cat <<NIX_CONF > /etc/nix/nix.conf
@@ -80,7 +91,7 @@ echo "DEBUG: Source UID: $SOURCE_UID" >&2
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
-chown app-builder:app-builder /builder
+/sbin/chown app-builder:app-builder /builder
 # Copy source files, preserving ownership
 cp -r /source/* /source/.* /builder/ 2>/dev/null || true
 cd /builder
@@ -95,13 +106,13 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(gosu app-builder nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
+echo "DEBUG: Ruby version before build: $(gosu app-builder /bin/nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
 # Run commands in buildShell, sequencing services
-gosu app-builder nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
+gosu app-builder /bin/nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
-gosu app-builder nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
+gosu app-builder /bin/nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
