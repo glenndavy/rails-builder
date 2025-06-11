@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.87"; # Frontend version
+    version = "2.0.88"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -166,7 +166,6 @@
         # Ensure PGDATA is owned by app-builder
         mkdir -p "$PGDATA"
         chown app-builder:app-builder "$PGDATA"
-        chown app-builder:app-builder /source
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2

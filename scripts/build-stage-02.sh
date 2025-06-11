@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.23
+# Version: 2.0.24
 set -e
 
 # Validate BUILD_STAGE_3
@@ -80,17 +80,16 @@ cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >
 export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
 # Debug source directory contents
-echo "DEBUG: /source contents before chown: $(ls -la /source 2>/dev/null)" >&2
+echo "DEBUG: /source contents: $(ls -la /source 2>/dev/null)" >&2
+# Debug /nix/store permissions
+echo "DEBUG: /nix/store permissions: $(ls -ld /nix/store 2>/dev/null)" >&2
 # Detect UID of /source
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /source -s /bin/bash app-builder
+/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /home/app-builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
-# Set ownership of /source
-/sbin/chown -R app-builder:app-builder /source
-echo "DEBUG: /source contents after chown: $(ls -la /source 2>/dev/null)" >&2
 cd /source
 # Verify files in /source
 if [ ! -f ./flake.nix ]; then
@@ -117,4 +116,4 @@ git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /source -e HOME=/source --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
+docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
