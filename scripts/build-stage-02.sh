@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.20
+# Version: 2.0.21
 set -e
 
 # Validate BUILD_STAGE_3
@@ -59,6 +59,7 @@ export PATH=/sbin:/bin:$PATH
 # Set SSL certificate file
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 echo "DEBUG: SSL_CERT_FILE=$SSL_CERT_FILE" >&2
+echo "DEBUG: Checking SSL certificate file: $(ls -l /etc/ssl/certs/ca-bundle.crt 2>/dev/null || echo 'Not found')" >&2
 # Debug filesystem
 echo "DEBUG: /sbin contents: $(ls -l /sbin 2>/dev/null | head -n 5)" >&2
 echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
@@ -80,7 +81,7 @@ SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd --mail-dir="" -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
+/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
@@ -94,7 +95,7 @@ if [ ! -f ./flake.nix ]; then
   echo "Error: flake.nix not found in /builder" >&2
   exit 1
 fi
-if [ ! -f ./Gemfile ]; then
+if [ -f ./Gemfile ]; then
   echo "Warning: Gemfile not found in /builder" >&2
 fi
 echo ".ruby-version contents in /builder (if present):"
