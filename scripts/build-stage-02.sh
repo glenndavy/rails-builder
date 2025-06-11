@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.18
+# Version: 2.0.19
 set -e
 
 # Validate BUILD_STAGE_3
@@ -81,9 +81,10 @@ echo "DEBUG: Source UID: $SOURCE_UID" >&2
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
-/sbin/chown app-builder:app-builder /builder
 # Copy source files, preserving ownership
 cp -r /source/* /source/.* /builder/ 2>/dev/null || true
+# Recursively set ownership to app-builder
+/sbin/chown -R app-builder:app-builder /builder
 cd /builder
 # Verify files in /builder
 if [ ! -f ./flake.nix ]; then
