@@ -87,7 +87,7 @@ SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -u $SOURCE_UID -g $SOURCE_UID -d /home/app-builder -s /bin/bash app-builder
+/sbin/useradd -u $SOURCE_UID -g $SOURCE_UID -m -d /home/app-builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 cd /source
 # Verify files in /source
