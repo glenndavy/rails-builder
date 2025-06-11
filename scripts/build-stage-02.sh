@@ -56,10 +56,6 @@ set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Ensure PATH includes /sbin and /bin
 export PATH=/sbin:/bin:$PATH
-# Debug command locations
-echo "DEBUG: groupadd location: $(which groupadd)" >&2
-echo "DEBUG: useradd location: $(which useradd)" >&2
-echo "DEBUG: chown location: $(which chown)" >&2
 # Debug Nix version
 echo "DEBUG: Nix version: $(nix --version)" >&2
 # Configure nix.conf for download-buffer-size, experimental features, and insecure packages
@@ -79,8 +75,8 @@ cat /etc/nix/nix.conf >&2
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
-groupadd -g $SOURCE_UID app-builder
-useradd -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
+/sbin/groupadd -g $SOURCE_UID app-builder
+/sbin/useradd -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
