@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.8
+# Version: 2.0.9
 set -e
 
 # Validate BUILD_STAGE_3
@@ -69,8 +69,16 @@ export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
 echo "DEBUG: nix.conf contents:" >&2
 cat /etc/nix/nix.conf >&2
+# Detect UID of /source
+SOURCE_UID=$(stat -c %u /source)
+echo "DEBUG: Source UID: $SOURCE_UID" >&2
+# Create app-builder user with matching UID
+groupadd -g $SOURCE_UID app-builder || true
+useradd -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder || true
+echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
+chown app-builder:app-builder /builder
 # Copy source files, preserving ownership
 cp -r /source/* /source/.* /builder/ 2>/dev/null || true
 cd /builder
@@ -85,13 +93,13 @@ fi
 echo ".ruby-version contents in /builder (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
+echo "DEBUG: Ruby version before build: $(gosu app-builder nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command ruby -v)" >&2
 # Run commands in buildShell, sequencing services
-nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
+gosu app-builder nix run .#flakeVersion --allow-insecure --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
-nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
+gosu app-builder nix develop .#buildShell --allow-insecure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh

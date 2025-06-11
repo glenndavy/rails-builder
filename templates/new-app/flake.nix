@@ -21,7 +21,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.76"; # Frontend version
+    version = "2.0.77"; # Frontend version
 
     # Detect Ruby version
     detectRubyVersion = {src}: let
@@ -163,7 +163,7 @@
         export PGDATA=/builder/pgdata
         export PGHOST=/builder
         export PGDATABASE=rails_build
-        # Ensure PGDATA is owned by app-builder (UID 1000)
+        # Ensure PGDATA is owned by app-builder
         mkdir -p "$PGDATA"
         chown app-builder:app-builder "$PGDATA"
         chown app-builder:app-builder /builder
