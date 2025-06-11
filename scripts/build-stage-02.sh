@@ -1,5 +1,5 @@
 #!/bin/sh
-# Version: 2.0.19
+# Version: 2.0.20
 set -e
 
 # Validate BUILD_STAGE_3
@@ -56,6 +56,9 @@ set -e
 echo "DEBUG: Starting docker-entrypoint.sh" >&2
 # Ensure PATH includes /sbin and /bin
 export PATH=/sbin:/bin:$PATH
+# Set SSL certificate file
+export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+echo "DEBUG: SSL_CERT_FILE=$SSL_CERT_FILE" >&2
 # Debug filesystem
 echo "DEBUG: /sbin contents: $(ls -l /sbin 2>/dev/null | head -n 5)" >&2
 echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
@@ -77,7 +80,7 @@ SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
 # Create app-builder user with matching UID
 /sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -M -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
+/sbin/useradd --mail-dir="" -u $SOURCE_UID -g $SOURCE_UID -d /builder -s /bin/bash app-builder
 echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
 # Set up /builder (owned by app-builder)
 mkdir -p /builder
