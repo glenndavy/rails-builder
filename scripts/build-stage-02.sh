@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.28
+# Version: 2.0.29
 set -e
-export STAGE_2_VERSION=2.0.28
+export STAGE_2_VERSION=2.0.29
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -75,17 +75,14 @@ echo "DEBUG: /nix/store permissions: $(ls -ld /nix/store 2>/dev/null)" >&2
 # Detect UID of /source
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
-# Create app-builder user with matching UID
-/sbin/groupadd -g $SOURCE_UID app-builder
-/sbin/useradd -m -u $SOURCE_UID -g $SOURCE_UID -d /home/app-builder -s /bin/bash app-builder
-echo "DEBUG: Created app-builder user with UID $SOURCE_UID" >&2
-# Set /nix/store permissions for single-user Nix
-chown -R $SOURCE_UID /nix/store
-chmod -R u+w /nix/store
-echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
-# Pre-fetch stdenv
-echo "DEBUG: Pre-fetching stdenv" >&2
-env HOME=/root SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt /bin/nix store prefetch-file --name stdenv https://cache.nixos.org/nix-cache-info
+# Update app-builder UID and GID if needed
+if [ "$SOURCE_UID" != "1000" ]; then
+  usermod -u $SOURCE_UID app-builder
+  groupmod -g $SOURCE_UID app-builder
+  echo "DEBUG: Updated app-builder UID to $SOURCE_UID" >&2
+else
+  echo "DEBUG: app-builder UID already matches $SOURCE_UID" >&2
+fi
 cd /source
 # Verify files in /source
 if [ ! -f ./flake.nix ]; then
