@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.29
+# Version: 2.0.30
 set -e
-export STAGE_2_VERSION=2.0.29
+export STAGE_2_VERSION=2.0.30
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -83,6 +83,8 @@ if [ "$SOURCE_UID" != "1000" ]; then
 else
   echo "DEBUG: app-builder UID already matches $SOURCE_UID" >&2
 fi
+# Set ownership of /home/app-builder
+chown $SOURCE_UID:$SOURCE_UID /home/app-builder
 cd /source
 # Verify files in /source
 if [ ! -f ./flake.nix ]; then
@@ -94,10 +96,12 @@ if [ ! -f ./Gemfile ]; then
 fi
 echo ".ruby-version contents in /source (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
+# Run nix commands as root
+echo "DEBUG: Running nix commands as root" >&2
+env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt /bin/nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 # Debug Ruby version
 echo "DEBUG: Ruby version before build: $(env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
-# Run commands in buildShell, sequencing services
-env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
+# Run build commands as app-builder
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
