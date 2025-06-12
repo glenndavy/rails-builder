@@ -1,7 +1,8 @@
 #!/bin/sh
-# Version: 2.0.24
 set -e
-
+export STAGE_2_VERSION=2.0.24
+echo "Stage 2 version: ${STAGE_2_VERSION}"
+#
 # Validate BUILD_STAGE_3
 if [ -z "$BUILD_STAGE_3" ]; then
   echo "Error: BUILD_STAGE_3 not set" >&2
@@ -53,27 +54,17 @@ fi
 cat <<'EOF' > docker-entrypoint.sh
 #!/bin/bash
 set -e
-echo "DEBUG: Starting docker-entrypoint.sh" >&2
+echo "DEBUG: Starting docker-entrypoint.sh : ${STAGE_2_VERSION}" >&2
 # Ensure PATH includes /sbin and /bin
 export PATH=/sbin:/bin:$PATH
 # Set SSL certificate file
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
-echo "DEBUG: SSL_CERT_FILE=$SSL_CERT_FILE" >&2
-echo "DEBUG: Checking SSL certificate file: $(ls -l /etc/ssl/certs/ca-bundle.crt 2>/dev/null || echo 'Not found')" >&2
 # Relax Nix Git ownership checks
 export NIX_GIT_CHECKOUT_SAFE=0
 echo "DEBUG: NIX_GIT_CHECKOUT_SAFE=$NIX_GIT_CHECKOUT_SAFE" >&2
 # Debug filesystem
-echo "DEBUG: /sbin contents: $(ls -l /sbin 2>/dev/null | head -n 5)" >&2
-echo "DEBUG: /bin contents: $(ls -l /bin 2>/dev/null | head -n 5)" >&2
-echo "DEBUG: Checking /sbin/groupadd: $(ls -l /sbin/groupadd 2>/dev/null || echo 'Not found')" >&2
-echo "DEBUG: Checking /sbin/useradd: $(ls -l /sbin/useradd 2>/dev/null || echo 'Not found')" >&2
-echo "DEBUG: Checking /sbin/chown: $(ls -l /sbin/chown 2>/dev/null || echo 'Not found')" >&2
-# Debug Nix binary
-echo "DEBUG: Checking nix: $(ls -l /bin/nix 2>/dev/null || echo 'nix not found')" >&2
 # Debug Nix version and nix.conf
 echo "DEBUG: Nix version: $(/bin/nix --version 2>/dev/null || echo 'nix not found')" >&2
-echo "DEBUG: nix.conf contents:" >&2
 cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
