@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.27
+# Version: 2.0.28
 set -e
-export STAGE_2_VERSION=2.0.27
+export STAGE_2_VERSION=2.0.28
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -85,7 +85,7 @@ chmod -R u+w /nix/store
 echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
 # Pre-fetch stdenv
 echo "DEBUG: Pre-fetching stdenv" >&2
-env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt /bin/nix store prefetch-file --name stdenv https://cache.nixos.org/nix-cache-info
+env HOME=/root SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt /bin/nix store prefetch-file --name stdenv https://cache.nixos.org/nix-cache-info
 cd /source
 # Verify files in /source
 if [ ! -f ./flake.nix ]; then
