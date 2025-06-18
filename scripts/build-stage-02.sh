@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.32
+# Version: 2.0.33
 set -e
-export STAGE_2_VERSION=2.0.32
+export STAGE_2_VERSION=2.0.33
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -93,11 +93,15 @@ chmod g+w /nix/store/.links
 echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
 cd /source
 # Verify files in /source
-if [ ! -f ./flake.nix ]; then
+if [ -f ./flake.nix ]; then
+  echo "DEBUG: Found flake.nix in /source" >&2
+else
   echo "Error: flake.nix not found in /source" >&2
   exit 1
 fi
-if [ ! -f ./Gemfile ]; then
+if [ -f ./Gemfile ]; then
+  echo "DEBUG: Found Gemfile in /source" >&2
+else
   echo "Warning: Gemfile not found in /source" >&2
 fi
 echo ".ruby-version contents in /source (if present):"
