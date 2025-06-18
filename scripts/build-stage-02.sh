@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.34
+# Version: 2.0.35
 set -e
-export STAGE_2_VERSION=2.0.34
+export STAGE_2_VERSION=2.0.35
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -83,10 +83,19 @@ if [ "$SOURCE_UID" != "1000" ]; then
 else
   echo "DEBUG: app-builder UID already matches $SOURCE_UID" >&2
 fi
-# Set ownership of /home/app-builder
+# Set ownership and permissions for /home/app-builder
 chown $SOURCE_UID:$SOURCE_UID /home/app-builder
+chmod 755 /home/app-builder
+# Ensure /home/app-builder/.cache/nix is writable
+mkdir -p /home/app-builder/.cache/nix
+chown $SOURCE_UID:$SOURCE_UID /home/app-builder/.cache/nix
+chmod 755 /home/app-builder/.cache/nix
+# Ensure /etc/ssl/certs is readable
+chmod -R o+r /etc/ssl/certs
 # Set /nix/store top-level group permissions
 chmod g+w /nix/store
+# Create and set permissions for /nix/store/.links
+mkdir -p /nix/store/.links
 chown $SOURCE_UID:nixbld /nix/store/.links
 chmod g+w /nix/store/.links
 echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
@@ -95,25 +104,25 @@ cd /source
 if [ -f ./flake.nix ]; then
   echo "DEBUG: Found flake.nix in /source" >&2
 else
-  echo "Error: ./flake.nix not found in /source" >&2
-  exit 255
+  echo "Error: flake.nix not found in /source" >&2
+  exit 1
 fi
 if [ -f ./Gemfile ]; then
   echo "DEBUG: Found Gemfile in /source" >&2
 else
   echo "Warning: Gemfile not found in /source" >&2
 fi
-echo ".ruby-version content in /source (if present):"
+echo ".ruby-version contents in /source (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -V 2>/dev/null || echo 'error: nix develop failed')" >&2
+echo "DEBUG: Ruby version before build: $(env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
 # Run commands in buildShell
 env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
-echo "about to run nix-build-shell"
+echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
 env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
-echo "DEBUG: successfully completed" >&2
+echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
 git add docker-entrypoint.sh
