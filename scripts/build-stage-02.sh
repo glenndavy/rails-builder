@@ -1,7 +1,7 @@
 #!/bin/sh
 # Version: 2.0.31
 set -e
-export STAGE_2_VERSION=2.0.32
+export STAGE_2_VERSION=2.0.31
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
