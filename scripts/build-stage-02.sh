@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.35
+# Version: 2.0.36
 set -e
-export STAGE_2_VERSION=2.0.35
+export STAGE_2_VERSION=2.0.36
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -87,12 +87,10 @@ fi
 chown $SOURCE_UID:$SOURCE_UID /home/app-builder
 chmod 755 /home/app-builder
 # Ensure /home/app-builder/.cache/nix is writable
-mkdir -p /home/app-builder/.cache/nix
-chown $SOURCE_UID:$SOURCE_UID /home/app-builder/.cache/nix
-chmod 755 /home/app-builder/.cache/nix
-# Ensure /etc/ssl/certs is readable
-chmod -R o+r /etc/ssl/certs
-# Set /nix/store top-level group permissions
+chown $SOURCE_UID:nixbld /home/app-builder/.cache/nix
+chmod g+w /home/app-builder/.cache/nix
+# Set /nix/store group ownership and permissions
+chgrp nixbld /nix/store
 chmod g+w /nix/store
 # Create and set permissions for /nix/store/.links
 mkdir -p /nix/store/.links

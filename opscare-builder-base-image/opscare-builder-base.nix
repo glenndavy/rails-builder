@@ -40,9 +40,9 @@ in
       # Create /root directory
       mkdir -p root
       chmod 755 root
-      # Create /home/app-builder
-      mkdir -p home/app-builder
-      chmod 755 home/app-builder
+      # Create /home/app-builder and /home/app-builder/.cache/nix
+      mkdir -p home/app-builder/.cache/nix
+      chmod 755 home/app-builder home/app-builder/.cache/nix
       # Create /etc/nix/nix.conf
       mkdir -p etc/nix
       cat <<NIX_CONF > etc/nix/nix.conf
@@ -61,5 +61,7 @@ in
       echo "nixbld:x:30000:" > etc/group
       echo "app-builder:x:1000:nixbld" >> etc/group
       chmod 644 etc/passwd etc/group
+      # Ensure /etc/ssl/certs is readable
+      chmod -R o+r etc/ssl/certs
     '';
   }
