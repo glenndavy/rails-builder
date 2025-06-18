@@ -1,7 +1,7 @@
 #!/bin/sh
 # Version: 2.0.31
 set -e
-export STAGE_2_VERSION=2.0.31
+export STAGE_2_VERSION=2.0.32
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -114,4 +114,4 @@ git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/docker-entrypoint.sh opscare:latest
+docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
