@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.31
+# Version: 2.0.32
 set -e
-export STAGE_2_VERSION=2.0.31
+export STAGE_2_VERSION=2.0.32
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -85,8 +85,11 @@ else
 fi
 # Set ownership of /home/app-builder
 chown $SOURCE_UID:$SOURCE_UID /home/app-builder
-echo "DEBUG: Set /nix/store group permissions"
-time chmod -R a+w /nix/store
+# Set /nix/store top-level group permissions
+chmod g+w /nix/store
+mkdir -p /nix/store/.links
+chown $SOURCE_UID:nixbld /nix/store/.links
+chmod g+w /nix/store/.links
 echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
 cd /source
 # Verify files in /source
