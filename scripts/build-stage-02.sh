@@ -85,8 +85,8 @@ else
 fi
 # Set ownership of /home/app-builder
 chown $SOURCE_UID:$SOURCE_UID /home/app-builder
-# Set /nix/store group permissions
-chmod -R g+w /nix/store
+echo "DEBUG: Set /nix/store group permissions"
+time chmod -R a+w /nix/store
 echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
 cd /source
 # Verify files in /source
