@@ -78,7 +78,7 @@
           if match != null && parseVersion (builtins.elemAt match 1) != null
           then builtins.elemAt match 1
           else fromGemfileLock
-        else fromGamfileLock;
+        else fromGemfileLock;
     in
       fromGemfile;
 
