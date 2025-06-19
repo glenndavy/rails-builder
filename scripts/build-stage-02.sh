@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.39
+# Version: 2.0.41
 set -e
-export STAGE_2_VERSION=2.0.39
+export STAGE_2_VERSION=2.0.41
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -56,48 +56,19 @@ cat <<'EOF' > docker-entrypoint.sh
 #!/bin/bash
 set -e
 echo "DEBUG: Starting docker-entrypoint.sh : ${STAGE_2_VERSION}" >&2
-# Ensure PATH includes /sbin and /bin
-export PATH=/sbin:/bin:$PATH
+# Ensure PATH includes Nix and system binaries
+export PATH=/home/app-builder/.nix-profile/bin:/bin:/sbin:$PATH
 # Set SSL certificate file
-export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 echo "DEBUG: SSL_CERT_FILE=$SSL_CERT_FILE" >&2
-# Relax Nix Git ownership checks
-export NIX_GIT_CHECKOUT_SAFE=0
-echo "DEBUG: NIX_GIT_CHECKOUT_SAFE=$NIX_GIT_CHECKOUT_SAFE" >&2
 # Debug Nix version and nix.conf
-echo "DEBUG: Nix version: $(/bin/nix --version 2>/dev/null || echo 'nix not found')" >&2
+echo "DEBUG: Nix version: $(nix --version 2>/dev/null || echo 'nix not found')" >&2
 cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
 # Allow insecure packages
 export NIXPKGS_ALLOW_INSECURE=1
 echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
 # Debug /nix/store permissions
 echo "DEBUG: /nix/store permissions: $(ls -ld /nix/store 2>/dev/null)" >&2
-# Detect UID of /source
-SOURCE_UID=$(stat -c %u /source)
-echo "DEBUG: Source UID: $SOURCE_UID" >&2
-# Update app-builder UID if needed
-if [ "$SOURCE_UID" != "1000" ]; then
-  usermod -u $SOURCE_UID app-builder
-  groupmod -g $SOURCE_UID nixbld
-  echo "DEBUG: Updated app-builder UID to $SOURCE_UID" >&2
-else
-  echo "DEBUG: app-builder UID already matches $SOURCE_UID" >&2
-fi
-# Set ownership and permissions for /home/app-builder
-chown $SOURCE_UID:nixbld /home/app-builder
-chmod 775 /home/app-builder
-# Ensure /home/app-builder/.cache/nix is writable
-#chown $SOURCE_UID:nixbld /home/app-builder/.cache/nix
-#chmod 775 /home/app-builder/.cache/nix
-## Set /nix/store group ownership and permissions
-#chgrp nixbld /nix/store
-#chmod g+w /nix/store
-# Create and set permissions for /nix/store/.links
-#mkdir -p /nix/store/.links
-#chown $SOURCE_UID:nixbld /nix/store/.links
-#chmod 775 /nix/store/.links
-echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
-cd /source
 # Verify files in /source
 if [ -f ./flake.nix ]; then
   echo "DEBUG: Found flake.nix in /source" >&2
@@ -113,13 +84,13 @@ fi
 echo ".ruby-version contents in /source (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
+echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
 # Run commands in buildShell
-env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
+nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
-env SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt gosu app-builder /bin/nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
+nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
 echo "DEBUG: docker-entrypoint.sh completed" >&2
 EOF
 chmod +x docker-entrypoint.sh
@@ -127,4 +98,4 @@ git add docker-entrypoint.sh
 git commit -m "Add docker-entrypoint.sh for build orchestration" || true
 echo "Generated docker-entrypoint.sh"
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
+docker run -it --rm --memory=16g --cpus=4 --user 1000:1000 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest

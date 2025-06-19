@@ -115,7 +115,7 @@
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=${rubyPackage}/bin:${bundlerPackage}/bin:$GEM_HOME/bin:$PATH
+          export PATH=${rubyPackage}/bin:${bundlerPackage}/bin:$GEM_HOME/bin:/home/app-builder/.nix-profile/bin:$PATH
           echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
           echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
           echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
@@ -142,6 +142,7 @@
           + ''
             export BUNDLE_PATH=/source/vendor/bundle
             export BUNDLE_GEMFILE=/source/Gemfile
+            export PATH=$BUNDLE_PATH/bin:/home/app-builder/.nix-profile/bin:$PATH
           '';
       });
     };
@@ -264,17 +265,17 @@
         echo "DEBUG: Starting build-rails-app" >&2
         export BUNDLE_PATH=/source/vendor/bundle
         export BUNDLE_GEMFILE=/source/Gemfile
-        export PATH=$BUNDLE_PATH/bin:$PATH
+        export PATH=$BUNDLE_PATH/bin:/home/app-builder/.nix-profile/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
         echo "build-rails-app (Flake Version: ${version})"
-        echo "Ruby version: $(${rubyPackage}/bin/ruby -v)"
-        echo "Bundler version: $(${bundlerPackage}/bin/bundler -v)"
+        echo "Ruby version: $(ruby -v)"
+        echo "Bundler version: $(bundler -v)"
         echo "Running bundle install..."
-        ${bundlerPackage}/bin/bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
+        bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
         echo "Running rails assets:precompile..."
-        ${bundlerPackage}/bin/bundler exec rails assets:precompile
+        bundler exec rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';

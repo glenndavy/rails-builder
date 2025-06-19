@@ -1,9 +1,10 @@
 {pkgs ? import <nixpkgs> {system = "x86_64-linux";}}: let
-  builderVersion = "10";
+  builderVersion = "13";
 in
-  pkgs.dockerTools.buildLayeredImage {
+  pkgs.dockerTools.buildImage {
     name = "opscare-builder";
     tag = "latest";
+    fromImage = "docker.io/library/ubuntu:jammy";
     contents = with pkgs; [
       nixVersions.nix_2_29 # Nix 2.29
       bash
@@ -20,44 +21,34 @@ in
       stdenv # For standard environment
     ];
     config = {
-      Cmd = ["${pkgs.bash}/bin/bash"];
+      Cmd = ["/bin/bash"];
       Env = [
-        "PATH=/bin:/sbin"
+        "PATH=/home/app-builder/.nix-profile/bin:/bin:/sbin"
         "NIX_PATH=nixpkgs=${pkgs.path}"
         "NIXPKGS_ALLOW_INSECURE=1"
         "BUILDER_VERSION=${builderVersion}"
       ];
       WorkingDir = "/source";
+      User = "app-builder";
     };
-    enableFakechroot = true;
-    fakeRootCommands = ''
-      echo "**${builderVersion}****************** RUNNING fakeRoot COMMANDS ************************"
-      # Create /etc/default/useradd
-      mkdir -p etc/default
-      echo "CREATE_MAIL_SPOOL=no" > etc/default/useradd
-      # Use shadowSetup for user and group management
-      ${pkgs.dockerTools.shadowSetup}
-      groupadd -g 30000 nixbld
-      useradd -u 1000 -g nixbld -m -d /home/app-builder -s /bin/bash app-builder
-      # Create /home/app-builder/.cache/nix
-      mkdir -p home/app-builder/.cache/nix
-      chown -R app-builder:nixbld home/app-builder home/app-builder #/.cache/nix
-      chmod -R 775 home/app-builder home/app-builder #/.cache/nix
-      # Ensure /etc/ssl/certs is readable
-      chmod -R o+r etc/ssl/certs
-      chmod -R g+r etc/ssl/certs
-    '';
     extraCommands = ''
       # Debug
       echo "**${builderVersion}****************** RUNNING EXTRA COMMANDS ************************"
       # Create /source directory
       mkdir -p source
+      chown 1000:1000 source
+      chmod 775 source
       # Create /tmp with world-writable permissions
       mkdir -p tmp
       chmod 1777 tmp
-      # Create /root directory
-      mkdir -p root
-      chmod 755 root
+      # Create /home/app-builder/.cache/nix
+      mkdir -p home/app-builder/.cache/nix
+      chown 1000:1000 home/app-builder/.cache/nix
+      chmod 775 home/app-builder/.cache/nix
+      # Create /nix/var/nix/profiles/per-user/app-builder
+      mkdir -p nix/var/nix/profiles/per-user/app-builder
+      chown 1000:1000 nix/var/nix/profiles/per-user/app-builder
+      chmod 775 nix/var/nix/profiles/per-user/app-builder
       # Create /etc/nix/nix.conf
       mkdir -p etc/nix
       cat <<NIX_CONF > etc/nix/nix.conf
@@ -68,5 +59,21 @@ in
       trusted-users = app-builder
       allowed-users = app-builder
       NIX_CONF
+    '';
+    runAsRoot = ''
+      #!/bin/bash
+      echo "DEBUG: Running runAsRoot for version ${builderVersion}" >&2
+      # Install dependencies for Nix and gem compilation
+      apt-get update
+      apt-get install -y curl git build-essential
+      # Create app-builder user
+      groupadd -g 1000 app-builder
+      useradd -u 1000 -g app-builder -m -d /home/app-builder -s /bin/bash app-builder
+      # Install Nix in single-user mode as app-builder
+      su - app-builder -c "curl -L https://nixos.org/nix/install | sh -s -- --no-daemon"
+      # Set ownership and permissions
+      chown -R 1000:1000 /home/app-builder /home/app-builder/.cache/nix /nix
+      chmod -R 775 /home/app-builder /home/app-builder/.cache/nix /nix
+      chmod -R o+r /etc/ssl/certs
     '';
   }
