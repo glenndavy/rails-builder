@@ -1,7 +1,7 @@
 #!/bin/sh
-# Version: 2.0.37
+# Version: 2.0.39
 set -e
-export STAGE_2_VERSION=2.0.37
+export STAGE_2_VERSION=2.0.39
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -75,10 +75,10 @@ echo "DEBUG: /nix/store permissions: $(ls -ld /nix/store 2>/dev/null)" >&2
 # Detect UID of /source
 SOURCE_UID=$(stat -c %u /source)
 echo "DEBUG: Source UID: $SOURCE_UID" >&2
-# Update app-builder UID and GID if needed
+# Update app-builder UID if needed
 if [ "$SOURCE_UID" != "1000" ]; then
   usermod -u $SOURCE_UID app-builder
-  groupmod -g $SOURCE_UID app-builder
+  groupmod -g $SOURCE_UID nixbld
   echo "DEBUG: Updated app-builder UID to $SOURCE_UID" >&2
 else
   echo "DEBUG: app-builder UID already matches $SOURCE_UID" >&2
@@ -87,15 +87,15 @@ fi
 chown $SOURCE_UID:nixbld /home/app-builder
 chmod 775 /home/app-builder
 # Ensure /home/app-builder/.cache/nix is writable
-chown $SOURCE_UID:nixbld /home/app-builder/.cache/nix
-chmod 775 /home/app-builder/.cache/nix
-# Set /nix/store group ownership and permissions
-chgrp nixbld /nix/store
-chmod g+w /nix/store
+#chown $SOURCE_UID:nixbld /home/app-builder/.cache/nix
+#chmod 775 /home/app-builder/.cache/nix
+## Set /nix/store group ownership and permissions
+#chgrp nixbld /nix/store
+#chmod g+w /nix/store
 # Create and set permissions for /nix/store/.links
-mkdir -p /nix/store/.links
-chown $SOURCE_UID:nixbld /nix/store/.links
-chmod 775 /nix/store/.links
+#mkdir -p /nix/store/.links
+#chown $SOURCE_UID:nixbld /nix/store/.links
+#chmod 775 /nix/store/.links
 echo "DEBUG: /nix/store permissions after: $(ls -ld /nix/store 2>/dev/null)" >&2
 cd /source
 # Verify files in /source
