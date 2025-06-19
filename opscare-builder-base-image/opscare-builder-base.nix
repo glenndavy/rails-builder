@@ -1,5 +1,5 @@
 {pkgs ? import <nixpkgs> {system = "x86_64-linux";}}: let
-  builderVersion = "7";
+  builderVersion = "8";
 in
   pkgs.dockerTools.buildLayeredImage {
     name = "opscare-builder";
@@ -42,7 +42,7 @@ in
       chmod 755 root
       # Create /home/app-builder and /home/app-builder/.cache/nix
       mkdir -p home/app-builder/.cache/nix
-      chmod 755 home/app-builder home/app-builder/.cache/nix
+      chmod 775 home/app-builder home/app-builder/.cache/nix
       # Create /etc/nix/nix.conf
       mkdir -p etc/nix
       cat <<NIX_CONF > etc/nix/nix.conf
