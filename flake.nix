@@ -27,7 +27,7 @@
       src ? ./., # Default to current directory
     }: let
       rubyPackage = pkgs."ruby-${rubyVersion}";
-      bundlerPackage = pkgs.bundler; # Use default bundler version
+      bundlerPackage = pkgs.bundler.override {ruby = rubyPakcage; version = bundlerVersion};# Use default bundler version
       gccPackage =
         if gccVersion == "latest"
         then pkgs.gcc
