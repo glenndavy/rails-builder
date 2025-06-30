@@ -1,6 +1,5 @@
 {
   description = "Rails app template";
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     rails-builder.url = "github:glenndavy/rails-builder";
@@ -9,7 +8,6 @@
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
   };
-
   outputs = {
     self,
     nixpkgs,
@@ -20,11 +18,9 @@
   }: let
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    version = "2.0.91"; # Frontend version
-
-    # Detect Ruby version
-    detectRubyVersion = {src}: let
+    pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
+    version = "2.0.92";
+    detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
       parseVersion = version: let
@@ -53,9 +49,7 @@
         else fromRubyVersion;
     in
       fromGemfile;
-
-    # Detect Bundler version
-    detectBundlerVersion = {src}: let
+    detectBundlerVersion = { src }: let
       gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
       parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
@@ -81,31 +75,39 @@
         else fromGemfileLock;
     in
       fromGemfile;
-
-    rubyVersion = detectRubyVersion {src = ./.;};
-    bundlerVersion = detectBundlerVersion {src = ./.;};
-
-    # App-specific customizations
+    rubyVersion = detectRubyVersion { src = ./.; };
+    bundlerVersion = detectBundlerVersion { src = ./.; };
     buildConfig = {
-      inherit rubyVersion bundlerVersion;
+      inherit rubyVersion;
       gccVersion = "latest";
       opensslVersion = "3";
     };
-
-    # Call backend builder with source including build artifacts
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // {src = ./.;});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
     rubyPackage = pkgs."ruby-${rubyVersion}";
-    # Override bundler to be specific to the project's Ruby version
-    bundlerPackage = pkgs.bundler.override {ruby = rubyPackage;};
-    # Dynamically construct major.minor version (e.g., 2.7 for 2.7.5)
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
   in {
+    apps.${system} = {
+      detectBundlerVersion = {
+        type = "app";
+        program = "${pkgs.bash}/bin/bash";
+        args = ["-c" "echo ${bundlerVersion}"];
+      };
+      detectRubyVersion = {
+        type = "app";
+        program = "${pkgs.bash}/bin/bash";
+        args = ["-c" "echo ${rubyVersion}"];
+      };
+      flakeVersion = {
+        type = "app";
+        program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
+      };
+    };
     devShells.${system} = {
       default = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [rubyPackage bundlerPackage];
+        buildInputs = (old.buildInputs or []) ++ [rubyPackage];
         shellHook = ''
-          unset RUBYLIB GEM_PATH # Clear conflicting environment variables
+          unset RUBYLIB GEM_PATH
           export NIXPKGS_ALLOW_INSECURE=1
           echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
           echo "DEBUG: Local nix.conf contents:" >&2
@@ -115,12 +117,13 @@
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=${rubyPackage}/bin:${bundlerPackage}/bin:$GEM_HOME/bin:/home/app-builder/.nix-profile/bin:$PATH
+          export PATH=${rubyPackage}/bin:$GEM_HOME/bin:/home/ubuntu/.nix-profile/bin:$PATH
           echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
           echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
           echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
           find ${rubyPackage}/lib/ruby -name uri.rb 2>/dev/null || echo "DEBUG: uri.rb not found" >&2
           mkdir -p $GEM_HOME
+          gem install bundler:${bundlerVersion}
           if [ -f Gemfile ]; then
             bundle install --path $GEM_HOME
           fi
@@ -131,7 +134,6 @@
           (old.buildInputs or [])
           ++ [
             rubyPackage
-            bundlerPackage
             pkgs.rsync
             self.packages.${system}.manage-postgres
             self.packages.${system}.manage-redis
@@ -142,7 +144,7 @@
           + ''
             export BUNDLE_PATH=/source/vendor/bundle
             export BUNDLE_GEMFILE=/source/Gemfile
-            export PATH=$BUNDLE_PATH/bin:/home/app-builder/.nix-profile/bin:$PATH
+            export PATH=$BUNDLE_PATH/bin:/home/ubuntu/.nix-profile/bin:$PATH
           '';
       });
     };
@@ -164,9 +166,8 @@
         export PGDATA=/source/pgdata
         export PGHOST=/source
         export PGDATABASE=rails_build
-        # Ensure PGDATA is owned by app-builder
         mkdir -p "$PGDATA"
-        chown app-builder:app-builder "$PGDATA"
+        chown ubuntu:ubuntu "$PGDATA"
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2
@@ -180,7 +181,7 @@
               echo "DEBUG: No valid cluster, initializing" >&2
               rm -rf "$PGDATA"
               mkdir -p "$PGDATA"
-              chown app-builder:app-builder "$PGDATA"
+              chown ubuntu:ubuntu "$PGDATA"
               echo "Running initdb..."
               if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /source/tmp/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
@@ -191,9 +192,9 @@
             fi
             echo "Starting PostgreSQL..."
             if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /source/tmp/pg.log -o "-k $PGHOST" start > /source/tmp/pg_ctl.log 2>&1; then
-                echo "pg_ctl start failed. Log:" >&2
-                cat /source/tmp/pg_ctl.log >&2
-                exit 1
+              echo "pg_ctl start failed. Log:" >&2
+              cat /source/tmp/pg_ctl.log >&2
+              exit 1
             fi
             sleep 2
             if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
@@ -253,7 +254,7 @@
             fi
             ;;
           *)
-            echo "Usage: manage-redis {start|stop}"
+            echo "Usage: manage-redis {start|stop}" >&2
             exit 1
             ;;
         esac
@@ -265,7 +266,7 @@
         echo "DEBUG: Starting build-rails-app" >&2
         export BUNDLE_PATH=/source/vendor/bundle
         export BUNDLE_GEMFILE=/source/Gemfile
-        export PATH=$BUNDLE_PATH/bin:/home/app-builder/.nix-profile/bin:$PATH
+        export PATH=$BUNDLE_PATH/bin:/home/ubuntu/.nix-profile/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
@@ -279,10 +280,6 @@
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
       '';
-    };
-    apps.${system}.flakeVersion = {
-      type = "app";
-      program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
     };
   };
 }
