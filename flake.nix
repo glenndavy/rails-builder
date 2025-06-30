@@ -20,55 +20,50 @@
 
     # Function to create build environment
     mkRailsBuild = {
-      rubyVersion,
-      bundlerVersion ? "latest",
-      gccVersion ? "latest",
-      opensslVersion ? "3_2",
-      src ? ./., # Default to current directory
-    }: let
-      rubyPackage = pkgs."ruby-${rubyVersion}";
-      bundlerPackage = pkgs.bundler.override {ruby = rubyPackage; version = bundlerVersion;};# Use default bundler version
-      gccPackage =
-        if gccVersion == "latest"
-        then pkgs.gcc
-        else pkgs."gcc${gccVersion}";
-      opensslPackage =
-        if opensslVersion == "3_2"
-        then pkgs.openssl_3 # Map 3_2 to openssl_3
-        else pkgs."openssl_${opensslVersion}";
-      # Package prebuilt artifacts
-      app = pkgs.stdenv.mkDerivation {
-        name = "rails-app";
-        inherit src;
-        buildInputs = [pkgs.rsync];
-        installPhase = ''
-          mkdir -p $out
-          cp -r . $out
-          # Copy prebuilt artifacts if they exist
-          if [ -d "$src/vendor/bundle" ]; then
-            rsync -a --delete "$src/vendor/bundle/" "$out/vendor/bundle/"
-          fi
-          if [ -d "$src/public/packs" ]; then
-            rsync -a --delete "$src/public/packs/" "$out/public/packs/"
-          fi
-        '';
-      };
-    in {
-      shell = pkgs.mkShell {
-        buildInputs = [
-          rubyPackage
-          bundlerPackage
-          gccPackage
-          opensslPackage
-          pkgs.curl
-          pkgs.tzdata
-          pkgs.pkg-config
-          pkgs.zlib
-          pkgs.libyaml
-          pkgs.gosu # For manage-postgres
-          pkgs.postgresql # For pg gem
-          pkgs.rsync # For artifact copying
-        ];
+        rubyVersion,
+        gccVersion ? "latest",
+        opensslVersion ? "3_2",
+        src ? ./.
+      }: let
+        rubyPackage = pkgs."ruby-${rubyVersion}";
+        gccPackage =
+          if gccVersion == "latest"
+          then pkgs.gcc
+          else pkgs."gcc${gccVersion}";
+        opensslPackage =
+          if opensslVersion == "3_2"
+          then pkgs.openssl_3
+          else pkgs."openssl_${opensslVersion}";
+        app = pkgs.stdenv.mkDerivation {
+          name = "rails-app";
+          inherit src;
+          buildInputs = [pkgs.rsync];
+          installPhase = ''
+            mkdir -p $out
+            cp -r . $out
+            if [ -d "$src/vendor/bundle" ]; then
+              rsync -a --delete "$src/vendor/bundle/" "$out/vendor/bundle/"
+            fi
+            if [ -d "$src/public/packs" ]; then
+              rsync -a --delete "$src/public/packs/" "$out/public/packs/"
+            fi
+          '';
+        };
+      in {
+        shell = pkgs.mkShell {
+          buildInputs = [
+            rubyPackage
+            gccPackage
+            opensslPackage
+            pkgs.curl
+            pkgs.tzdata
+            pkgs.pkg-config
+            pkgs.zlib
+            pkgs.libyaml
+            pkgs.gosu
+            pkgs.postgresql
+            pkgs.rsync
+          ];
         shellHook = ''
           export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
           export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
