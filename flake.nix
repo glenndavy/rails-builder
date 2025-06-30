@@ -76,7 +76,7 @@
       dockerImage = pkgs.dockerTools.buildLayeredImage {
         name = "rails-app";
         tag = "latest";
-        contents = [app rubyPackage bundlerPackage pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync];
+        contents = [app rubyPackage pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync];
         config = {
           Cmd = ["${rubyPackage}/bin/ruby" "${app}/bin/rails" "server" "-b" "0.0.0.0"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
