@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Version: 2.0.41
 set -e
 export STAGE_2_VERSION=2.0.42
@@ -53,7 +53,7 @@ fi
 
 # Generate prepare-build.sh in Rails root
 cat <<'EOF' > prepare-build.sh
-#!env sh
+#!/usr/bin/env bash
 set -e
 echo "DEBUG: Starting prepare-build.sh : ${STAGE_2_VERSION}" >&2
 # Ensure PATH includes Nix and system binaries
