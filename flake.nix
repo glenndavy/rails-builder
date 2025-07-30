@@ -63,6 +63,7 @@
             pkgs.gosu
             pkgs.postgresql
             pkgs.rsync
+            pkgs.nodejs
           ];
         shellHook = ''
           export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"

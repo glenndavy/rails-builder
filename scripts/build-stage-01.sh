@@ -37,7 +37,7 @@ if [ ! -f build-stage-02.sh ]; then
     echo "Error: Failed to download build-stage-02.sh from $SCRIPT_URL" >&2
     exit 1
   fi
-  if ! grep -q '^#!/bin/sh' build-stage-02.sh; then
+  if ! grep -q '^#!/usr/bin/env' build-stage-02.sh; then
     echo "Error: Downloaded build-stage-02.sh is invalid (not a shell script)" >&2
     cat build-stage-02.sh
     exit 1
