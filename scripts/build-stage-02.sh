@@ -1,4 +1,4 @@
-#!/bin/sh
+#!env sh
 # Version: 2.0.41
 set -e
 export STAGE_2_VERSION=2.0.42
