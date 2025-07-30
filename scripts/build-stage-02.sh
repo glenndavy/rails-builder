@@ -99,4 +99,5 @@ git commit -m "Add prepare-build.sh for build orchestration" || true
 echo "Generated prepare-build.sh"
 # Run Docker container with increased memory and CPU
 #docker run -it --rm --memory=16g --cpus=4 --user 1000:1000 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/prepare-build.sh opscare-builder:latest
+echo $PWD
 ./prepare-build.sh
