@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Version: 2.0.41
+# Version: 2.0.43
 set -e
-export STAGE_2_VERSION=2.0.42
+export STAGE_2_VERSION=2.0.43
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
