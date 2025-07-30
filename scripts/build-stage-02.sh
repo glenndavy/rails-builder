@@ -88,10 +88,8 @@ echo "DEBUG: Ruby version before build: $(nix develop --impure .#buildShell --ex
 # Run commands in buildShell
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
-echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
-echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
 nix develop .#buildShell --impure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
-echo "DEBUG: prepare-build.sh completed" >&2
+#echo "DEBUG: prepare-build.sh completed" >&2
 EOF
 chmod +x prepare-build.sh
 git add prepare-build.sh
