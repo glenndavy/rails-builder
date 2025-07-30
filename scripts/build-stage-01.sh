@@ -24,6 +24,8 @@ case "$BUILD_TYPE" in
 esac
 export BUILD_STAGE_3
 
+git config --global user.email builder@rx
+git config --global user.name  Rails builder esq.
 # Clone repository
 REPO_DIR=$(basename "$REPO_URL" .git)
 git clone --depth 1 "$REPO_URL" "$REPO_DIR"
