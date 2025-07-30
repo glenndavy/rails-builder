@@ -235,7 +235,8 @@
               exit 0
             fi
             mkdir -p $source
-            ${pkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
+            #${pkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
+            ${pkgs.redis}/bin/redis-server --pidfile $REDIS_PID --daemonize yes --port 6379
             sleep 2
             if ! ${pkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping | grep -q PONG; then
               echo "Failed to start Redis."
