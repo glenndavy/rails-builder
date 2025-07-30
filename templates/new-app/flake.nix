@@ -19,7 +19,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.95";
+    version = "2.0.96";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -117,7 +117,7 @@
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=${rubyPackage}/bin:$GEM_HOME/bin:/home/ubuntu/.nix-profile/bin:$PATH
+          export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
           echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
           echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
           echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
@@ -168,7 +168,6 @@
         export PGHOST=$source/tmp
         export PGDATABASE=rails_build
         mkdir -p "$PGDATA"
-        #chown ubuntu:ubuntu "$PGDATA"
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2
@@ -182,7 +181,6 @@
               echo "DEBUG: No valid cluster, initializing" >&2
               rm -rf "$PGDATA"
               mkdir -p "$PGDATA"
-              #chown ubuntu:ubuntu "$PGDATA"
               echo "Running initdb..."
               if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > $source/tmp/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
