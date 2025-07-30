@@ -228,8 +228,8 @@
         export source=$PWD
         echo "DEBUG: Starting manage-redis $1" >&2
         echo "DEBUG: Source =  $source " >&2
-        export REDIS_SOCKET=$source/redis.sock
-        export REDIS_PID=$source/redis.pid
+        export REDIS_SOCKET=$source/tmp/redis.sock
+        export REDIS_PID=$source/tmp/redis.pid
         case "$1" in
           start)
             if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
