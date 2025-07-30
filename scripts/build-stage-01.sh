@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-set -ne
-
 # Validate input
 if [ -z "$1" ]; then
   echo "Error: Repository URL required" >&2
