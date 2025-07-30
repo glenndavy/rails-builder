@@ -53,7 +53,7 @@ fi
 
 # Generate prepare-build.sh in Rails root
 cat <<'EOF' > prepare-build.sh
-#!env bash
+#!env sh
 set -e
 echo "DEBUG: Starting prepare-build.sh : ${STAGE_2_VERSION}" >&2
 # Ensure PATH includes Nix and system binaries
