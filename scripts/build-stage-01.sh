@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -ne
 
 # Validate input
 if [ -z "$1" ]; then

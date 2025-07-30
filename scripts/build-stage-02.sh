@@ -1,7 +1,7 @@
 #!/bin/sh
 # Version: 2.0.41
 set -e
-export STAGE_2_VERSION=2.0.41
+export STAGE_2_VERSION=2.0.42
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -51,13 +51,13 @@ else
   exit 1
 fi
 
-# Generate docker-entrypoint.sh in Rails root
-cat <<'EOF' > docker-entrypoint.sh
+# Generate prepare-build.sh in Rails root
+cat <<'EOF' > prepare-build.sh
 #!/bin/bash
 set -e
-echo "DEBUG: Starting docker-entrypoint.sh : ${STAGE_2_VERSION}" >&2
+echo "DEBUG: Starting prepare-build.sh : ${STAGE_2_VERSION}" >&2
 # Ensure PATH includes Nix and system binaries
-export PATH=/home/app-builder/.nix-profile/bin:/bin:/sbin:$PATH
+export PATH=~/.nix-profile/bin:/bin:/sbin:$PATH
 # Set SSL certificate file
 export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 echo "DEBUG: SSL_CERT_FILE=$SSL_CERT_FILE" >&2
@@ -84,18 +84,19 @@ fi
 echo ".ruby-version contents in /source (if present):"
 [ -f ./.ruby-version ] && cat ./.ruby-version || echo "No .ruby-version"
 # Debug Ruby version
-echo "DEBUG: Ruby version before build: $(nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
+echo "DEBUG: Ruby version before build: $(nix develop --impure .#buildShell --extra-experimental-features 'nix-command flakes' --command ruby -v 2>/dev/null || echo 'nix develop failed')" >&2
 # Run commands in buildShell
 nix run .#flakeVersion --extra-experimental-features 'nix-command flakes'
 echo "about to run nix develop"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 echo "DEBUG: sh -c command: manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3" >&2
-nix develop .#buildShell --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
-echo "DEBUG: docker-entrypoint.sh completed" >&2
+nix develop .#buildShell --impure --extra-experimental-features 'nix-command flakes' --command sh -c "manage-postgres start && sleep 5 && manage-redis start && sleep 5 && build-rails-app $BUILD_STAGE_3"
+echo "DEBUG: prepare-build.sh completed" >&2
 EOF
-chmod +x docker-entrypoint.sh
-git add docker-entrypoint.sh
-git commit -m "Add docker-entrypoint.sh for build orchestration" || true
-echo "Generated docker-entrypoint.sh"
+chmod +x prepare-build.sh
+git add prepare-build.sh
+git commit -m "Add prepare-build.sh for build orchestration" || true
+echo "Generated prepare-build.sh"
 # Run Docker container with increased memory and CPU
-docker run -it --rm --memory=16g --cpus=4 --user 1000:1000 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/docker-entrypoint.sh opscare-builder:latest
+#docker run -it --rm --memory=16g --cpus=4 --user 1000:1000 -v $(pwd):/source -w /source -e HOME=/home/app-builder --entrypoint /source/prepare-build.sh opscare-builder:latest
+./prepare-build.sh

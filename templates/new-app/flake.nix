@@ -163,11 +163,12 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-postgres $1" >&2
-        export PGDATA=/source/pgdata
-        export PGHOST=/source
+        export source=$pwd
+        export PGDATA=$source/tmp/pgdata
+        export PGHOST=$source/tmp
         export PGDATABASE=rails_build
         mkdir -p "$PGDATA"
-        chown ubuntu:ubuntu "$PGDATA"
+        #chown ubuntu:ubuntu "$PGDATA"
         case "$1" in
           start)
             echo "DEBUG: Checking PGDATA validity" >&2
@@ -181,19 +182,19 @@
               echo "DEBUG: No valid cluster, initializing" >&2
               rm -rf "$PGDATA"
               mkdir -p "$PGDATA"
-              chown ubuntu:ubuntu "$PGDATA"
+              #chown ubuntu:ubuntu "$PGDATA"
               echo "Running initdb..."
-              if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > /source/tmp/initdb.log 2>&1; then
+              if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > $source/tmp/initdb.log 2>&1; then
                 echo "initdb failed. Log:" >&2
-                cat /source/tmp/initdb.log >&2
+                cat $source/tmp/initdb.log >&2
                 exit 1
               fi
               echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
             fi
             echo "Starting PostgreSQL..."
-            if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l /source/tmp/pg.log -o "-k $PGHOST" start > /source/tmp/pg_ctl.log 2>&1; then
+            if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l $source/tmp/pg.log -o "-k $PGHOST" start > $source/tmp/pg_ctl.log 2>&1; then
               echo "pg_ctl start failed. Log:" >&2
-              cat /source/tmp/pg_ctl.log >&2
+              cat $source/tmp/pg_ctl.log >&2
               exit 1
             fi
             sleep 2
@@ -264,9 +265,9 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting build-rails-app" >&2
-        export BUNDLE_PATH=/source/vendor/bundle
-        export BUNDLE_GEMFILE=/source/Gemfile
-        export PATH=$BUNDLE_PATH/bin:/home/ubuntu/.nix-profile/bin:$PATH
+        export BUNDLE_PATH=./vendor/bundle
+        export BUNDLE_GEMFILE=./Gemfile
+        export PATH=$BUNDLE_PATH/bin:~/.nix-profile/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: Rails secret key base $SECRET_KEY_BASE" >&2
