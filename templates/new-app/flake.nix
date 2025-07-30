@@ -225,8 +225,7 @@
       '';
       manage-redis = pkgs.writeShellScriptBin "manage-redis" ''
         #!${pkgs.runtimeShell}
-        export source=$pwd
-        set -e
+        export source=$PWD
         echo "DEBUG: Starting manage-redis $1" >&2
         echo "DEBUG: Source =  $source " >&2
         export REDIS_SOCKET=$source/redis.sock
