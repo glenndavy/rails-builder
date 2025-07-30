@@ -142,9 +142,9 @@
         shellHook =
           old.shellHook
           + ''
-            export BUNDLE_PATH=/source/vendor/bundle
-            export BUNDLE_GEMFILE=/source/Gemfile
-            export PATH=$BUNDLE_PATH/bin:/home/ubuntu/.nix-profile/bin:$PATH
+            export BUNDLE_PATH=$source/vendor/bundle
+            export BUNDLE_GEMFILE=$source/Gemfile
+            export PATH=$BUNDLE_PATH/bin:~/.nix-profile/bin:$PATH
           '';
       });
     };
@@ -227,15 +227,15 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-redis $1" >&2
-        export REDIS_SOCKET=/source/redis.sock
-        export REDIS_PID=/source/redis.pid
+        export REDIS_SOCKET=$source/redis.sock
+        export REDIS_PID=$source/redis.pid
         case "$1" in
           start)
             if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
               echo "Redis is already running."
               exit 0
             fi
-            mkdir -p /source
+            mkdir -p $source
             ${pkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
             sleep 2
             if ! ${pkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping | grep -q PONG; then
