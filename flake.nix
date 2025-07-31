@@ -87,6 +87,7 @@
             pkgs.nodejs
             pkgs.libyaml
             pkgs.bash
+            pkgs.busybox
           ];
           config = {
             Cmd = [ "${ultraman.defaultPackage.${system}}/bin/ultraman" "start" "web" ];
