@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
-    ultraman = "github:yukihirop/ultraman";
+    ultraman.url = "github:yukihirop/ultraman";
   };
 
   outputs = {
