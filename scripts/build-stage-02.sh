@@ -24,7 +24,8 @@ git checkout -b builder
 if [ -e ./flake.nix ]; then
   nix flake update
 else
-  nix flake init -t github:glenndavy/rails-builder${REF:+?ref=$REF}${REV:+${REF:+&}rev=$REV}#new-app
+  #nix flake init -t github:glenndavy/rails-builder${REF:+?ref=$REF}${REV:+${REF:+&}rev=$REV}#new-app
+  nix flake init -t github:glenndavy/rails-builder#new-app
   if [ ! -f ./flake.nix ]; then
     echo "Error: nix flake init failed to create flake.nix" >&2
     exit 1
