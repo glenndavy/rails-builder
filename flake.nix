@@ -75,7 +75,7 @@
           tag = "latest";
           contents = [
             app
-            ultraman.packages.${system}.default # Use .default as per ultraman flake
+            ultraman.defaultPackage.${system} # Use defaultPackage
             rubyPackage
             pkgs.curl
             opensslPackage
@@ -89,7 +89,7 @@
             pkgs.bash
           ];
           config = {
-            Cmd = [ "${ultraman.packages.${system}.default}/bin/ultraman" "start" "web" ];
+            Cmd = [ "${ultraman.defaultPackage.${system}}/bin/ultraman" "start" "web" ];
             Env = [ "BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production" ];
             ExposedPorts = { "3000/tcp" = {}; };
           };
