@@ -74,7 +74,7 @@
       tag = "latest";
       contents = [
         app
-        goreman
+        pkgs.goreman
         rubyPackage
         pkgs.curl
         opensslPackage
