@@ -5,10 +5,9 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
-    ultraman.url = "github:yukihirop/ultraman";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-ruby, ultraman }: let
+  outputs = { self, nixpkgs, nixpkgs-ruby }: let
     system = "x86_64-linux";
     version = "2.0.27"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
@@ -75,7 +74,7 @@
       tag = "latest";
       contents = [
         app
-        ultraman.defaultPackage.${system}
+        goreman
         rubyPackage
         pkgs.curl
         opensslPackage
@@ -90,7 +89,7 @@
         pkgs.busybox
       ];
       config = {
-        Cmd = [ "${ultraman.defaultPackage.${system}}/bin/ultraman" "start" "web" ];
+        Cmd = [ "goreman" "start" "web" ];
         Env = [ "BUNDLE_PATH=/app/vendor/bundle" "RAILS_ENV=production" ];
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app"; # Set working directory to /app
