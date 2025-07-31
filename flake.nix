@@ -5,6 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
+    ultraman = "github:yukihirop/ultraman";
   };
 
   outputs = {
@@ -77,9 +78,24 @@
       dockerImage = pkgs.dockerTools.buildLayeredImage {
         name = "rails-app";
         tag = "latest";
-        contents = [app rubyPackage pkgs.curl opensslPackage pkgs.postgresql pkgs.rsync];
+        contents = [
+          app 
+          ultraman
+          rubyPackage 
+          pkgs.curl 
+          opensslPackage 
+          pkgs.postgresql 
+          pkgs.rsync 
+          pkgs.tzdata 
+          pkgs.zlib 
+          pkgs.gosu 
+          pkgs.nodejs 
+          pkgs.libyaml 
+          pkgs.bash
+        ];
         config = {
-          Cmd = ["${rubyPackage}/bin/ruby" "${app}/bin/rails" "server" "-b" "0.0.0.0"];
+          #Cmd = ["${rubyPackage}/bin/ruby" "${app}/bin/rails" "server" "-b" "0.0.0.0"];
+          Cmd = ["ultraman start web"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
           ExposedPorts = {"3000/tcp" = {};};
         };

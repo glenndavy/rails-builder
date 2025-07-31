@@ -19,7 +19,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.96";
+    version = "2.0.97";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -226,7 +226,6 @@
         export source=$PWD
         echo "DEBUG: Starting manage-redis $1" >&2
         echo "DEBUG: Source =  $source " >&2
-        export REDIS_SOCKET=$source/tmp/redis.sock
         export REDIS_PID=$source/tmp/redis.pid
         case "$1" in
           start)
@@ -235,10 +234,9 @@
               exit 0
             fi
             mkdir -p $source
-            #${pkgs.redis}/bin/redis-server --unixsocket $REDIS_SOCKET --pidfile $REDIS_PID --daemonize yes --port 6379
             ${pkgs.redis}/bin/redis-server --pidfile $REDIS_PID --daemonize yes --port 6379
             sleep 2
-            if ! ${pkgs.redis}/bin/redis-cli -s $REDIS_SOCKET ping | grep -q PONG; then
+            if ! ${pkgs.redis}/bin/redis-cli ping | grep -q PONG; then
               echo "Failed to start Redis."
               exit 1
             fi
