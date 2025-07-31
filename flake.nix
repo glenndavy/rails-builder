@@ -12,6 +12,7 @@
     self,
     nixpkgs,
     nixpkgs-ruby,
+    ultraman,
     ...
   }: let
     system = "x86_64-linux";
@@ -80,7 +81,7 @@
         tag = "latest";
         contents = [
           app 
-          ultraman
+          ultraman.packages.${system}.ultraman
           rubyPackage 
           pkgs.curl 
           opensslPackage 
@@ -95,7 +96,7 @@
         ];
         config = {
           #Cmd = ["${rubyPackage}/bin/ruby" "${app}/bin/rails" "server" "-b" "0.0.0.0"];
-          Cmd = ["ultraman start web"];
+          Cmd = ["${ultraman.packages.${system}.ultraman}/bin/ultraman start web"];
           Env = ["BUNDLE_PATH=/vendor/bundle" "RAILS_ENV=production"];
           ExposedPorts = {"3000/tcp" = {};};
         };
