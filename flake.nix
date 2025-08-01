@@ -69,27 +69,41 @@
       '';
     };
     inherit app;
-    dockerImage = pkgs.dockerTools.buildLayeredImage {
-      name = "rails-app";
-      tag = "latest";
-      contents = [
-        app
-        pkgs.goreman
-        rubyPackage
-        pkgs.curl
-        opensslPackage
-        pkgs.postgresql
-        pkgs.rsync
-        pkgs.tzdata
-        pkgs.zlib
-        pkgs.gosu
-        pkgs.nodejs
-        pkgs.libyaml
-        pkgs.bash
-        pkgs.busybox
-      ];
-      config = {
-        Cmd = [ "goreman" "start" "web" ];
+    dockerImage = 
+      let
+        shellEnv = railsBuild.shell;
+      in pkgs.dockerTools.buildLayeredImage {
+        name = "rails-app";
+        tag = "latest";
+        contents = [
+          app
+            pkgs.goreman
+            rubyPackage
+            pkgs.curl
+            opensslPackage
+            pkgs.postgresql
+            pkgs.rsync
+            pkgs.tzdata
+            pkgs.zlib
+            pkgs.gosu
+            pkgs.nodejs
+            pkgs.libyaml
+            pkgs.bash
+            pkgs.busybox
+            (pkgs.stdenv.mkDerivation {
+              name = 'rails-app-gems';
+              buildInputs = shellEnv.buildInputs;
+              src = app;
+              installPhase = ''
+                mkdir -p $out/app/vendor
+                if [ -d "${app}/app/vendor/bundle" ]; then
+                  cp -r ${app}/app/vendor/bundle $out/app/vendor/bundle
+                fi
+              '';
+            })
+        ];
+        config = {
+          Cmd = [ "goreman" "start" "web" ];
         Env = [ "BUNDLE_PATH=/app/vendor/bundle" "RAILS_ENV=production" ];
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app"; # Set working directory to /app
