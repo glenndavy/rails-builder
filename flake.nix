@@ -81,7 +81,12 @@
     in pkgs.dockerTools.buildLayeredImage {
       name = "rails-app";
       tag = commitSha;
+      
       contents = [
+        usrBinEnv
+        binSH
+        caCertificates
+        fakeNss
         app
         pkgs.goreman
         rubyPackage
@@ -96,7 +101,7 @@
         pkgs.nodejs
         pkgs.libyaml
         pkgs.bash
-        pkgs.busybox
+        pkgs.coreutils
         (pkgs.stdenv.mkDerivation {
           name = "rails-app-gems";
           buildInputs = shell.buildInputs;
@@ -132,8 +137,6 @@
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
         extraCommands = ''
-          mkdir -p /usr/bin
-          ln -sf /bin/env /usr/bin/env
           mkdir -p /root/zoneinfo
           ln -sf ${pkgs.tzdata}/share/zoneinfo /root/zoneinfo
           mkdir -p /app/.nix-gems
