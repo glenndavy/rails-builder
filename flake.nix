@@ -131,7 +131,7 @@
         ];
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
-        ExtraCommands = ''
+        extraCommands = ''
           mkdir -p /usr/bin
           ln -sf /bin/env /usr/bin/env
           mkdir -p /root/zoneinfo
