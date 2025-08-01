@@ -63,7 +63,6 @@
           pkgs.sqlite
           pkgs.libxml2
           pkgs.libxslt
-          pkgs.zlip
           pkgs.libyaml
         ];
         shellHook = ''
