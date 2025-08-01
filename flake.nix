@@ -91,7 +91,7 @@
             pkgs.bash
             pkgs.busybox
             (pkgs.stdenv.mkDerivation {
-              name = 'rails-app-gems';
+              name = "rails-app-gems";
               buildInputs = shellEnv.buildInputs;
               src = app;
               installPhase = ''
