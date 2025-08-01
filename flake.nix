@@ -75,65 +75,81 @@
       };
     in {
       inherit shell app;
-      dockerImage = let
-        # Use the shell defined above
-        shellEnv = shell;
-        # Extract the first 8 characters of the commit SHA
-        commitSha = if src ? rev then builtins.substring 0 8 src.rev else "latest";
-      in pkgs.dockerTools.buildLayeredImage {
-        name = "rails-app";
-        tag = commitSha; # Use the commit SHA as the tag
-        contents = [
-          app
-          pkgs.goreman
-          rubyPackage
-          pkgs.curl
-          opensslPackage
-          pkgs.postgresql
-          pkgs.rsync
-          pkgs.tzdata
-          pkgs.zlib
-          pkgs.gosu
-          pkgs.nodejs
-          pkgs.libyaml
-          pkgs.bash
-          pkgs.busybox
-          (pkgs.stdenv.mkDerivation {
-            name = "rails-app-gems";
-            buildInputs = shellEnv.buildInputs;
-            src = app;
-            installPhase = ''
-              mkdir -p $out/app/vendor
-              if [ -d "${app}/app/vendor/bundle" ]; then
-                cp -r ${app}/app/vendor/bundle $out/app/vendor/bundle
-              fi
-            '';
-          })
-        ];
-        config = {
-          Cmd = [ "${pkgs.bash}/bin/bash" "-c" "${pkgs.goreman}/bin/goreman start web" ];
-          Env = [
-            "BUNDLE_PATH=/app/vendor/bundle"
-            "BUNDLE_GEMFILE=/app/Gemfile"
-            "RAILS_ENV=production"
-            "GEM_HOME=/app/.nix-gems"
-            "GEM_PATH=/app/.nix-gems:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-            "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-            "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-            "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
-            "TZDIR=/root/zoneinfo"
-          ];
-          ExposedPorts = { "3000/tcp" = {}; };
-          WorkingDir = "/app";
-          ExtraCommands = ''
-            mkdir -p /root/zoneinfo
-            ln -sf ${pkgs.tzdata}/share/zoneinfo /root/zoneinfo
-            mkdir -p /app/.nix-gems
-            ln -sf ${rubyPackage}/bin/* /usr/local/bin/
+    dockerImage = let
+      shellEnv = shell;
+      commitSha = if src ? rev then builtins.substring 0 8 src.rev else "latest";
+    in pkgs.dockerTools.buildLayeredImage {
+      name = "rails-app";
+      tag = commitSha;
+      contents = [
+        app
+        pkgs.goreman
+        rubyPackage
+        pkgs.bundler # Ensure bundler is included
+        pkgs.curl
+        opensslPackage
+        pkgs.postgresql
+        pkgs.rsync
+        pkgs.tzdata
+        pkgs.zlib
+        pkgs.gosu
+        pkgs.nodejs
+        pkgs.libyaml
+        pkgs.bash
+        pkgs.busybox
+        (pkgs.stdenv.mkDerivation {
+          name = "rails-app-gems";
+          buildInputs = shell.buildInputs;
+          src = app;
+          installPhase = ''
+            mkdir -p $out/app/vendor
+            if [ -d "${app}/app/vendor/bundle" ]; then
+              echo "DEBUG: Copying vendor/bundle from ${app}/app/vendor/bundle" >&2
+              cp -r ${app}/app/vendor/bundle $out/app/vendor/bundle
+              chmod -R u+w $out/app/vendor/bundle
+              echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
+              ls -lR $out/app/vendor/bundle >&2
+            else
+              echo "ERROR: No vendor/bundle found in ${app}/app" >&2
+              exit 1
+            fi
           '';
-        };
+        })
+      ];  
+      config = {
+        Cmd = [ "${pkgs.bash}/bin/bash" "-c" "echo 'DEBUG: Contents of /app:' && ls -l /app && echo 'DEBUG: Contents of /app/vendor/bundle:' && ls -lR /app/vendor/bundle && echo 'DEBUG: Checking bundle executable:' && [ -f /app/vendor/bundle/bin/bundle ] && chmod +x /app/vendor/bundle/bin/bundle && ls -l /app/vendor/bundle/bin/bundle && echo 'DEBUG: Bundle config:' && bundle config && echo 'DEBUG: Installed gems:' && bundle list && ${pkgs.goreman}/bin/goreman start web" ];
+        Env = [
+        "BUNDLE_PATH=/app/vendor/bundle"
+        "BUNDLE_GEMFILE=/app/Gemfile"
+        "RAILS_ENV=production"
+        "GEM_HOME=/app/.nix-gems"
+        "GEM_PATH=/app/.nix-gems:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
+        "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
+        "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
+        "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
+        "TZDIR=/root/zoneinfo"
+        ];
+        ExposedPorts = { "3000/tcp" = {}; };
+        WorkingDir = "/app";
+        ExtraCommands = ''
+          mkdir -p /root/zoneinfo
+          ln -sf ${pkgs.tzdata}/share/zoneinfo /root/zoneinfo
+          mkdir -p /app/.nix-gems
+          ln -sf ${rubyPackage}/bin/* /usr/local/bin/
+          mkdir -p /usr/bin
+          ln -sf /bin/env /usr/bin/env
+          echo "DEBUG: Contents of /usr/local/bin:" >&2
+          ls -l /usr/local/bin >&2
+          echo "DEBUG: Checking /usr/bin/env:" >&2
+          ls -l /usr/bin/env >&2
+          if [ -f /app/vendor/bundle/bin/bundle ]; then
+            chmod +x /app/vendor/bundle/bin/bundle
+            echo "DEBUG: Made /app/vendor/bundle/bin/bundle executable" >&2
+          fi
+        '';
       };
     };
+  };
   in {
     lib = {
       inherit mkRailsBuild;
