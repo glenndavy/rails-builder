@@ -128,7 +128,6 @@
           ln -sf ${rubyPackage}/bin/* /usr/local/bin/
         '';
       };
-    };
   in {
     lib = {
       inherit mkRailsBuild;
