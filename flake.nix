@@ -69,47 +69,66 @@
       '';
     };
     inherit app;
-    dockerImage = 
-      let
-        shellEnv = railsBuild.shell;
-      in pkgs.dockerTools.buildLayeredImage {
-        name = "rails-app";
-        tag = "latest";
-        contents = [
-          app
-            pkgs.goreman
-            rubyPackage
-            pkgs.curl
-            opensslPackage
-            pkgs.postgresql
-            pkgs.rsync
-            pkgs.tzdata
-            pkgs.zlib
-            pkgs.gosu
-            pkgs.nodejs
-            pkgs.libyaml
-            pkgs.bash
-            pkgs.busybox
-            (pkgs.stdenv.mkDerivation {
-              name = "rails-app-gems";
-              buildInputs = shellEnv.buildInputs;
-              src = app;
-              installPhase = ''
-                mkdir -p $out/app/vendor
-                if [ -d "${app}/app/vendor/bundle" ]; then
-                  cp -r ${app}/app/vendor/bundle $out/app/vendor/bundle
-                fi
-              '';
-            })
+    # In rails-builder flake.nix
+    dockerImage = let
+      # Use buildShell to inherit its environment
+      shellEnv = railsBuild.shell; # Reference the buildShell from the app template
+    in pkgs.dockerTools.buildLayeredImage {
+      name = "rails-app";
+      tag = "latest";
+      contents = [
+        app
+        pkgs.goreman
+        rubyPackage
+        pkgs.curl
+        opensslPackage
+        pkgs.postgresql
+        pkgs.rsync
+        pkgs.tzdata
+        pkgs.zlib
+        pkgs.gosu
+        pkgs.nodejs
+        pkgs.libyaml
+        pkgs.bash
+        pkgs.busybox
+        # Include the bundled gems from buildShell
+        (pkgs.stdenv.mkDerivation {
+          name = "rails-app-gems";
+          buildInputs = shellEnv.buildInputs;
+          src = app; # Use the app derivation's output
+          installPhase = ''
+            mkdir -p $out/app/vendor
+            if [ -d "${app}/app/vendor/bundle" ]; then
+              cp -r ${app}/app/vendor/bundle $out/app/vendor/bundle
+            fi
+          '';
+        })
+      ];
+      config = {
+        Cmd = [ "${pkgs.bash}/bin/bash" "-c" "${pkgs.goreman}/bin/goreman start web" ];
+        Env = [
+          "BUNDLE_PATH=/app/vendor/bundle"
+          "BUNDLE_GEMFILE=/app/Gemfile"
+          "RAILS_ENV=production"
+          "GEM_HOME=/app/.nix-gems"
+          "GEM_PATH=/app/.nix-gems:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
+          "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
+          "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
+          "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
+          "TZDIR=/root/zoneinfo"
         ];
-        config = {
-          Cmd = [ "goreman" "start" "web" ];
-        Env = [ "BUNDLE_PATH=/app/vendor/bundle" "RAILS_ENV=production" ];
         ExposedPorts = { "3000/tcp" = {}; };
-        WorkingDir = "/app"; # Set working directory to /app
+        WorkingDir = "/app";
+        # Copy the shellHook setup into the Docker image
+        ExtraCommands = ''
+          mkdir -p /root/zoneinfo
+          ln -sf ${pkgs.tzdata}/share/zoneinfo /root/zoneinfo
+          mkdir -p /app/.nix-gems
+          # Ensure bundler is available
+          ln -sf ${rubyPackage}/bin/* /usr/local/bin/
+        '';
       };
     };
-  };
   in {
     lib = {
       inherit mkRailsBuild;
