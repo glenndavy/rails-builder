@@ -60,6 +60,11 @@
           pkgs.postgresql
           pkgs.rsync
           pkgs.nodejs
+          pkgs.sqlite
+          pkgs.libxml2
+          pkgs.libxslt
+          pkgs.zlip
+          pkgs.libyaml
         ];
         shellHook = ''
           export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
