@@ -274,10 +274,10 @@
         echo "Bundler version: $(bundler -v)"
         echo "Running bundle install..."
         bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin
-        git add ./vendor
+        git add -f ./vendor
         echo "Running rails assets:precompile..."
         bundler exec rails assets:precompile
-        git add ./public
+        git add -f ./public
 
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs."
         echo "DEBUG: build-rails-app completed" >&2
