@@ -76,30 +76,18 @@
     in {
       inherit shell app;
       # In rails-builder flake.nix, inside mkRailsBuild
+# In rails-builder flake.nix, inside mkRailsBuild
       dockerImage = let
         shellEnv = shell;
       commitSha = if src ? rev then builtins.substring 0 8 src.rev else "latest";
-      in pkgs.dockerTools.buildLayeredImage {
+      in pkgs.dockerTools.buildImage {
         name = "rails-app";
         tag = commitSha;
-        usrBinEnv = pkgs.coreutils; # Provides /usr/bin/env
-          binSh = pkgs.bash; # Provides /bin/sh (optional, since pkgs.bash is already in contents)
-          contents = [
-          app
-            pkgs.goreman
-            rubyPackage
-            pkgs.bundler
-            pkgs.curl
-            opensslPackage
-            pkgs.postgresql
-            pkgs.rsync
-            pkgs.tzdata
-            pkgs.zlib
-            pkgs.gosu
-            pkgs.nodejs
-            pkgs.libyaml
-            pkgs.bash
-# Removed pkgs.busybox, as pkgs.coreutils provides necessary utilities
+        copyToRoot = with pkgs.dockerTools; [
+          usrBinEnv # Provides /usr/bin/env
+            binSh # Provides /bin/sh
+            caCertificates # Optional: for HTTPS support
+            app # Your app derivation
             (pkgs.stdenv.mkDerivation {
              name = "rails-app-gems";
              buildInputs = shell.buildInputs;
@@ -118,7 +106,19 @@
              fi
              '';
              })
-        ];
+        rubyPackage
+          pkgs.bundler
+          pkgs.goreman
+          pkgs.curl
+          opensslPackage
+          pkgs.postgresql
+          pkgs.tzdata
+          pkgs.zlib
+          pkgs.gosu
+          pkgs.nodejs
+          pkgs.libyaml
+          pkgs.bash
+          ];
         config = {
           Cmd = [ "${pkgs.bash}/bin/bash" "-c" "echo 'DEBUG: Contents of /app:' && ls -l /app && echo 'DEBUG: Contents of /app/vendor/bundle:' && ls -lR /app/vendor/bundle && echo 'DEBUG: Checking bundle executable:' && [ -f /app/vendor/bundle/bin/bundle ] && chmod +x /app/vendor/bundle/bin/bundle && ls -l /app/vendor/bundle/bin/bundle && echo 'DEBUG: Checking /usr/bin/env:' && ls -l /usr/bin/env && echo 'DEBUG: Bundle config:' && bundle config && echo 'DEBUG: Installed gems:' && bundle list && ${pkgs.goreman}/bin/goreman start web" ];
           Env = [
@@ -134,25 +134,8 @@
           ];
           ExposedPorts = { "3000/tcp" = {}; };
           WorkingDir = "/app";
-          extraCommands = ''
-            echo "DEBUG: Running extraCommands" >&2
-            mkdir -p /root/zoneinfo
-            ln -sf ${pkgs.tzdata}/share/zoneinfo /root/zoneinfo
-            mkdir -p /app/.nix-gems
-            ln -sf ${rubyPackage}/bin/* /usr/local/bin/
-                                        echo "DEBUG: Contents of /usr/local/bin:" >&2
-                                        ls -l /usr/local/bin >&2
-                                        if [ -f /app/vendor/bundle/bin/bundle ]; then
-                                        chmod +x /app/vendor/bundle/bin/bundle
-                                        echo "DEBUG: Made /app/vendor/bundle/bin/bundle executable" >&2
-                                        ls -l /app/vendor/bundle/bin/bundle >&2
-                                        else
-                                        echo "ERROR: /app/vendor/bundle/bin/bundle not found" >&2
-                                        fi
-                                        echo "DEBUG: extraCommands completed" >&2
-                                        '';
-                                        };
-                                        };
+        };
+      };
   };
   in {
     lib = {
