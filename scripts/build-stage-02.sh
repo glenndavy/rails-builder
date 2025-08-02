@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Version: 2.0.43
 set -e
-export STAGE_2_VERSION=2.0.43
+export STAGE_2_VERSION=2.0.44
 echo "Stage 2 version: ${STAGE_2_VERSION}"
 
 # Validate BUILD_STAGE_3
@@ -18,7 +18,8 @@ export BUILD_STAGE_3=" && $BUILD_STAGE_3"
 echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 
 # Create builder branch
-git checkout -b builder
+#git checkout -b builder
+git log |head -n1|awk '{print $2}'>REVISION
 
 # Update or initialize flake
 if [ -e ./flake.nix ]; then
