@@ -142,9 +142,9 @@
         shellHook =
           old.shellHook
           + ''
-            export source=$(pwd)
-            export BUNDLE_PATH=$source/vendor/bundle
-            export BUNDLE_GEMFILE=$source/Gemfile
+            export RAILS_ROOT=$(pwd)
+            export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
+            export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
             export PATH=$BUNDLE_PATH/bin:~/.nix-profile/bin:$PATH
           '';
       });
