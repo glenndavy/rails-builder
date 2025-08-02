@@ -287,7 +287,7 @@
 				echo "DEBUG: Bundle config:" >&2
 				${rubyPackage}/bin/bundle config >&2
 				echo "DEBUG: Running bundle install..." >&2
-				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH; then
+				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --path $BUNDLE_PATH/bin; then
 					echo "ERROR: bundle install failed" >&2
 					exit 1
 				fi
