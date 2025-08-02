@@ -19,7 +19,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.112";
+    version = "2.0.114";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -260,7 +260,6 @@
         esac
         echo "DEBUG: manage-redis completed" >&2
       '';
-      # In app template flake.nix
 			build-rails-app = pkgs.writeShellScriptBin "build-rails-app" ''
 				#!${pkgs.runtimeShell}
 				set -e
@@ -282,14 +281,20 @@
 				${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
 				echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
 				echo "DEBUG: Setting bundle config..." >&2
+				mkdir -p .bundle
+				chmod -R u+w .bundle
 				${rubyPackage}/bin/bundle config set --local path $BUNDLE_PATH
 				echo "DEBUG: Bundle config:" >&2
 				${rubyPackage}/bin/bundle config >&2
 				echo "DEBUG: Running bundle install..." >&2
-				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
+				if ! ${rubyPackage}/bin/bundle install; then
 					echo "ERROR: bundle install failed" >&2
 					exit 1
 				fi
+				echo "DEBUG: Generating bundler binstub..." >&2
+				${rubyPackage}/bin/bundle binstubs bundler
+				echo "DEBUG: Generating binstubs for all gems..." >&2
+				${rubyPackage}/bin/bundle binstubs --all
 				echo "DEBUG: Contents of $BUNDLE_PATH/bin:" >&2
 				if [ -d "$BUNDLE_PATH/bin" ]; then
 					ls -l $BUNDLE_PATH/bin >&2
