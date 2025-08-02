@@ -19,7 +19,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.117";
+    version = "2.0.118";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -110,6 +110,7 @@
           unset RUBYLIB GEM_PATH
           export NIXPKGS_ALLOW_INSECURE=1
           export RAILS_ROOT=$(pwd)
+          export source=$RAILS_ROOT
           export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
