@@ -260,13 +260,14 @@
         echo "DEBUG: manage-redis completed" >&2
       '';
       # In app template flake.nix
+    # In app template flake.nix
         build-rails-app = pkgs.writeShellScriptBin "build-rails-app" ''
           #!${pkgs.runtimeShell}
           set -e
           echo "DEBUG: Starting build-rails-app" >&2
           export BUNDLE_PATH=$PWD/vendor/bundle
           export BUNDLE_GEMFILE=$PWD/Gemfile
-          export PATH=$BUNDLE_PATH/bin:${pkgs.bundler}/bin:${rubyPackage}/bin:$PATH
+          export PATH=${rubyPackage}/bin:$BUNDLE_PATH/bin:$PATH
           export RAILS_ENV=production
           export SECRET_KEY_BASE=dummy_value_for_build
           export HOME=$PWD
@@ -274,29 +275,26 @@
           echo "DEBUG: BUNDLE_GEMFILE=$BUNDLE_GEMFILE" >&2
           echo "DEBUG: PATH=$PATH" >&2
           echo "DEBUG: Gemfile exists: $([ -f "$BUNDLE_GEMFILE" ] && echo 'yes' || echo 'no')" >&2
-          echo "DEBUG: Ruby version: $(ruby -v)" >&2
-          echo "DEBUG: Bundler version: $(bundler -v)" >&2
+          echo "DEBUG: Ruby version: $(${rubyPackage}/bin/ruby -v)" >&2
+          echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
+          echo "DEBUG: Setting bundle config..." >&2
+          ${rubyPackage}/bin/bundle config set path $BUNDLE_PATH
           echo "DEBUG: Running bundle install..." >&2
-          if ! bundler install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin; then
+          if ! ${rubyPackage}/bin/bundle install; then
             echo "ERROR: bundle install failed" >&2
             exit 1
           fi
-          echo "DEBUG: Patching shebangs in binstubs" >&2
-          for bin in $BUNDLE_PATH/bin/*; do
-            if [ -f "$bin" ]; then
-              sed -i 's|#!/usr/bin/env ruby|#!/bin/env ruby|' "$bin"
-              echo "DEBUG: Patched $bin" >&2
-            fi
-          done
+          echo "DEBUG: Generating binstubs..." >&2
+          ${rubyPackage}/bin/bundle binstubs --all
           echo "DEBUG: Contents of $BUNDLE_PATH/bin:" >&2
           ls -l $BUNDLE_PATH/bin >&2
           echo "DEBUG: Contents of $BUNDLE_PATH:" >&2
           ls -lR $BUNDLE_PATH >&2
           echo "DEBUG: Running rails assets:precompile..." >&2
-          bundler exec rails assets:precompile
+          ${rubyPackage}/bin/bundle exec ${rubyPackage}/bin/rails assets:precompile
           echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
           echo "DEBUG: build-rails-app completed" >&2
-      '';
+        '';
     };
   };
 }
