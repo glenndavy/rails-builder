@@ -19,7 +19,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.115";
+    version = "2.0.116";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -109,9 +109,6 @@
         shellHook = ''
           unset RUBYLIB GEM_PATH
           export NIXPKGS_ALLOW_INSECURE=1
-          echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
-          echo "DEBUG: Local nix.conf contents:" >&2
-          cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
           export RAILS_ROOT=$(pwd)
           export GEM_HOME=$RAILS_ROOT/.nix-gems
           export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
@@ -120,8 +117,6 @@
           export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
           echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
           echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
-          echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
-          find ${rubyPackage}/lib/ruby -name uri.rb 2>/dev/null || echo "DEBUG: uri.rb not found" >&2
           mkdir -p $GEM_HOME
           gem install bundler:${bundlerVersion}
           if [ -f Gemfile ]; then
@@ -287,7 +282,7 @@
 				echo "DEBUG: Bundle config:" >&2
 				${rubyPackage}/bin/bundle config >&2
 				echo "DEBUG: Running bundle install..." >&2
-				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --path $BUNDLE_PATH/bin; then
+				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin; then
 					echo "ERROR: bundle install failed" >&2
 					exit 1
 				fi
