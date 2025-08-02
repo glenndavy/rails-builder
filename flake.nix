@@ -32,6 +32,18 @@
         if opensslVersion == "3_2"
         then pkgs.openssl_3
         else pkgs."openssl_${opensslVersion}";
+      usrBinDerivation = pkgs.stdenv.mkDerivation {
+        name = "usr-bin-env";
+        buildInputs = [pkgs.coreutils];
+        dontUnpack = true; # No source needed
+          installPhase = ''
+          echo "DEBUG: Creating usr/bin/env symlink" >&2
+          mkdir -p $out/usr/bin
+          ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
+          echo "DEBUG: Contents of $out/usr/bin:" >&2
+          ls -l $out/usr/bin >&2
+          '';
+      };
       app = pkgs.stdenv.mkDerivation {
         name = "rails-app";
         inherit src;
