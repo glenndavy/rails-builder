@@ -9,7 +9,7 @@
 
   outputs = { self, nixpkgs, nixpkgs-ruby }: let
     system = "x86_64-linux";
-    version = "2.0.27"; # Backend version
+    version = "2.0.40"; # Backend version
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; };
   # Function to create build environment
