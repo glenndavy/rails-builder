@@ -19,7 +19,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.116";
+    version = "2.0.117";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -255,13 +255,14 @@
         esac
         echo "DEBUG: manage-redis completed" >&2
       '';
+      # In app template flake.nix
 			build-rails-app = pkgs.writeShellScriptBin "build-rails-app" ''
 				#!${pkgs.runtimeShell}
 				set -e
 				echo "DEBUG: Starting build-rails-app" >&2
 				export BUNDLE_PATH=$PWD/vendor/bundle
 				export BUNDLE_GEMFILE=$PWD/Gemfile
-				export PATH=${rubyPackage}/bin:$BUNDLE_PATH/bin:$PATH
+				export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$PATH
 				export RAILS_ENV=production
 				export SECRET_KEY_BASE=dummy_value_for_build
 				export HOME=$PWD
@@ -275,24 +276,17 @@
 				echo "DEBUG: Installing Bundler ${bundlerVersion}" >&2
 				${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
 				echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
-				echo "DEBUG: Setting bundle config..." >&2
-				mkdir -p .bundle
-				chmod -R u+w .bundle
-				${rubyPackage}/bin/bundle config set --local path $BUNDLE_PATH
-				echo "DEBUG: Bundle config:" >&2
-				${rubyPackage}/bin/bundle config >&2
 				echo "DEBUG: Running bundle install..." >&2
-				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs $BUNDLE_PATH/bin; then
+				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
 					echo "ERROR: bundle install failed" >&2
 					exit 1
 				fi
-				echo "DEBUG: Generating bundler binstub..." >&2
-				${rubyPackage}/bin/bundle binstubs bundler
-				echo "DEBUG: Generating binstubs for all gems..." >&2
-				${rubyPackage}/bin/bundle binstubs --all
+				echo "DEBUG: Ensuring rails binstub..." >&2
+				${rubyPackage}/bin/bundle binstubs rails --force --path $BUNDLE_PATH
 				echo "DEBUG: Contents of $BUNDLE_PATH/bin:" >&2
 				if [ -d "$BUNDLE_PATH/bin" ]; then
 					ls -l $BUNDLE_PATH/bin >&2
+					[ -f "$BUNDLE_PATH/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
 					[ -f "$BUNDLE_PATH/bin/bundle" ] && echo "DEBUG: bundle executable found" >&2 || echo "ERROR: bundle executable missing" >&2
 				else
 					echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
@@ -301,7 +295,7 @@
 				echo "DEBUG: Contents of $BUNDLE_PATH:" >&2
 				ls -lR $BUNDLE_PATH >&2
 				echo "DEBUG: Running rails assets:precompile..." >&2
-				${rubyPackage}/bin/bundle exec ${rubyPackage}/bin/rails assets:precompile
+				${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
 				echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
 				echo "DEBUG: build-rails-app completed" >&2
 			'';
