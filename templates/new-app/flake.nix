@@ -142,6 +142,7 @@
         shellHook =
           old.shellHook
           + ''
+            export source=$(pwd)
             export BUNDLE_PATH=$source/vendor/bundle
             export BUNDLE_GEMFILE=$source/Gemfile
             export PATH=$BUNDLE_PATH/bin:~/.nix-profile/bin:$PATH
