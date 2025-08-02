@@ -144,7 +144,6 @@
         WorkingDir = "/app";
       };
     };
-  };
   in {
     lib = {
       inherit mkRailsBuild;
