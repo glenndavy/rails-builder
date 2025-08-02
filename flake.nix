@@ -135,25 +135,25 @@
           WorkingDir = "/app";
           extraCommands = ''
             echo "DEBUG: Running extraCommands" >&2
-            mkdir -p /root/zoneinfo
-            ln -sf ${pkgs.tzdata}/share/zoneinfo /root/zoneinfo
-            mkdir -p /app/.nix-gems
-            ln -sf ${rubyPackage}/bin/* /usr/local/bin/
-            mkdir -p /usr/bin
-            ln -sf ${pkgs.coreutils}/bin/env /usr/bin/env
-            echo "DEBUG: Contents of /usr/local/bin:" >&2
-            ls -l /usr/local/bin >&2
-            echo "DEBUG: Checking /usr/bin/env symlink:" >&2
-            ls -l /usr/bin/env >&2
-            if [ -f /app/vendor/bundle/bin/bundle ]; then
-            chmod +x /app/vendor/bundle/bin/bundle
-            echo "DEBUG: Made /app/vendor/bundle/bin/bundle executable" >&2
-            ls -l /app/vendor/bundle/bin/bundle >&2
-            else
-            echo "ERROR: /app/vendor/bundle/bin/bundle not found" >&2
-            fi
-            echo "DEBUG: extraCommands completed" >&2
-            '';
+            mkdir -p root/zoneinfo
+            ln -sf ${pkgs.tzdata}/share/zoneinfo root/zoneinfo
+            mkdir -p app/.nix-gems
+            ln -sf ${rubyPackage}/bin/* usr/local/bin/
+                                        mkdir -p usr/bin
+                                        ln -s /bin/env usr/bin/env
+                                        echo "DEBUG: Contents of usr/local/bin:" >&2
+                                        ls -l usr/local/bin >&2
+                                        echo "DEBUG: Checking usr/bin/env symlink:" >&2
+                                        ls -l usr/bin/env >&2
+                                        if [ -f app/vendor/bundle/bin/bundle ]; then
+                                        chmod +x app/vendor/bundle/bin/bundle
+                                        echo "DEBUG: Made app/vendor/bundle/bin/bundle executable" >&2
+                                        ls -l app/vendor/bundle/bin/bundle >&2
+                                        else
+                                        echo "ERROR: app/vendor/bundle/bin/bundle not found" >&2
+                                        fi
+                                        echo "DEBUG: extraCommands completed" >&2
+                                        '';
           };
         };
   };
