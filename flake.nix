@@ -148,7 +148,6 @@
                        };
                        };
     };
-    };
   in {
     lib = {
       inherit mkRailsBuild;
