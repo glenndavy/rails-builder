@@ -135,10 +135,10 @@
           extraCommands = ''
             echo "DEBUG: Starting extraCommands" >&2
             mkdir -p usr/bin
-            ln -s ${pkgs.coreutils}/bin/env usr/bin/env
-            echo "DEBUG: Created usr/bin/env symlink" >&2
-            ls -l usr/bin/env >&2
-            mkdir -p root/zoneinfo
+            #ln -s ${pkgs.coreutils}/bin/env usr/bin/env
+            #echo "DEBUG: Created usr/bin/env symlink" >&2
+            #ls -l usr/bin/env >&2
+            #mkdir -p root/zoneinfo
             #ln -sf ${pkgs.tzdata}/share/zoneinfo root/zoneinfo
             #mkdir -p app/.nix-gems
             #ln -sf ${rubyPackage}/bin/* usr/local/bin/
