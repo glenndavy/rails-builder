@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.120";
+    version = "2.0.121";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -84,7 +84,7 @@
       opensslVersion = "3";
       buildRailsApp = self.packages.${system}.build-rails-app; # Pass build-rails-app
     };
-    railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
+    railsBuild = rails-builder.mkRailsBuild buildConfig;
     rubyPackage = pkgs."ruby-${rubyVersion}";
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
