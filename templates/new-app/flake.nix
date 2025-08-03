@@ -1,3 +1,4 @@
+# In app template flake.nix
 {
   description = "Rails app template";
   inputs = {
@@ -18,8 +19,8 @@
   }: let
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = [ "openssl-1.1.1w" ]; };
-    version = "2.0.118";
+    pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
+    version = "2.0.119";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -81,8 +82,9 @@
       inherit rubyVersion;
       gccVersion = "latest";
       opensslVersion = "3";
+      buildRailsApp = self.packages.${system}.build-rails-app; # Pass build-rails-app
     };
-    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig // { src = ./.; });
+    railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
     rubyPackage = pkgs."ruby-${rubyVersion}";
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
@@ -109,6 +111,9 @@
         shellHook = ''
           unset RUBYLIB GEM_PATH
           export NIXPKGS_ALLOW_INSECURE=1
+          echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2
+          echo "DEBUG: Local nix.conf contents:" >&2
+          cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
           export RAILS_ROOT=$(pwd)
           export source=$RAILS_ROOT
           export GEM_HOME=$RAILS_ROOT/.nix-gems
@@ -118,31 +123,30 @@
           export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
           echo "DEBUG: GEM_PATH=$GEM_PATH" >&2
           echo "DEBUG: RUBYLIB=$RUBYLIB" >&2
+          echo "DEBUG: Checking for uri.rb in RUBYLIB paths:" >&2
+          find ${rubyPackage}/lib/ruby -name uri.rb 2>/dev/null || echo "DEBUG: uri.rb not found" >&2
           mkdir -p $GEM_HOME
-          gem install bundler:${bundlerVersion}
+          ${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
           if [ -f Gemfile ]; then
-            bundle install --path $GEM_HOME
+            ${rubyPackage}/bin/bundle install --path $GEM_HOME
           fi
         '';
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
-        buildInputs =
-          (old.buildInputs or [])
-          ++ [
-            rubyPackage
-            pkgs.rsync
-            self.packages.${system}.manage-postgres
-            self.packages.${system}.manage-redis
-            self.packages.${system}.build-rails-app
-          ];
-        shellHook =
-          old.shellHook
-          + ''
-            export RAILS_ROOT=$(pwd)
-            export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
-            export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
-            export PATH=$BUNDLE_PATH/bin:~/.nix-profile/bin:$PATH
-          '';
+        buildInputs = (old.buildInputs or []) ++ [
+          rubyPackage
+          pkgs.rsync
+          self.packages.${system}.manage-postgres
+          self.packages.${system}.manage-redis
+          self.packages.${system}.build-rails-app
+        ];
+        shellHook = old.shellHook + ''
+          export source=$(pwd)
+          export RAILS_ROOT=$(pwd)
+          export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
+          export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
+          export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
+        '';
       });
     };
     packages.${system} = {
@@ -160,7 +164,7 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting manage-postgres $1" >&2
-        export source=$pwd
+        export source=$(pwd)
         export PGDATA=$source/tmp/pgdata
         export PGHOST=$source/tmp
         export PGDATABASE=rails_build
@@ -222,7 +226,7 @@
         #!${pkgs.runtimeShell}
         export source=$PWD
         echo "DEBUG: Starting manage-redis $1" >&2
-        echo "DEBUG: Source =  $source " >&2
+        echo "DEBUG: Source = $source" >&2
         export REDIS_PID=$source/tmp/redis.pid
         case "$1" in
           start)
@@ -256,50 +260,49 @@
         esac
         echo "DEBUG: manage-redis completed" >&2
       '';
-      # In app template flake.nix
-			build-rails-app = pkgs.writeShellScriptBin "build-rails-app" ''
-				#!${pkgs.runtimeShell}
-				set -e
-				echo "DEBUG: Starting build-rails-app" >&2
-				export BUNDLE_PATH=$PWD/vendor/bundle
-				export BUNDLE_GEMFILE=$PWD/Gemfile
-				export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$PATH
-				export RAILS_ENV=production
-				export SECRET_KEY_BASE=dummy_value_for_build
-				export HOME=$PWD
-				export source=$PWD
-				echo "DEBUG: BUNDLE_PATH=$BUNDLE_PATH" >&2
-				echo "DEBUG: BUNDLE_GEMFILE=$BUNDLE_GEMFILE" >&2
-				echo "DEBUG: PATH=$PATH" >&2
-				echo "DEBUG: source=$source" >&2
-				echo "DEBUG: Gemfile exists: $([ -f "$BUNDLE_GEMFILE" ] && echo 'yes' || echo 'no')" >&2
-				echo "DEBUG: Ruby version: $(${rubyPackage}/bin/ruby -v)" >&2
-				echo "DEBUG: Installing Bundler ${bundlerVersion}" >&2
-				${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
-				echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
-				echo "DEBUG: Running bundle install..." >&2
-				if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
-					echo "ERROR: bundle install failed" >&2
-					exit 1
-				fi
-				echo "DEBUG: Ensuring rails binstub..." >&2
-				${rubyPackage}/bin/bundle binstubs rails --force --path $BUNDLE_PATH
-				echo "DEBUG: Contents of $BUNDLE_PATH/bin:" >&2
-				if [ -d "$BUNDLE_PATH/bin" ]; then
-					ls -l $BUNDLE_PATH/bin >&2
-					[ -f "$BUNDLE_PATH/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
-					[ -f "$BUNDLE_PATH/bin/bundle" ] && echo "DEBUG: bundle executable found" >&2 || echo "ERROR: bundle executable missing" >&2
-				else
-					echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
-					exit 1
-				fi
-				echo "DEBUG: Contents of $BUNDLE_PATH:" >&2
-				ls -lR $BUNDLE_PATH >&2
-				echo "DEBUG: Running rails assets:precompile..." >&2
-				${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
-				echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
-				echo "DEBUG: build-rails-app completed" >&2
-			'';
+      build-rails-app = pkgs.writeShellScriptBin "build-rails-app" ''
+        #!${pkgs.runtimeShell}
+        set -e
+        echo "DEBUG: Starting build-rails-app" >&2
+        export BUNDLE_PATH=$PWD/vendor/bundle
+        export BUNDLE_GEMFILE=$PWD/Gemfile
+        export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$PATH
+        export RAILS_ENV=production
+        export SECRET_KEY_BASE=dummy_value_for_build
+        export HOME=$PWD
+        export source=$PWD
+        echo "DEBUG: BUNDLE_PATH=$BUNDLE_PATH" >&2
+        echo "DEBUG: BUNDLE_GEMFILE=$BUNDLE_GEMFILE" >&2
+        echo "DEBUG: PATH=$PATH" >&2
+        echo "DEBUG: source=$source" >&2
+        echo "DEBUG: Gemfile exists: $([ -f "$BUNDLE_GEMFILE" ] && echo 'yes' || echo 'no')" >&2
+        echo "DEBUG: Ruby version: $(${rubyPackage}/bin/ruby -v)" >&2
+        echo "DEBUG: Installing Bundler ${bundlerVersion}" >&2
+        ${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
+        echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
+        echo "DEBUG: Running bundle install..." >&2
+        if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
+          echo "ERROR: bundle install failed" >&2
+          exit 1
+        fi
+        echo "DEBUG: Ensuring rails binstub..." >&2
+        ${rubyPackage}/bin/bundle binstubs rails --force --path $BUNDLE_PATH
+        echo "DEBUG: Contents of $BUNDLE_PATH/bin:" >&2
+        if [ -d "$BUNDLE_PATH/bin" ]; then
+          ls -l $BUNDLE_PATH/bin >&2
+          [ -f "$BUNDLE_PATH/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
+          [ -f "$BUNDLE_PATH/bin/bundle" ] && echo "DEBUG: bundle executable found" >&2 || echo "ERROR: bundle executable missing" >&2
+        else
+          echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
+          exit 1
+        fi
+        echo "DEBUG: Contents of $BUNDLE_PATH:" >&2
+        ls -lR $BUNDLE_PATH >&2
+        echo "DEBUG: Running rails assets:precompile..." >&2
+        ${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
+        echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
+        echo "DEBUG: build-rails-app completed" >&2
+      '';
     };
   };
 }
