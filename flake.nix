@@ -8,10 +8,10 @@
   };
   outputs = { self, nixpkgs, nixpkgs-ruby }: let
     system = "x86_64-linux";
-    version = "2.0.49";
+    version = "2.0.50";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; };
-    mkRailsBuild = import ./derivations/make-rails-build.nix;
+    mkRailsBuild = import ./derivations/make-rails-build.nix { inherit pkgs;;
     in {
     lib = {
       inherit mkRailsBuild;

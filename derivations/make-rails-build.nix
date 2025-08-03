@@ -1,4 +1,4 @@
-#{ pkgs, system, self }:
+{ pkgs, ... }:
   {
     rubyVersion,
     gccVersion ? "latest",
