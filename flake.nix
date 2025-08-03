@@ -11,7 +11,7 @@
     version = "2.0.48";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; };
-    mkRailsBuild = builtins.readFile ./derivations/make-ruby-build.nix;
+    mkRailsBuild = builtins.readFile ./derivations/make-rails-build.nix;
     in {
     lib = {
       inherit mkRailsBuild;
