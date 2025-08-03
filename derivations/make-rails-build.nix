@@ -47,10 +47,10 @@
       buildPhase = ''
         export HOME=$PWD
         export source=$PWD
-        echo "DEBUG: Running build-rails-app in buildPhase" >&2
-        ${buildRailsApp}/bin/build-rails-app
-        echo "DEBUG: Contents of vendor/bundle after build-rails-app:" >&2
-        ls -lR vendor/bundle >&2
+        # remove - as this should not be in a sandbox:# echo "DEBUG: Running build-rails-app in buildPhase" >&2
+        # remove - as this should not be in a sandbox:#${buildRailsApp}/bin/build-rails-app
+        # remove - as this should not be in a sandbox:#echo "DEBUG: Contents of vendor/bundle after build-rails-app:" >&2
+        # ls -lR vendor/bundle >&2
       '';
       installPhase = ''
         echo "DEBUG: Source directory contents:" >&2
