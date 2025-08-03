@@ -1,6 +1,5 @@
-{ pkgs, system, self }:
-{
-  mkRailsBuild = {
+#{ pkgs, system, self }:
+  {
     rubyVersion,
     gccVersion ? "latest",
     opensslVersion ? "3_2",
@@ -165,4 +164,3 @@
       };
     };
   };
-}
