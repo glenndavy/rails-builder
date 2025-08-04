@@ -69,7 +69,7 @@
           chmod -R u+w $out/app/vendor/bundle
           echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
           #ls -lR $out/app/vendor/bundle >&2
-          [ -f "$out/app/vendor/bundle/bin/bundle" ] && echo "DEBUG: bundle executable found" >&2 || echo "ERROR: bundle executable missing" >&2
+          [ -f "$out/app/vendor/bundle/bin/bundler" ] && echo "DEBUG: bundler executable found" >&2 || echo "ERROR: bundler executable missing" >&2
           [ -f "$out/app/vendor/bundle/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
         else
           echo "ERROR: No vendor/bundle found" >&2
@@ -155,7 +155,7 @@
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/root/zoneinfo"
         ];
-        User = "app_user";
+        User = "app_user:app_user";
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
         runAsRoot = ''
@@ -163,10 +163,25 @@
         '';
         enableFakechroot = true;
         fakeRootCommands = ''
-          ${pkgs.dockerTools.shadowSetup}
-          groupadd -g 1000 app_user
-          useradd -u 1000 -g 1000 -d /app app_user
-          chown -R 1000:1000 /app
+          set -x
+					mkdir -p /etc
+					cat > /etc/passwd <<EOF
+					root:x:0:0::/root:/bin/bash
+					app_user:x:1000:1000:App User:/app:/bin/bash
+					EOF
+					cat > /etc/group <<EOF
+					root:x:0:
+					app_user:x:1000:
+					EOF
+					# Optional shadow
+					cat > /etc/shadow <<EOF
+					root:*:18000:0:99999:7:::
+					app_user:*:18000:0:99999:7:::
+					EOF
+					chown -R 1000:1000 /app
+					chmod -R u+w /app
+					echo "DEBUG: Contents of /etc:" >&2
+					ls -l /etc >&2
        '';
         
         #extraCommands = ''
