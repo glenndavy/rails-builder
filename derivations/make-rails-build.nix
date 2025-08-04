@@ -158,7 +158,7 @@
         User = "app_user";
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
-        fakeRootCommands = ''
+        extraCommands = ''
           echo "DEBUG: Starting extraCommands" >&2
           mkdir -p etc
           cat > etc/passwd <<EOF
