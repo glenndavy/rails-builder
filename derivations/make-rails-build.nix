@@ -155,22 +155,31 @@
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/root/zoneinfo"
         ];
-        User = "app_user
+        User = "app_user"
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
         fakeRootCommands = ''
           echo "DEBUG: Starting extraCommands" >&2
-          # Create non-root user and group
-          mkdir -p users/app_user
-          echo "app_user:x:1000:1000::/app:/bin/bash" > users/app_user/passwd
-          echo "app_user:x:1000:" > users/app_user/group
-          # Set ownership of /app to app-user
+          mkdir -p etc
+          cat > etc/passwd <<EOF
+          root:x:0:0::/root:/bin/bash
+          app_user:x:1000:1000:App User:/app:/bin/bash
+          EOF
+          cat > etc/group <<EOF
+          root:x:0:
+          app_user:x:1000:
+          EOF
+          # Optional shadow (for no password)
+          cat > etc/shadow <<EOF
+          root:*:18000:0:99999:7:::
+          app_user:*:18000:0:99999:7:::
+          EOF
+          # Ownership (app dir from contents)
           chown -R 1000:1000 app
           chmod -R u+w app
-          echo "DEBUG: Contents of users/app_user:" >&2
-          ls -l users/app_user >&2
-          echo "DEBUG: extraCommands completed" >&2
+          echo "DEBUG: Contents of etc:" >&2
+          ls -l etc >&2
         '';
-      };
     };
-  }
+  };
+}
