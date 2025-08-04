@@ -22,6 +22,7 @@
       buildInputs = [pkgs.coreutils];
       dontUnpack = true;
       installPhase = ''
+        echo "DEBUG: usrBinDerviation install phase" >&2
         echo "DEBUG: Creating usr/bin/env symlink" >&2
         mkdir -p $out/usr/bin
         ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
@@ -45,14 +46,17 @@
         pkgs.libyaml
       ];
       buildPhase = ''
+        echo "DEBUG: rails-app build phase start" >&2
         export HOME=$PWD
         export source=$PWD
         # remove - as this should not be in a sandbox:# echo "DEBUG: Running build-rails-app in buildPhase" >&2
         # remove - as this should not be in a sandbox:#${buildRailsApp}/bin/build-rails-app
         # remove - as this should not be in a sandbox:#echo "DEBUG: Contents of vendor/bundle after build-rails-app:" >&2
         # ls -lR vendor/bundle >&2
+        echo "DEBUG: rails-app build phase done" >&2
       '';
       installPhase = ''
+        echo "DEBUG: rails-app install phase start" >&2
         echo "DEBUG: Source directory contents:" >&2
         ls -lR . >&2
         mkdir -p $out/app
@@ -83,6 +87,7 @@
         echo "DEBUG: Contents of $out/usr/local/bin:" >&2
         ls -l $out/usr/local/bin >&2
         echo "DEBUG: Filesystem setup completed" >&2
+        echo "DEBUG: rails-app install phase done" >&2
       '';
     };
     shell = pkgs.mkShell {
@@ -101,12 +106,14 @@
         pkgs.nodejs
       ];
       shellHook = ''
+        echo "DEBUG: Shell hook for  shell " >&2
+        export PS1="shell:>"
         export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
         export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
         export TZDIR="$HOME/zoneinfo"
         mkdir -p "$HOME/zoneinfo"
-        ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"
-      '';
+        ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo" ''
+        echo "DEBUG: shell hook done" >&2
     };
   in {
     inherit shell app;

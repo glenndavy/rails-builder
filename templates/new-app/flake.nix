@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.121";
+    version = "2.0.122";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -84,7 +84,7 @@
       opensslVersion = "3";
       buildRailsApp = self.packages.${system}.build-rails-app; # Pass build-rails-app
     };
-    railsBuild = rails-builder.lib.mkRailsBuild buildConfig;
+    railsBuild = rails-builder.lib.mkRailsBuild ( buildConfig // { src = builtins.path { path = ./.; name = 'rails-app-src';};);
     rubyPackage = pkgs."ruby-${rubyVersion}";
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
@@ -141,11 +141,14 @@
           self.packages.${system}.build-rails-app
         ];
         shellHook = old.shellHook + ''
+          echo "DEBUG: Inside shell hook for buildShell" >&2
+          export PS1="buildShell> "
           export source=$(pwd)
           export RAILS_ROOT=$(pwd)
           export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
           export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
           export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
+          echo "DEBUG: done shellhook for  buildShell" >&2
         '';
       });
     };
