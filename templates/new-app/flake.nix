@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.123";
+    version = "2.0.124";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -309,8 +309,8 @@
           echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
           exit 1
         fi
-        echo "DEBUG: Contents of $BUNDLE_PATH:" >&2
-        ls -lR $BUNDLE_PATH >&2
+        git add ./public
+        git add $BUNDLE_PATH
         echo "DEBUG: Running rails assets:precompile..." >&2
         ${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
