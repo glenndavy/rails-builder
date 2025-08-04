@@ -155,7 +155,7 @@
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/root/zoneinfo"
         ];
-        User = "app_user"
+        User = "app_user";
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
         fakeRootCommands = ''
