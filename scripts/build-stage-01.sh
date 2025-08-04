@@ -24,6 +24,8 @@ export BUILD_STAGE_3
 
 git config --global user.email builder@rx || true
 git config --global user.name  "Rails builder esq." || true
+git config --global set advice.addIgnoredFile false
+git config --global set advice.advice.addEmbeddedRepo false
 # Clone repository
 REPO_DIR=$(basename "$REPO_URL" .git)
 git clone --depth 1 "$REPO_URL" "$REPO_DIR"

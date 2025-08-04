@@ -311,8 +311,8 @@
           echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
           exit 1
         fi
-        git add ./public
-        git add $BUNDLE_PATH
+        git add -f ./public
+        git add -f $BUNDLE_PATH
         echo "DEBUG: Running rails assets:precompile..." >&2
         ${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
