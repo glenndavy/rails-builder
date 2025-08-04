@@ -84,7 +84,7 @@
       opensslVersion = "3";
       buildRailsApp = self.packages.${system}.build-rails-app; # Pass build-rails-app
     };
-    railsBuild = rails-builder.lib.mkRailsBuild ( buildConfig // { src = builtins.path { path = ./.; name = 'rails-app-src';};);
+    railsBuild = rails-builder.lib.mkRailsBuild ( buildConfig // { src = builtins.path { path = ./.; name = "rails-app-src";};);
     rubyPackage = pkgs."ruby-${rubyVersion}";
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
