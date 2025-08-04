@@ -149,7 +149,7 @@
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
           "RAILS_ENV=production"
-          "GEM_PATH=/app/vendor/bundle:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
+          #"GEM_PATH=/app/vendor/bundle:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
