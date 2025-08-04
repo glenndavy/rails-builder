@@ -119,7 +119,7 @@
           export RAILS_ROOT=$(pwd)
           export source=$RAILS_ROOT
           export GEM_HOME=$RAILS_ROOT/.nix-gems
-          export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
+          #export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
@@ -296,7 +296,7 @@
         ${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document -i vendor/bundle/ruby/${rubyMajorMinor}.0
         echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
         echo "DEBUG: Running bundle install..." >&2
-        if ! ${rubyPackage}/bin/bundle install --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
+        if ! ${rubyPackage}/bin/bundle install --standalone --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
           echo "ERROR: bundle install failed" >&2
           exit 1
         fi
