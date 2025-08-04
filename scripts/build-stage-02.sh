@@ -20,7 +20,7 @@ echo "DEBUG: BUILD_STAGE_3=$BUILD_STAGE_3" >&2
 # Create builder branch
 #git checkout -b builder
 git log |head -n1|awk '{print $2}'>REVISION
-
+git add REVISION
 # Update or initialize flake
 if [ -e ./flake.nix ]; then
   nix flake update
