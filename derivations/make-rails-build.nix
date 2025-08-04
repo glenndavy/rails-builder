@@ -68,7 +68,7 @@
           rsync -a --delete "vendor/bundle/" "$out/app/vendor/bundle/"
           chmod -R u+w $out/app/vendor/bundle
           echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
-          ls -lR $out/app/vendor/bundle >&2
+          #ls -lR $out/app/vendor/bundle >&2
           [ -f "$out/app/vendor/bundle/bin/bundle" ] && echo "DEBUG: bundle executable found" >&2 || echo "ERROR: bundle executable missing" >&2
           [ -f "$out/app/vendor/bundle/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
         else
