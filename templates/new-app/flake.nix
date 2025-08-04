@@ -109,6 +109,8 @@
       default = railsBuild.shell.overrideAttrs (old: {
         buildInputs = (old.buildInputs or []) ++ [rubyPackage];
         shellHook = ''
+          export PS1="$(pwd) railsBuild shell >"
+          echo "DEBUG: Entered railsBuild Shell hook" >&2
           unset RUBYLIB GEM_PATH
           export NIXPKGS_ALLOW_INSECURE=1
           echo "DEBUG: NIXPKGS_ALLOW_INSECURE=$NIXPKGS_ALLOW_INSECURE" >&2

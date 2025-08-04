@@ -116,7 +116,7 @@
         mkdir -p "$HOME/zoneinfo"
         ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"'
         echo "DEBUG: shell hook done" >&2
-        '';
+     '';
     };
   in {
     inherit shell app;
