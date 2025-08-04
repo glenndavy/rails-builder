@@ -311,6 +311,9 @@
           echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
           exit 1
         fi
+        git rm -fr .nix-gems ||true
+        git add .ruby-version ||true
+        git add .ruby_version ||true
         git add -f ./public
         git add -f $BUNDLE_PATH
         echo "DEBUG: Running rails assets:precompile..." >&2
