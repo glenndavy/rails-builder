@@ -144,7 +144,7 @@
         pkgs.coreutils
       ];
       config = {
-        Cmd = [ "${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu appuser ${pkgs.goreman}/bin/goreman start web" ];
+        Cmd = [ "${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web" ];
         Env = [
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
@@ -155,19 +155,20 @@
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/root/zoneinfo"
         ];
+        User = "app_user
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
-        extraCommands = ''
+        fakeRootCommands = ''
           echo "DEBUG: Starting extraCommands" >&2
           # Create non-root user and group
-          mkdir -p users/appuser
-          echo "appuser:x:1000:1000::/app:/bin/bash" > users/appuser/passwd
-          echo "appuser:x:1000:" > users/appuser/group
-          # Set ownership of /app to appuser
+          mkdir -p users/app_user
+          echo "app_user:x:1000:1000::/app:/bin/bash" > users/app_user/passwd
+          echo "app_user:x:1000:" > users/app_user/group
+          # Set ownership of /app to app-user
           chown -R 1000:1000 app
           chmod -R u+w app
-          echo "DEBUG: Contents of users/appuser:" >&2
-          ls -l users/appuser >&2
+          echo "DEBUG: Contents of users/app_user:" >&2
+          ls -l users/app_user >&2
           echo "DEBUG: extraCommands completed" >&2
         '';
       };
