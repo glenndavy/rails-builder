@@ -57,8 +57,10 @@
       '';
       installPhase = ''
         echo "DEBUG: rails-app install phase start" >&2
+        echo "DEBUG: PWD: $(pwd)" >&2
         echo "DEBUG: Source directory contents:" >&2
-        ls -lR . >&2
+        ls -l >&2
+        ls -lR .|wc -l >&2
         mkdir -p $out/app
         cp -r ./* $out/app
         if [ -d "vendor/bundle" ]; then

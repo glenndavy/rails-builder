@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.122";
+    version = "2.0.123";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -314,7 +314,7 @@
         echo "DEBUG: Running rails assets:precompile..." >&2
         ${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
-        echo "DEBUG: build-rails-app completed" >&2
+        echo "DEBUG: build-rails-app in $(pwd) completed" >&2
       '';
     };
   };
