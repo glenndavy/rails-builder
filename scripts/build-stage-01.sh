@@ -10,7 +10,7 @@ BUILD_TYPE="${2:-docker}" # Default to docker
 # Set build stage
 case "$BUILD_TYPE" in
   docker)
-    BUILD_STAGE_3="nix build .#dockerImage"
+    BUILD_STAGE_3="nix build .#dockerImage --print-build-logs --verbose"
     ;;
   nix)
     BUILD_STAGE_3="nix build .#buildApp"
