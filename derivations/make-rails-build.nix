@@ -112,8 +112,9 @@
         export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
         export TZDIR="$HOME/zoneinfo"
         mkdir -p "$HOME/zoneinfo"
-        ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo" ''
+        ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"'
         echo "DEBUG: shell hook done" >&2
+        '';
     };
   in {
     inherit shell app;
