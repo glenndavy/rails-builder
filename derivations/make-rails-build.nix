@@ -158,28 +158,39 @@
         User = "app_user";
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
-        extraCommands = ''
-          echo "DEBUG: Starting extraCommands" >&2
-          mkdir -p etc
-          cat > etc/passwd <<EOF
-          root:x:0:0::/root:/bin/bash
-          app_user:x:1000:1000:App User:/app:/bin/bash
-          EOF
-          cat > etc/group <<EOF
-          root:x:0:
-          app_user:x:1000:
-          EOF
-          # Optional shadow (for no password)
-          cat > etc/shadow <<EOF
-          root:*:18000:0:99999:7:::
-          app_user:*:18000:0:99999:7:::
-          EOF
-          # Ownership (app dir from contents)
-          chown -R 1000:1000 app
-          chmod -R u+w app
-          echo "DEBUG: Contents of etc:" >&2
-          ls -l etc >&2
+        runAsRoot = ''
+          chown -R 1000:1000 /app
         '';
+        enableFakechroot = true;
+        fakeRootCommands = ''
+          ${pkgs.dockerTools.shadowSetup}
+          groupadd -g 1000 app_user
+          useradd -u 1000 -g 1000 -d /app app_user
+          chown -R 1000:1000 /app
+       '';
+        
+        #extraCommands = ''
+        #  echo "DEBUG: Starting extraCommands" >&2
+        #  mkdir -p etc
+        #  cat > etc/passwd <<EOF
+        #  root:x:0:0::/root:/bin/bash
+        #  app_user:x:1000:1000:App User:/app:/bin/bash
+        #  EOF
+        #  cat > etc/group <<EOF
+        #  root:x:0:
+        #  app_user:x:1000:
+        #  EOF
+        #  # Optional shadow (for no password)
+        #  cat > etc/shadow <<EOF
+        #  root:*:18000:0:99999:7:::
+        #  app_user:*:18000:0:99999:7:::
+        #  EOF
+        #  # Ownership (app dir from contents)
+        #  chown -R 1000:1000 app
+        #  chmod -R u+w app
+        #  echo "DEBUG: Contents of etc:" >&2
+        #  ls -l etc >&2
+        #'';
     };
   };
 }
