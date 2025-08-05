@@ -118,7 +118,6 @@
           cat /etc/nix/nix.conf 2>/dev/null || echo "DEBUG: /etc/nix/nix.conf not found" >&2
           export RAILS_ROOT=$(pwd)
           export source=$RAILS_ROOT
-          export GEM_HOME=$RAILS_ROOT/.nix-gems
           #export GEM_PATH=$GEM_HOME:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0

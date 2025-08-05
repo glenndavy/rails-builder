@@ -55,6 +55,7 @@
         pkgs.zlib
         pkgs.libyaml
         pkgs.curl
+        tzinfo
       ];
  
     app = pkgs.stdenv.mkDerivation {
