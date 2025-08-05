@@ -77,23 +77,23 @@
       ls -l >&2
       ls -lR .|wc -l >&2
       mkdir -p $out/app
-      cp -r ./* $out/app
-      if [ -d "vendor/bundle" ]; then
-        echo "DEBUG: Copying vendor/bundle to $out/app/vendor/bundle" >&2
-        rsync -a --delete "vendor/bundle/" "$out/app/vendor/bundle/"
-        chmod -R u+w $out/app/vendor/bundle
-        echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
-        [ -f "$out/app/vendor/bundle/bin/bundler" ] && echo "DEBUG: bundler executable found" >&2 || echo "ERROR: bundler executable missing" >&2
-        [ -f "$out/app/vendor/bundle/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
-      else
-        echo "ERROR: No vendor/bundle found" >&2
-        exit 1
-      fi
-      if [ -d "public/packs" ]; then
-        rsync -a --delete "public/packs/" "$out/app/public/packs/"
-        echo "DEBUG: Contents of $out/app/public/packs:" >&2
-        ls -l $out/app/public/packs >&2
-      fi
+      rsync -a --delete . $out/app
+      #if [ -d "vendor/bundle" ]; then
+      #  echo "DEBUG: Copying vendor/bundle to $out/app/vendor/bundle" >&2
+      #  rsync -a --delete "vendor/bundle/" "$out/app/vendor/bundle/"
+      #  chmod -R u+w $out/app/vendor/bundle
+      #  echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
+      #  [ -f "$out/app/vendor/bundle/bin/bundler" ] && echo "DEBUG: bundler executable found" >&2 || echo "ERROR: bundler executable missing" >&2
+      #  [ -f "$out/app/vendor/bundle/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
+      #else
+      #  echo "ERROR: No vendor/bundle found" >&2
+      #  exit 1
+      #fi
+      #if [ -d "public/packs" ]; then
+      #  rsync -a --delete "public/packs/" "$out/app/public/packs/"
+      #  echo "DEBUG: Contents of $out/app/public/packs:" >&2
+      #  ls -l $out/app/public/packs >&2
+      #fi
       echo "DEBUG: Filesystem setup completed" >&2
       echo "DEBUG: rails-app install phase done" >&2
       '';
