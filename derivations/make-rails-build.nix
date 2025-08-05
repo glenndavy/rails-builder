@@ -39,7 +39,7 @@
       mkdir -p $out/usr/share
       ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
       '';
-    }
+    };
     universalBuildInputs = [
         rubyPackage
         usrBinDerivation
