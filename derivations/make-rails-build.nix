@@ -77,7 +77,8 @@
       ls -l >&2
       ls -lR .|wc -l >&2
       mkdir -p $out/app
-      rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh` . $out/app
+      #rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh` . $out/app
+      rsync -a --delete --include '.*'--exclude 'prepare-build.sh` . $out/app
       #if [ -d "vendor/bundle" ]; then
       #  echo "DEBUG: Copying vendor/bundle to $out/app/vendor/bundle" >&2
       #  rsync -a --delete "vendor/bundle/" "$out/app/vendor/bundle/"

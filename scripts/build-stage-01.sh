@@ -29,10 +29,9 @@ git config --global set advice.advice.addEmbeddedRepo false
 # Clone repository
 REPO_DIR=$(basename "$REPO_URL" .git)
 git clone --depth 1 "$REPO_URL" "$REPO_DIR"
-git ls-remote https://github.com/glenndavy/rails-builder|head -n1 |awk '{print $1}' > $REPO_DIR/BUILDERVISION
+#git ls-remote https://github.com/glenndavy/rails-builder|head -n1 |awk '{print $1}' > $REPO_DIR/BUILDERVISION
 cd "$REPO_DIR"
-git add BUILDERVERSION
-git ls-remote 
+#git add BUILDERVERSION
 # Run build-stage-02.sh from scripts/
 if [ ! -f build-stage-02.sh ]; then
   # Attempt to download from rails-builder
