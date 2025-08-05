@@ -27,6 +27,7 @@
     wget
     docker
   ];
+  nix.settings.trusted-users = ["root" "app-builder"];
   systemd.network = {
     enable = true;
     networks."50-enp5s0" = {
