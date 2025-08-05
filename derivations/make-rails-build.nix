@@ -31,30 +31,44 @@
       echo "DEBUG: usrBinDerivation completed" >&2
       '';
     };
-    app = pkgs.stdenv.mkDerivation {
-      name = "rails-app";
-      inherit src;
-      nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
-      buildInputs = [
+    tzinfo = pkgs.stdenv.mkDerivation {
+      name = "tzinfo";
+      buildInputs = [ pkgs.tzdata ];
+      dontUnpack = true; 
+      installPhase = ''
+      mkdir -p $out/usr/share
+      ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
+      '';
+    }
+    universalBuildInputs = [
         rubyPackage
+        usrBinDerivation
+        tzinfo
+        opensslPackage
         pkgs.libpqxx
         pkgs.sqlite
         pkgs.libxml2
         pkgs.libxslt
-        pkgs.openssl
         pkgs.zlib
         pkgs.libyaml
+        pkgs.postgresql
+        pkgs.zlib
+        pkgs.libyaml
+        pkgs.curl
       ];
+ 
+    app = pkgs.stdenv.mkDerivation {
+      name = "rails-app";
+      inherit src;
+      nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
+      buildInputs = universalBuildInputs;
       buildPhase = ''
       echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
-      # remove - as this should not be in a sandbox:# echo "DEBUG: Running build-rails-app in buildPhase" >&2
-      # remove - as this should not be in a sandbox:#${buildRailsApp}/bin/build-rails-app
-      # remove - as this should not be in a sandbox:#echo "DEBUG: Contents of vendor/bundle after build-rails-app:" >&2
-      # ls -lR vendor/bundle >&2
       echo "DEBUG: rails-app build phase done" >&2
       '';
+
       installPhase = ''
       echo "DEBUG: rails-app install phase start" >&2
       echo "DEBUG: PWD: $(pwd)" >&2
@@ -68,7 +82,6 @@
         rsync -a --delete "vendor/bundle/" "$out/app/vendor/bundle/"
         chmod -R u+w $out/app/vendor/bundle
         echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
-        #ls -lR $out/app/vendor/bundle >&2
         [ -f "$out/app/vendor/bundle/bin/bundler" ] && echo "DEBUG: bundler executable found" >&2 || echo "ERROR: bundler executable missing" >&2
         [ -f "$out/app/vendor/bundle/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
       else
@@ -80,41 +93,25 @@
         echo "DEBUG: Contents of $out/app/public/packs:" >&2
         ls -l $out/app/public/packs >&2
       fi
-      echo "DEBUG: Setting up additional filesystem paths" >&2
-      mkdir -p $out/root/zoneinfo
-      ln -sf ${pkgs.tzdata}/share/zoneinfo $out/root/zoneinfo
-      mkdir -p $out/app/.nix-gems
-      mkdir -p $out/usr/local/bin
-      ln -sf ${rubyPackage}/bin/* $out/usr/local/bin/
-      echo "DEBUG: Contents of $out/usr/local/bin:" >&2
-      ls -l $out/usr/local/bin >&2
       echo "DEBUG: Filesystem setup completed" >&2
       echo "DEBUG: rails-app install phase done" >&2
       '';
     };
+
     shell = pkgs.mkShell {
-      buildInputs = [
-        rubyPackage
+      buildInputs = universalBuildInputs ++ [
         gccPackage
-        opensslPackage
-        pkgs.curl
-        pkgs.tzdata
         pkgs.pkg-config
-        pkgs.zlib
-        pkgs.libyaml
         pkgs.gosu
-        pkgs.postgresql
         pkgs.rsync
         pkgs.nodejs
       ];
+
       shellHook = ''
       echo "DEBUG: Shell hook for  shell " >&2
       export PS1="shell:>"
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
       export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
-      export TZDIR="$HOME/zoneinfo"
-      mkdir -p "$HOME/zoneinfo"
-      ln -sf "${pkgs.tzdata}/share/zoneinfo" "$HOME/zoneinfo"'
       echo "DEBUG: shell hook done" >&2
      '';
     };
@@ -123,23 +120,19 @@
     dockerImage = let
       commitSha = if src ? rev then builtins.substring 0 8 src.rev else "latest";
     in pkgs.dockerTools.buildLayeredImage {
-      name = "rails-app";
+      name = "rails-app-image";
       tag = commitSha;
-      contents = [
+      contents = universalBuildInputs ++ [
         app
         usrBinDerivation
         pkgs.goreman
         rubyPackage
-        pkgs.bundler
         pkgs.curl
         opensslPackage
-        pkgs.postgresql
         pkgs.rsync
-        pkgs.tzdata
         pkgs.zlib
         pkgs.gosu
         pkgs.nodejs
-        pkgs.libyaml
         pkgs.bash
         pkgs.coreutils
       ];
@@ -152,8 +145,8 @@
           #"GEM_PATH=/app/vendor/bundle:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-          "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
-          "TZDIR=/root/zoneinfo"
+          "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
+          "TZDIR=/usr/share/zoneinfo"
         ];
         #User = "app_user:app_user";
         ExposedPorts = { "3000/tcp" = {}; };
