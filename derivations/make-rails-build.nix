@@ -155,12 +155,12 @@
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/root/.nix-profile/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/root/zoneinfo"
         ];
-        User = "app_user:app_user";
+        #User = "app_user:app_user";
         ExposedPorts = { "3000/tcp" = {}; };
         WorkingDir = "/app";
-        runAsRoot = ''
-          chown -R 1000:1000 /app
-        '';
+        #runAsRoot = ''
+        #  chown -R 1000:1000 /app
+        #'';
         enableFakechroot = true;
         fakeRootCommands = ''
         set -x
