@@ -13,7 +13,7 @@ case "$BUILD_TYPE" in
     BUILD_STAGE_3="nix build .#dockerImage --print-build-logs --verbose --option sandbox relaxed --rebuild"
     ;;
   nix)
-    BUILD_STAGE_3="nix build .#buildApp"
+    BUILD_STAGE_3="nix build .#buildApp --option sandbox relaxed"
     ;;
   *)
     echo "Error: Invalid build type. Use 'docker' or 'nix'" >&2
