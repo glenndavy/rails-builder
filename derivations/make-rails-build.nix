@@ -128,7 +128,7 @@
           "TZDIR=/usr/share/zoneinfo"
         ];
         #User = "app_user:app_user";
-        ExposedPorts = { "3000/tcp" = {}; };
+        ExposedPorts = {  };
         WorkingDir = "/app";
         #runAsRoot = ''
         #  chown -R 1000:1000 /app
@@ -136,6 +136,7 @@
         enableFakechroot = true;
         fakeRootCommands = ''
         set -x
+        echo "DEBUG: Execuiting dockerImage fakeroot commands"
 				mkdir -p /etc
 				cat > /etc/passwd <<-EOF
 				root:x:0:0::/root:/bin/bash
