@@ -100,7 +100,6 @@
       commitSha = if src ? rev then builtins.substring 0 8 src.rev else "latest";
     in pkgs.dockerTools.buildLayeredImage {
       name = "rails-app-image";
-      tag = commitSha;
       contents = universalBuildInputs ++ [
         app
         usrBinDerivation
@@ -132,7 +131,7 @@
         #runAsRoot = ''
         #  chown -R 1000:1000 /app
         #'';
-        enableFakechroot = true;
+        #enableFakechroot = true;
         #fakeRootCommands = ''
         #set -x
         #echo "DEBUG: Execuiting dockerImage fakeroot commands"
