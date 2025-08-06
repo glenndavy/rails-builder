@@ -101,10 +101,10 @@
     in pkgs.dockerTools.buildLayeredImage {
       name = "rails-app-image";
       contents = universalBuildInputs ++ [
-        app
-        usrBinDerivation
-        pkgs.goreman
-        rubyPackage
+        #app
+        #usrBinDerivation
+        #pkgs.goreman
+        #rubyPackage
         pkgs.curl
         opensslPackage
         pkgs.rsync
