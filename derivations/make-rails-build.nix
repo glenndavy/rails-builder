@@ -26,8 +26,6 @@
       echo "DEBUG: Creating usr/bin/env symlink" >&2
       mkdir -p $out/usr/bin
       ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
-      echo "DEBUG: Contents of $out/usr/bin:" >&2
-      ls -l $out/usr/bin >&2
       echo "DEBUG: usrBinDerivation completed" >&2
       '';
     };
@@ -72,29 +70,8 @@
 
       installPhase = ''
       echo "DEBUG: rails-app install phase start" >&2
-      echo "DEBUG: PWD: $(pwd)" >&2
-      echo "DEBUG: Source directory contents:" >&2
-      ls -l >&2
-      ls -lR .|wc -l >&2
       mkdir -p $out/app
-      #rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh` . $out/app
-      rsync -a --delete --include '.*'--exclude 'prepare-build.sh` . $out/app
-      #if [ -d "vendor/bundle" ]; then
-      #  echo "DEBUG: Copying vendor/bundle to $out/app/vendor/bundle" >&2
-      #  rsync -a --delete "vendor/bundle/" "$out/app/vendor/bundle/"
-      #  chmod -R u+w $out/app/vendor/bundle
-      #  echo "DEBUG: Contents of $out/app/vendor/bundle:" >&2
-      #  [ -f "$out/app/vendor/bundle/bin/bundler" ] && echo "DEBUG: bundler executable found" >&2 || echo "ERROR: bundler executable missing" >&2
-      #  [ -f "$out/app/vendor/bundle/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
-      #else
-      #  echo "ERROR: No vendor/bundle found" >&2
-      #  exit 1
-      #fi
-      #if [ -d "public/packs" ]; then
-      #  rsync -a --delete "public/packs/" "$out/app/public/packs/"
-      #  echo "DEBUG: Contents of $out/app/public/packs:" >&2
-      #  ls -l $out/app/public/packs >&2
-      #fi
+      rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
       echo "DEBUG: Filesystem setup completed" >&2
       echo "DEBUG: rails-app install phase done" >&2
       '';
@@ -175,9 +152,8 @@
 				EOF
 				chown -R 1000:1000 /app
 				chmod -R u+w /app
-				echo "DEBUG: Contents of /etc:" >&2
 				ls -l /etc >&2
-       '';
+        '';
         
         #extraCommands = ''
         #  echo "DEBUG: Starting extraCommands" >&2
