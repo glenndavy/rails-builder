@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.126";
+    version = "2.0.127";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -143,12 +143,14 @@
         ];
         shellHook = old.shellHook + ''
           echo "DEBUG: Inside shell hook for buildShell" >&2
+          echo "DEBUG: Original path ${PATH}" >&2 
           export PS1="buildShell> "
           export source=$(pwd)
           export RAILS_ROOT=$(pwd)
           export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
           export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
-          export PATH=$BUNDLE_PATH/bin:$source/bin;${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
+          export PATH=$BUNDLE_PATH/bin:$source/bin;${rubyPackage}/bin:$PATH
+          env
           echo "DEBUG: done shellhook for  buildShell" >&2
         '';
       });
