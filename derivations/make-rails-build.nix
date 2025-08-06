@@ -87,7 +87,7 @@
       ];
 
       shellHook = ''
-      echo "DEBUG: Shell hook for  shell " >&2
+      echo "DEBUG: Shell hook for shell " >&2
       export PS1="shell:>"
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
       export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
