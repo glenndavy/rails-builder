@@ -143,7 +143,6 @@
         ];
         shellHook = old.shellHook + ''
           echo "DEBUG: Inside shell hook for buildShell" >&2
-          echo "DEBUG: Original path ${PATH}" >&2 
           export PS1="buildShell> "
           export source=$(pwd)
           export RAILS_ROOT=$(pwd)
