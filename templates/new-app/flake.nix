@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.125";
+    version = "2.0.126";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -148,7 +148,7 @@
           export RAILS_ROOT=$(pwd)
           export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
           export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
-          export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
+          export PATH=$BUNDLE_PATH/bin:$source/bin;${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
           echo "DEBUG: done shellhook for  buildShell" >&2
         '';
       });
@@ -283,7 +283,7 @@
         export RAILS_ROOT=$PWD
         export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
         export BUNDLE_GEMFILE=$PWD/Gemfile
-        export PATH=$RAILS_ROOT/bin:$BUNDLE_PATH/bin:${rubyPackage}/bin:$PATH
+        export PATH=$BUNDLE_PATH/bin:$RAILS_ROOT/bin:${rubyPackage}/bin:$PATH
         export RAILS_ENV=production
         export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: BUNDLE_PATH=$BUNDLE_PATH" >&2
@@ -306,7 +306,7 @@
         git add -f ./public
         git add -f $BUNDLE_PATH
         echo "DEBUG: Running rails assets:precompile..." >&2
-        ${rubyPackage}/bin/bundle exec $BUNDLE_PATH/bin/rails assets:precompile
+        ${rubyPackage}/bin/bundle exec $RAILS_ROOT/bin/rails assets:precompile
         echo "Build complete. Outputs in $BUNDLE_PATH, public/packs." >&2
         echo "DEBUG: build-rails-app in $(pwd) completed" >&2
       '';
