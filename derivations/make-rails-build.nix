@@ -101,10 +101,10 @@
     in pkgs.dockerTools.buildLayeredImage {
       name = "rails-app-image";
       contents = universalBuildInputs ++ [
-        #app
-        #usrBinDerivation
-        #pkgs.goreman
-        #rubyPackage
+        app
+        usrBinDerivation
+        pkgs.goreman
+        rubyPackage
         pkgs.curl
         opensslPackage
         pkgs.rsync
@@ -120,7 +120,6 @@
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
           "RAILS_ENV=production"
-          #"GEM_PATH=/app/vendor/bundle:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
@@ -131,28 +130,28 @@
         #runAsRoot = ''
         #  chown -R 1000:1000 /app
         #'';
-        #enableFakechroot = true;
-        #fakeRootCommands = ''
-        #set -x
-        #echo "DEBUG: Execuiting dockerImage fakeroot commands"
-				#mkdir -p /etc
-				#cat > /etc/passwd <<-EOF
-				#root:x:0:0::/root:/bin/bash
-				#app_user:x:1000:1000:App User:/app:/bin/bash
-				#EOF
-				#cat > /etc/group <<-EOF
-				#root:x:0:
-				#app_user:x:1000:
-				#EOF
-				## Optional shadow
-				#cat > /etc/shadow <<-EOF
-				#root:*:18000:0:99999:7:::
-				#app_user:*:18000:0:99999:7:::
-				#EOF
-				#chown -R 1000:1000 /app
-				#chmod -R u+w /app
-				#ls -l /etc >&2
-        #'';
+        enableFakechroot = true;
+        fakeRootCommands = ''
+        set -x
+        echo "DEBUG: Execuiting dockerImage fakeroot commands"
+				mkdir -p /etc
+				cat > /etc/passwd <<-EOF
+				root:x:0:0::/root:/bin/bash
+				app_user:x:1000:1000:App User:/app:/bin/bash
+				EOF
+				cat > /etc/group <<-EOF
+				root:x:0:
+				app_user:x:1000:
+				EOF
+				# Optional shadow
+				cat > /etc/shadow <<-EOF
+				root:*:18000:0:99999:7:::
+				app_user:*:18000:0:99999:7:::
+				EOF
+				chown -R 1000:1000 /app
+				chmod -R u+w /app
+        echo "DEBUG: Done execuiting dockerImage fakeroot commands"
+        '';
         
         #extraCommands = ''
         #  echo "DEBUG: Starting extraCommands" >&2
