@@ -24,12 +24,12 @@ export BUILD_STAGE_3
 
 git config --global user.email builder@rx || true
 git config --global user.name  "Rails builder esq." || true
-git config --global set advice.addIgnoredFile false
-git config --global set advice.advice.addEmbeddedRepo false
+git config set advice.addIgnoredFile false
+git config set advice.advice.addEmbeddedRepo false
 # Clone repository
 REPO_DIR=$(basename "$REPO_URL" .git)
 git clone --depth 1 "$REPO_URL" "$REPO_DIR"
-git ls-remote https://github.com/glenndavy/rails-builder|head -n1 |awk '{print $1}' > $REPO_DIR/BUILDERVISION
+git ls-remote https://github.com/glenndavy/rails-builder|head -n1 |awk '{print $1}' > $REPO_DIR/BUILDERVERSION
 cd "$REPO_DIR"
 git add BUILDERVERSION
 # Run build-stage-02.sh from scripts/
