@@ -20,7 +20,7 @@
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
-    version = "2.0.124";
+    version = "2.0.125";
     detectRubyVersion = { src }: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -278,13 +278,14 @@
         #!${pkgs.runtimeShell}
         set -e
         echo "DEBUG: Starting build-rails-app" >&2
-        export BUNDLE_PATH=$PWD/vendor/bundle
-        export BUNDLE_GEMFILE=$PWD/Gemfile
-        export PATH=$BUNDLE_PATH/bin:${rubyPackage}/bin:$PATH
-        export RAILS_ENV=production
-        export SECRET_KEY_BASE=dummy_value_for_build
         export HOME=$PWD
         export source=$PWD
+        export RAILS_ROOT=$PWD
+        export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
+        export BUNDLE_GEMFILE=$PWD/Gemfile
+        export PATH=$RAILS_ROOT/bin:$BUNDLE_PATH/bin:${rubyPackage}/bin:$PATH
+        export RAILS_ENV=production
+        export SECRET_KEY_BASE=dummy_value_for_build
         echo "DEBUG: BUNDLE_PATH=$BUNDLE_PATH" >&2
         echo "DEBUG: BUNDLE_GEMFILE=$BUNDLE_GEMFILE" >&2
         echo "DEBUG: PATH=$PATH" >&2
@@ -295,23 +296,13 @@
         ${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document -i vendor/bundle/ruby/${rubyMajorMinor}.0
         echo "DEBUG: Bundler version: $(${rubyPackage}/bin/bundle -v)" >&2
         echo "DEBUG: Running bundle install..." >&2
-        if ! ${rubyPackage}/bin/bundle install --standalone --path $BUNDLE_PATH --binstubs=$BUNDLE_PATH/bin; then
+        if ! ${rubyPackage}/bin/bundle install --standalone --path $BUNDLE_PATH --binstubs; then
           echo "ERROR: bundle install failed" >&2
-          exit 1
-        fi
-        echo "DEBUG: Ensuring rails binstub..." >&2
-        ${rubyPackage}/bin/bundle binstubs rails --force --path $BUNDLE_PATH
-        echo "DEBUG: Contents of $BUNDLE_PATH/bin:" >&2
-        if [ -d "$BUNDLE_PATH/bin" ]; then
-          ls -l $BUNDLE_PATH/bin >&2
-          [ -f "$BUNDLE_PATH/bin/rails" ] && echo "DEBUG: rails executable found" >&2 || echo "ERROR: rails executable missing" >&2
-          [ -f "$BUNDLE_PATH/bin/bundle" ] && echo "DEBUG: bundle executable found" >&2 || echo "ERROR: bundle executable missing" >&2
-        else
-          echo "ERROR: $BUNDLE_PATH/bin directory not created" >&2
           exit 1
         fi
         git add .ruby-version ||true
         git add .ruby_version ||true
+        git add -f $RAILS_ROOT/bin
         git add -f ./public
         git add -f $BUNDLE_PATH
         echo "DEBUG: Running rails assets:precompile..." >&2
