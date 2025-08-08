@@ -19,9 +19,12 @@
   }: let
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs { inherit system overlays; config.permittedInsecurePackages = ["openssl-1.1.1w"]; };
+    pkgs = import nixpkgs {
+      inherit system overlays;
+      config.permittedInsecurePackages = ["openssl-1.1.1w"];
+    };
     version = "2.0.131";
-    detectRubyVersion = { src }: let
+    detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
       parseVersion = version: let
@@ -50,7 +53,7 @@
         else fromRubyVersion;
     in
       fromGemfile;
-    detectBundlerVersion = { src }: let
+    detectBundlerVersion = {src}: let
       gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
       parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
@@ -76,15 +79,21 @@
         else fromGemfileLock;
     in
       fromGemfile;
-    rubyVersion = detectRubyVersion { src = ./.; };
-    bundlerVersion = detectBundlerVersion { src = ./.; };
+    rubyVersion = detectRubyVersion {src = ./.;};
+    bundlerVersion = detectBundlerVersion {src = ./.;};
     buildConfig = {
       inherit rubyVersion;
       gccVersion = "latest";
       opensslVersion = "3";
       buildRailsApp = self.packages.${system}.build-rails-app; # Pass build-rails-app
     };
-    railsBuild = rails-builder.lib.mkRailsBuild ( buildConfig // { src = builtins.path { path = ./.; name = "rails-app-src";};});
+    railsBuild = rails-builder.lib.mkRailsBuild (buildConfig
+      // {
+        src = builtins.path {
+          path = ./.;
+          name = "rails-app-src";
+        };
+      });
     rubyPackage = pkgs."ruby-${rubyVersion}";
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
@@ -134,24 +143,28 @@
         '';
       });
       buildShell = railsBuild.shell.overrideAttrs (old: {
-        buildInputs = (old.buildInputs or []) ++ [
-          rubyPackage
-          pkgs.rsync
-          self.packages.${system}.manage-postgres
-          self.packages.${system}.manage-redis
-          self.packages.${system}.build-rails-app
-        ];
-        shellHook = old.shellHook + ''
-          echo "DEBUG: Inside shell hook for buildShell" >&2
-          export PS1="buildShell> "
-          export source=$(pwd)
-          export RAILS_ROOT=$(pwd)
-          export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
-          export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
-          export PATH=$BUNDLE_PATH/bin:$source/bin:${rubyPackage}/bin:$PATH
-          env
-          echo "DEBUG: done shellhook for  buildShell" >&2
-        '';
+        buildInputs =
+          (old.buildInputs or [])
+          ++ [
+            rubyPackage
+            pkgs.rsync
+            self.packages.${system}.manage-postgres
+            self.packages.${system}.manage-redis
+            self.packages.${system}.build-rails-app
+          ];
+        shellHook =
+          old.shellHook
+          + ''
+            echo "DEBUG: Inside shell hook for buildShell" >&2
+            export PS1="buildShell> "
+            export source=$(pwd)
+            export RAILS_ROOT=$(pwd)
+            export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
+            export BUNDLE_GEMFILE=$RAILS_ROOT/Gemfile
+            export PATH=$BUNDLE_PATH/bin:$source/bin:${rubyPackage}/bin:$PATH
+            env
+            echo "DEBUG: done shellhook for  buildShell" >&2
+          '';
       });
     };
     packages.${system} = {
@@ -165,79 +178,79 @@
           Backend Flake Version: ${rails-builder.lib.version}
         ''}
       '';
-			manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
-				#!${pkgs.runtimeShell}
-				set -e
-				echo "DEBUG: Starting manage-postgres $1" >&2
-				export source=$PWD
-				export PGDATA=$source/tmp/pgdata
-				export PGHOST=$source/tmp
-				export PGDATABASE=rails_build
-				echo "DEBUG: source=$source" >&2
-				echo "DEBUG: PGDATA=$PGDATA" >&2
-				echo "DEBUG: PGHOST=$PGHOST" >&2
-				echo "DEBUG: Checking write permissions for $source/tmp" >&2
-				mkdir -p "$source/tmp"
-				chmod u+w "$source/tmp"
-				ls -ld "$source/tmp" >&2
-				mkdir -p "$PGDATA"
-				chmod u+w "$PGDATA"
-				case "$1" in
-					start)
-						echo "DEBUG: Checking PGDATA validity" >&2
-						if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
-							echo "DEBUG: Valid cluster found, checking status" >&2
-							if ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
-								echo "PostgreSQL is already running."
-								exit 0
-							fi
-						else
-							echo "DEBUG: No valid cluster, initializing" >&2
-							rm -rf "$PGDATA"
-							mkdir -p "$PGDATA"
-							chmod u+w "$PGDATA"
-							echo "Running initdb..." >&2
-							if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > "$source/tmp/initdb.log" 2>&1; then
-								echo "initdb failed. Log:" >&2
-								cat "$source/tmp/initdb.log" >&2
-								exit 1
-							fi
-							echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
-						fi
-						echo "Starting PostgreSQL..." >&2
-						if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l "$source/tmp/pg.log" -o "-k $PGHOST" start > "$source/tmp/pg_ctl.log" 2>&1; then
-							echo "pg_ctl start failed. Log:" >&2
-							cat "$source/tmp/pg_ctl.log" >&2
-							exit 1
-						fi
-						sleep 2
-						if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
-							echo "PostgreSQL failed to start." >&2
-							cat "$source/tmp/pg.log" >&2
-							exit 1
-						fi
-						if ! ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
-							${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
-						fi
-						echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST" >&2
-						;;
-					stop)
-						echo "DEBUG: Stopping PostgreSQL" >&2
-						if [ -d "$PGDATA" ] && ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
-							${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
-							echo "PostgreSQL stopped."
-						else
-							echo "PostgreSQL is not running or PGDATA not found."
-						fi
-						;;
-					*)
-						echo "Usage: manage-postgres {start|stop}" >&2
-						exit 1
-						;;
-				esac
-				echo "DEBUG: manage-postgres completed" >&2
-			'';
-     manage-redis = pkgs.writeShellScriptBin "manage-redis" ''
+      manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
+        #!${pkgs.runtimeShell}
+        set -e
+        echo "DEBUG: Starting manage-postgres $1" >&2
+        export source=$PWD
+        export PGDATA=$source/tmp/pgdata
+        export PGHOST=$source/tmp
+        export PGDATABASE=rails_build
+        echo "DEBUG: source=$source" >&2
+        echo "DEBUG: PGDATA=$PGDATA" >&2
+        echo "DEBUG: PGHOST=$PGHOST" >&2
+        echo "DEBUG: Checking write permissions for $source/tmp" >&2
+        mkdir -p "$source/tmp"
+        chmod u+w "$source/tmp"
+        ls -ld "$source/tmp" >&2
+        mkdir -p "$PGDATA"
+        chmod u+w "$PGDATA"
+        case "$1" in
+        	start)
+        		echo "DEBUG: Checking PGDATA validity" >&2
+        		if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
+        			echo "DEBUG: Valid cluster found, checking status" >&2
+        			if ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+        				echo "PostgreSQL is already running."
+        				exit 0
+        			fi
+        		else
+        			echo "DEBUG: No valid cluster, initializing" >&2
+        			rm -rf "$PGDATA"
+        			mkdir -p "$PGDATA"
+        			chmod u+w "$PGDATA"
+        			echo "Running initdb..." >&2
+        			if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > "$source/tmp/initdb.log" 2>&1; then
+        				echo "initdb failed. Log:" >&2
+        				cat "$source/tmp/initdb.log" >&2
+        				exit 1
+        			fi
+        			echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
+        		fi
+        		echo "Starting PostgreSQL..." >&2
+        		if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l "$source/tmp/pg.log" -o "-k $PGHOST" start > "$source/tmp/pg_ctl.log" 2>&1; then
+        			echo "pg_ctl start failed. Log:" >&2
+        			cat "$source/tmp/pg_ctl.log" >&2
+        			exit 1
+        		fi
+        		sleep 2
+        		if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+        			echo "PostgreSQL failed to start." >&2
+        			cat "$source/tmp/pg.log" >&2
+        			exit 1
+        		fi
+        		if ! ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
+        			${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
+        		fi
+        		echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST" >&2
+        		;;
+        	stop)
+        		echo "DEBUG: Stopping PostgreSQL" >&2
+        		if [ -d "$PGDATA" ] && ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
+        			${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
+        			echo "PostgreSQL stopped."
+        		else
+        			echo "PostgreSQL is not running or PGDATA not found."
+        		fi
+        		;;
+        	*)
+        		echo "Usage: manage-postgres {start|stop}" >&2
+        		exit 1
+        		;;
+        esac
+        echo "DEBUG: manage-postgres completed" >&2
+      '';
+      manage-redis = pkgs.writeShellScriptBin "manage-redis" ''
         #!${pkgs.runtimeShell}
         export source=$PWD
         echo "DEBUG: Starting manage-redis $1" >&2
