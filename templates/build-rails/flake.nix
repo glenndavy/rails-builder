@@ -1,5 +1,6 @@
 {
   description = "Rails app template";
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
@@ -8,13 +9,15 @@
     flake-compat.flake = false;
     src = ./.;
   };
+
   outputs = {
     self,
     nixpkgs,
     nixpkgs-ruby,
-    flake,
+    flake-compat,
     src,
-  }: let
+  }: 
+  let
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {
@@ -25,6 +28,8 @@
     gccVersion = "latest";
     opensslVersion = "3";
     #detect ruby version
+
+    #detect ruby version 
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -54,10 +59,9 @@
         else fromRubyVersion;
     in
       fromGemfile;
+    #end detect ruby version 
 
-    # end detect ruby version
-
-    #detect bundler version
+    #detect bundler version 
     detectBundlerVersion = {src}: let
       gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
@@ -84,15 +88,14 @@
         else fromGemfileLock;
     in
       fromGemfile;
-
-    #end detect bundler version
+    #end detect bundler version 
+    
     rubyVersion = detectRubyVersion {src = ./.;};
     bundlerVersion = detectBundlerVersion {src = ./.;};
     rubyPackage = pkgs."ruby-${rubyVersion}";
     rubyVersionSplit = builtins.splitVersion rubyVersion;
     rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
 
-    #usrBin derivation
     gccPackage =
       if gccVersion == "latest"
       then pkgs.gcc
@@ -115,6 +118,7 @@
         echo "DEBUG: usrBinDerivation completed" >&2
       '';
     };
+
     tzinfo = pkgs.stdenv.mkDerivation {
       name = "tzinfo";
       buildInputs = [pkgs.tzdata];
@@ -124,6 +128,7 @@
         ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
       '';
     };
+
     universalBuildInputs = [
       rubyPackage
       usrBinDerivation
@@ -160,7 +165,7 @@
       echo "DEBUG: shell hook done" >&2
     '';
 
-    builderShellHook =
+    devShellHook =
       defaultShellHook
       ++ ''
         echo "DEBUG: builder Shell hook" >&
@@ -168,7 +173,7 @@
         export NIXPKGS_ALLOW_INSECURE=1
         export RAILS_ROOT=$(pwd)
         export source=$RAILS_ROOT
-        export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+        export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/ruby/site_ruby/${rubyMajorMinor}.0
         export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
         export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
         # pausing on this, till we know we can't use the bundler package
@@ -188,17 +193,45 @@
         echo "DEBUG: rails-app install phase done" >&2
       '';
     };
-  in {
-    packages.classic.${system} = {
+
+  in { 
+    apps.${system} = {
+      detectBundlerVersion = {
+        type = "app";
+        program = "${pkgs.bash}/bin/bash";
+        args = ["-c" "echo ${bundlerVersion}"];
+      };
+      detectRubyVersion = {
+        type = "app";
+        program = "${pkgs.bash}/bin/bash";
+        args = ["-c" "echo ${rubyVersion}"];
+      };
+      flakeVersion = {
+        type = "app";
+        program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
+      };
+    };
+
+    packages.${system} = {
       ruby = rubyPackage;
-      railsPackge = "placeholder";
+      railsPackage = appSrc;
       dockerImage = "placeholder";
       #railsAppModule="placeholder"
+      flakeVersion = {
+        type = "app";
+        program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
+      };
     };
-    scripts.classic.${system} = {
-      minimalShell = {};
-      devShell = {};
-      makeShell = {};
+
+    scripts.${system} = {
+      manage-postgres = manage-postgres-script;
+      manage-redis = manage-redis-script;
+    };
+
+    devShells.${system} = {
+      default = pkgs.mkShell {
+        buildInputs = universalBuildInputs + builderExtraInputs;
+        shellHook = defaultShellHook ++ devShellHook;
+      };
     };
   };
-}

@@ -1,0 +1,34 @@
+
+    bundlerGems = import ./bundler-hashes.nix;
+    bundlerVersion = "2.5.16"; # Default, overridden by detectBundlerVersion
+    bundlerGem = bundlerGems."${bundlerVersion}" or (throw "Unsupported bundler version: ${bundlerVersion}. Update bundler-hashes.nix.");
+    bundler = pkgs.stdenv.mkDerivation {
+      name = "bundler-${bundlerVersion}";
+      buildInputs = [ruby pkgs.git];
+      src = pkgs.fetchurl {
+        url = bundlerGem.url;
+        sha256 = bundlerGem.sha256;
+      };
+      dontUnpack = true;
+      installPhase = ''
+        export LD_LIBRARY_PATH=${pkgs.postgresql}/lib:${pkgs.libyaml}/lib:$LD_LIBRARY_PATH
+        export HOME=$TMPDIR
+        export GEM_HOME=$out/lib/ruby/gems/${defaultRubyVersion}
+        export GEM_PATH=$GEM_HOME
+        export PATH=$out/bin:$PATH
+        mkdir -p $GEM_HOME $out/bin
+        gem install --no-document --local $src --install-dir $GEM_HOME --bindir $out/bin
+        if [ -f "$out/bin/bundle" ]; then
+          sed -i 's|#!/usr/bin/env ruby|#!${ruby}/bin/ruby|' "$out/bin/bundle"
+        fi
+      '';
+    };
+
+    bundlerWrapper = pkgs.writeShellScriptBin "bundle" ''
+      #!${pkgs.runtimeShell}
+      export GEM_HOME=$TMPDIR/gems
+      export GEM_PATH=${bundler}/lib/ruby/gems/${defaultRubyVersion}:$GEM_HOME
+      unset RUBYLIB
+      exec ${ruby}/bin/ruby ${bundler}/bin/bundle "$@"
+    '';
+
