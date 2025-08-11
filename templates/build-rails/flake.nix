@@ -150,7 +150,7 @@
 
     manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
     manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import (rails-builder + /imports/manage-redis-script.nix) {inherit pkgs;});
-    #make-rails-app = pkgs.writeShellScriptBin "make-rails-app" (import ./imports/make-rails-app.nix {inherit pkgs;});
+    make-rails-app = pkgs.writeShellScriptBin "make-rails-app" (import rails-builder + /imports/make-rails-app-script.nix {inherit pkgs;});
 
     builderExtraInputs =
       [
