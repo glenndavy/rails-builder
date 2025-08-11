@@ -7,7 +7,6 @@
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
-    src = ./.;
   };
 
   outputs = {
@@ -15,9 +14,7 @@
     nixpkgs,
     nixpkgs-ruby,
     flake-compat,
-    src,
-  }: 
-  let
+  }: let
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {
@@ -29,7 +26,7 @@
     opensslVersion = "3";
     #detect ruby version
 
-    #detect ruby version 
+    #detect ruby version
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -59,9 +56,9 @@
         else fromRubyVersion;
     in
       fromGemfile;
-    #end detect ruby version 
+    #end detect ruby version
 
-    #detect bundler version 
+    #detect bundler version
     detectBundlerVersion = {src}: let
       gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
@@ -88,8 +85,8 @@
         else fromGemfileLock;
     in
       fromGemfile;
-    #end detect bundler version 
-    
+    #end detect bundler version
+
     rubyVersion = detectRubyVersion {src = ./.;};
     bundlerVersion = detectBundlerVersion {src = ./.;};
     rubyPackage = pkgs."ruby-${rubyVersion}";
@@ -168,12 +165,12 @@
     devShellHook =
       defaultShellHook
       ++ ''
-        echo "DEBUG: builder Shell hook" >&
+        echo "DEBUG: builder Shell hook" >&2
         export PS1="$(pwd) railsBuild shell >"
         export NIXPKGS_ALLOW_INSECURE=1
         export RAILS_ROOT=$(pwd)
         export source=$RAILS_ROOT
-        export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/ruby/site_ruby/${rubyMajorMinor}.0
+        export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
         export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
         export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
         # pausing on this, till we know we can't use the bundler package
@@ -182,7 +179,7 @@
 
     appSrc = pkgs.stdenv.mkDerivation {
       name = "rails-app";
-      inherit src;
+      src = ./.;
       nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash];
       buildInputs = universalBuildInputs;
       installPhase = ''
@@ -193,8 +190,7 @@
         echo "DEBUG: rails-app install phase done" >&2
       '';
     };
-
-  in { 
+  in {
     apps.${system} = {
       detectBundlerVersion = {
         type = "app";
@@ -217,10 +213,10 @@
       railsPackage = appSrc;
       dockerImage = "placeholder";
       #railsAppModule="placeholder"
-      flakeVersion = {
-        type = "app";
-        program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
-      };
+      flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
+        #!${pkgs.runtimeShell}
+        echo "Flake Version: ${version}"
+      '';
     };
 
     scripts.${system} = {
@@ -230,8 +226,9 @@
 
     devShells.${system} = {
       default = pkgs.mkShell {
-        buildInputs = universalBuildInputs + builderExtraInputs;
+        buildInputs = universalBuildInputs ++ builderExtraInputs;
         shellHook = defaultShellHook ++ devShellHook;
       };
     };
   };
+}
