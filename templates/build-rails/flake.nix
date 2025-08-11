@@ -191,7 +191,6 @@
       '';
     };
   in {
-
     apps.${system} = {
       detectBundlerVersion = {
         type = "app";
@@ -214,7 +213,7 @@
     packages.${system} = {
       ruby = rubyPackage;
       railsPackage = appSrc;
-      dockerImage = "placeholder";
+      #dockerImage = "placeholder";
       #railsAppModule="placeholder"
       flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
         #!${pkgs.runtimeShell}
