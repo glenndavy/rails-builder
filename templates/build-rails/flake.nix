@@ -219,9 +219,6 @@
         #!${pkgs.runtimeShell}
         echo "Flake Version: ${version}"
       '';
-    };
-
-    scripts.${system} = {
       manage-postgres = manage-postgres-script;
       manage-redis = manage-redis-script;
     };
