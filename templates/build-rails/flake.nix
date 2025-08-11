@@ -226,7 +226,11 @@
     devShells.${system} = {
       default = pkgs.mkShell {
         buildInputs = universalBuildInputs ++ builderExtraInputs;
-        shellHook = defaultShellHook ++ devShellHook;
+        shellHook = defaultShellHook;
+      };
+      dev = pkgs.mkShell {
+        buildInputs = universalBuildInputs ++ builderExtraInputs;
+        shellHook = defaultShellHook + devShellHook;
       };
     };
   };
