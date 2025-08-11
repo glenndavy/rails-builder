@@ -147,11 +147,17 @@
     manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import ./imports/manage-redis-script.nix {inherit pkgs;});
     #make-rails-app = pkgs.writeShellScriptBin "make-rails-app" (import ./imports/make-rails-app.nix {inherit pkgs;});
 
-    builderExtraInputs = [
-      gccPackage
-      pkgs.pkg-config
-      pkgs.rsync
-    ];
+    builderExtraInputs =
+      [
+        gccPackage
+        pkgs.pkg-config
+        pkgs.rsync
+      ]
+      ++ [
+        self.packages.${system}.manage-postgres
+        self.packages.${system}.manage-redis
+        self.packages.${system}.build-rails-app
+      ];
 
     defaultShellHook = ''
       echo "DEBUG: Shell hook for shell " >&2
@@ -182,12 +188,7 @@
       src = ./.;
       nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash];
       buildInputs =
-        universalBuildInputs
-        ++ [
-          self.packages.${system}.manage-postgres
-          self.packages.${system}.manage-redis
-          self.packages.${system}.build-rails-app
-        ];
+        universalBuildInputs;
       installPhase = ''
         echo "DEBUG: rails-app install phase start" >&2
         mkdir -p $out/app
@@ -235,7 +236,14 @@
         shellHook = defaultShellHook;
       };
       dev = pkgs.mkShell {
-        buildInputs = universalBuildInputs ++ builderExtraInputs;
+        buildInputs =
+          universalBuildInputs
+          ++ builderExtraInputs
+          ++ [
+            self.packages.${system}.manage-postgres
+            self.packages.${system}.manage-redis
+            self.packages.${system}.build-rails-app
+          ];
         shellHook = defaultShellHook + devShellHook;
       };
     };
