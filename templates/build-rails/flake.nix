@@ -181,7 +181,13 @@
       name = "rails-app";
       src = ./.;
       nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash];
-      buildInputs = universalBuildInputs;
+      buildInputs =
+        universalBuildInputs
+        ++ [
+          self.packages.${system}.manage-postgres
+          self.packages.${system}.manage-redis
+          self.packages.${system}.build-rails-app
+        ];
       installPhase = ''
         echo "DEBUG: rails-app install phase start" >&2
         mkdir -p $out/app
