@@ -245,7 +245,7 @@
           #  chown -R 1000:1000 /app
           #'';
           enableFakechroot = true;
-          fakeRootCommands = ''
+          runAsRoot = ''
                 set -x
                 echo "DEBUG: Execuiting dockerImage fakeroot commands"
             mkdir -p /etc
