@@ -191,16 +191,19 @@
       '';
     };
   in {
+
     apps.${system} = {
       detectBundlerVersion = {
         type = "app";
-        program = "${pkgs.bash}/bin/bash";
-        args = ["-c" "echo ${bundlerVersion}"];
+        program = "${pkgs.writeShellScriptBin "detectBundlerVersion" ''
+          echo ${bundlerVersion}
+        ''}/bin/detectBundlerVersion";
       };
       detectRubyVersion = {
         type = "app";
-        program = "${pkgs.bash}/bin/bash";
-        args = ["-c" "echo ${rubyVersion}"];
+        program = "${pkgs.writeShellScriptBin "detectRubyVersion" ''
+          echo ${rubyVersion}
+        ''}/bin/detectRubyVersion";
       };
       flakeVersion = {
         type = "app";
