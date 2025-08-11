@@ -161,7 +161,7 @@
       ++ [
         self.packages.${system}.manage-postgres
         self.packages.${system}.manage-redis
-        self.packages.${system}.build-rails-app
+        self.packages.${system}.make-rails-app
       ];
 
     defaultShellHook = ''
