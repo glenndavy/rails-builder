@@ -300,6 +300,7 @@
       manage-postgres = manage-postgres-script;
       manage-redis = manage-redis-script;
       make-rails-app = make-rails-app-script;
+      dockerImage = dockerImage;
     };
 
     devShells.${system} = {
