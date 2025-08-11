@@ -164,7 +164,7 @@
 
     devShellHook =
       defaultShellHook
-      ++ ''
+      + ''
         echo "DEBUG: builder Shell hook" >&2
         export PS1="$(pwd) railsBuild shell >"
         export NIXPKGS_ALLOW_INSECURE=1
