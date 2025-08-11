@@ -233,7 +233,7 @@
       '';
       manage-postgres = manage-postgres-script;
       manage-redis = manage-redis-script;
-      make-rails-app-script = make-rails-app-script;
+      make-rails-app = make-rails-app-script;
     };
 
     devShells.${system} = {
