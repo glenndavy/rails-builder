@@ -146,6 +146,7 @@
       pkgs.zlib
       pkgs.libyaml
       pkgs.curl
+      pkgs.nodejs
     ];
 
     manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
