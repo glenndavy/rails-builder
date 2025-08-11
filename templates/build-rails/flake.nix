@@ -7,6 +7,10 @@
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
+    rails-builder = {
+      url = "github:glenndavy/rails-builder";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -14,6 +18,7 @@
     nixpkgs,
     nixpkgs-ruby,
     flake-compat,
+    rails-builder,
   }: let
     system = "x86_64-linux";
     overlays = [nixpkgs-ruby.overlays.default];
@@ -143,8 +148,8 @@
       pkgs.curl
     ];
 
-    manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import ./imports/manage-postgres-script.nix {inherit pkgs;});
-    manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import ./imports/manage-redis-script.nix {inherit pkgs;});
+    manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
+    manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import (rails-builder + /imports/manage-redis-script.nix) {inherit pkgs;});
     #make-rails-app = pkgs.writeShellScriptBin "make-rails-app" (import ./imports/make-rails-app.nix {inherit pkgs;});
 
     builderExtraInputs =
@@ -238,12 +243,7 @@
       dev = pkgs.mkShell {
         buildInputs =
           universalBuildInputs
-          ++ builderExtraInputs
-          ++ [
-            self.packages.${system}.manage-postgres
-            self.packages.${system}.manage-redis
-            self.packages.${system}.build-rails-app
-          ];
+          ++ builderExtraInputs;
         shellHook = defaultShellHook + devShellHook;
       };
     };
