@@ -204,10 +204,10 @@
       '';
     };
     dockerImage = let
-      commitSha =
-        if src ? rev
-        then builtins.substring 0 8 src.rev
-        else "latest";
+      #commitSha =
+      #  if src ? rev
+      #  then builtins.substring 0 8 src.rev
+      #  else "latest";
     in
       pkgs.dockerTools.buildLayeredImage {
         name = "rails-app-image";
@@ -216,7 +216,7 @@
           universalBuildInputs
           ++ builderExtraInputs
           ++ [
-            appSc
+            appSrc
             usrBinDerivation
             pkgs.goreman
             rubyPackage
