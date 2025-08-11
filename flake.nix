@@ -12,7 +12,7 @@
     nixpkgs-ruby,
   }: let
     system = "x86_64-linux";
-    version = "2.0.57";
+    version = "2.0.58";
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
     mkRailsBuild = import ./derivations/make-rails-build.nix {inherit pkgs;};
