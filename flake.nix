@@ -26,7 +26,7 @@
       description = "A template for a Rails application";
     };
     templates.build-rails = {
-      path = ./templates/rails-build;
+      path = ./templates/build-rails;
       description = "A template for building rails";
     };
   };
