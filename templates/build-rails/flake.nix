@@ -282,23 +282,23 @@
           Env = [];
           #User = 'app_user:app_user;;
           fakeRootRoot = ''
-            echo "DEBUG: Execuiting dockerImage fakeroot commands"
-            mkdir -p /etc
-            cat > /etc/passwd <<-EOF
-            root:x:0:0::/root:/bin/bash
-            app_user:x:1000:1000:App User:/app:/bin/bash
-            EOF
-            cat > /etc/group <<-EOF
-            root:x:0:
-            app_user:x:1000:
-            EOF
-            # Optional shadow
-            cat > /etc/shadow <<-EOF
-            root:*:18000:0:99999:7:::
-            app_user:*:18000:0:99999:7:::
-            EOF
-            chown -R 1000:1000 /app
-            chmod -R u+w /app
+            #echo "DEBUG: Execuiting dockerImage fakeroot commands"
+            #mkdir -p /etc
+            #cat > /etc/passwd <<-EOF
+            #root:x:0:0::/root:/bin/bash
+            #app_user:x:1000:1000:App User:/app:/bin/bash
+            #EOF
+            #cat > /etc/group <<-EOF
+            #root:x:0:
+            #app_user:x:1000:
+            #EOF
+            ## Optional shadow
+            #cat > /etc/shadow <<-EOF
+            #root:*:18000:0:99999:7:::
+            #app_user:*:18000:0:99999:7:::
+            #EOF
+            #chown -R 1000:1000 /app
+            #chmod -R u+w /app
             echo "DEBUG: Done execuiting dockerImage fakeroot commands"
 
           '';
