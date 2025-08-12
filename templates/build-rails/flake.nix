@@ -281,7 +281,7 @@
           Cmd = [];
           Env = [];
           #User = 'app_user:app_user;;
-          fakeRootCommands = ''
+          runAsRoot = ''
             echo "DEBUG: Execuiting dockerImage fakeroot commands"
             mkdir -p /etc
             cat > /etc/FAKEROOT <<-EOF
