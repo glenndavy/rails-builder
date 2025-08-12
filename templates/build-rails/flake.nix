@@ -282,8 +282,11 @@
           Env = [];
           #User = 'app_user:app_user;;
           fakeRootRoot = ''
-            #echo "DEBUG: Execuiting dockerImage fakeroot commands"
-            #mkdir -p /etc
+            echo "DEBUG: Execuiting dockerImage fakeroot commands"
+            mkdir -p /etc
+            cat > /etc/FAKEROOT <<-EOF
+            test
+            EOF
             #cat > /etc/passwd <<-EOF
             #root:x:0:0::/root:/bin/bash
             #app_user:x:1000:1000:App User:/app:/bin/bash
@@ -300,7 +303,6 @@
             #chown -R 1000:1000 /app
             #chmod -R u+w /app
             echo "DEBUG: Done execuiting dockerImage fakeroot commands"
-
           '';
           enableFakechroot = true;
         };
