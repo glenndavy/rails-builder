@@ -271,7 +271,7 @@
     testDockerImage = let
     in
       pkgs.dockerTools.buildLayeredImage {
-        name = "test-docker-builds-${toString builtins.currentTime}";
+        name = "test-docker-builds-${toString (builtins.currentTime)}";
         contents = [
           pkgs.coreutils
           pkgs.bash
