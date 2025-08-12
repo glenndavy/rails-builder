@@ -268,7 +268,7 @@
           '';
         };
       };
-    testDockerBuild = let
+    testDockerImage = let
     in
       pkgs.dockerTools.buildLayeredImage {
         name = "test-docker-builds";
@@ -338,6 +338,7 @@
       manage-redis = manage-redis-script;
       make-rails-app = make-rails-app-script;
       dockerImage = dockerImage;
+      testDockerImage = testDockerImage;
     };
 
     devShells.${system} = {
