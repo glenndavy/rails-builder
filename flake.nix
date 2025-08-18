@@ -16,9 +16,10 @@
     overlays = [nixpkgs-ruby.overlays.default];
     pkgs = import nixpkgs {inherit system overlays;};
     mkRailsBuild = import ./derivations/make-rails-build.nix {inherit pkgs;};
+    mkRailsNixBuild = import ./derivations/make-rails-nix-build.nix {inherit pkgs;};
   in {
     lib = {
-      inherit mkRailsBuild;
+      inherit mkRailsBuild mkRailsNixBuild;
       version = version;
     };
     templates.new-app = {
@@ -28,6 +29,10 @@
     templates.build-rails = {
       path = ./templates/build-rails;
       description = "A template for building rails";
+    };
+    templates.build-rails-with-nix = {
+      path = ./templates/build-rails-with-nix;
+      description = "A template for building rails with nix";
     };
   };
 }
