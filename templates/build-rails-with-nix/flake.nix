@@ -1,3 +1,4 @@
+# flake.nix
 {
   description = "Rails on nix template";
 
@@ -30,9 +31,8 @@
     version = "1.0.0";
     gccVersion = "latest";
     opensslVersion = "3_2";
-    #detect ruby version
 
-    #detect ruby version
+    # Shared detection functions
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -62,9 +62,7 @@
         else fromRubyVersion;
     in
       fromGemfile;
-    #end detect ruby version
 
-    #detect bundler version
     detectBundlerVersion = {src}: let
       gemfileLock = src + "/Gemfile.lock";
       gemfile = src + "/Gemfile";
@@ -91,7 +89,6 @@
         else fromGemfileLock;
     in
       fromGemfile;
-    #end detect bundler version
 
     rubyVersion = detectRubyVersion {src = ./.;};
     bundlerVersion = detectBundlerVersion {src = ./.;};
@@ -140,14 +137,14 @@
     };
 
     yarnHashFile = pkgs.runCommand "yarn-hash" {} ''
-      ${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps ${src}/yarn.lock > $out
+      ${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps ${./.}/yarn.lock > $out
     '';
 
     yarnHash = (import yarnHashFile).sha256;
 
     yarnOfflineCache = pkgs.fetchYarnDeps {
-      yarnLock = "${src}yarn.lock";
-      sh256 = yarnHash;
+      yarnLock = "${./.}/yarn.lock";
+      sha256 = yarnHash;
     };
 
     nodeModules = pkgs.mkYarnPackage {
@@ -160,7 +157,6 @@
 
     universalBuildInputs = [
       gems
-      shell
       nodeModules
       rubyPackage
       usrBinDerivation
@@ -224,102 +220,13 @@
         #${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
       '';
 
-    appSrc = pkgs.stdenv.mkDerivation {
-      name = "rails-app";
+    mkRailsBuild = import ./imports/make-rails-nix-build.nix {
+      inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems nodeModules yarnOfflineCache gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook;
       src = ./.;
-      nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash];
-      buildInputs =
-        universalBuildInputs;
-      preConfigure = ''
-        export HOME=$PWD
-        yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
-      '';
-
-      installPhase = ''
-        echo "DEBUG: rails-app install phase start" >&2
-        mkdir -p $out/app
-        rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
-        ln -sf ${gems} app/vendor/bundle/ruby
-        ln -sf ${nodeModules}/lib/node_modules app/node_modultes
-        echo "DEBUG: Filesystem setup completed" >&2
-        echo "DEBUG: rails-app install phase done" >&2
-      '';
+      buildRailsApp = self.packages.${system}.make-rails-app-with-nix; # Adjust as needed
     };
 
-    shell = pkgs.mkShell {
-      buildInputs =
-        universalBuildInputs
-        ++ builderExtraInputs;
-      shellHook = defaultShellHook + devShellHook;
-    };
-
-    dockerImageWithNix = let
-      #commitSha =
-      #  if src ? rev
-      #  then builtins.substring 0 8 src.rev
-      #  else "latest";
-      inherit gems shell nodeModules;
-    in
-      pkgs.dockerTools.buildLayeredImage {
-        name = "rails-app-image";
-
-        contents =
-          universalBuildInputs
-          ++ builderExtraInputs
-          ++ [
-            appSrc
-            usrBinDerivation
-            pkgs.goreman
-            rubyPackage
-            pkgs.curl
-            opensslPackage
-            pkgs.rsync
-            pkgs.zlib
-            pkgs.gosu
-            pkgs.bash
-            pkgs.coreutils
-          ];
-        config = {
-          Cmd = ["${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web"];
-          Env = [
-            "BUNDLE_PATH=/app/vendor/bundle"
-            "BUNDLE_GEMFILE=/app/Gemfile"
-            "RAILS_ENV=production"
-            "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-            "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-            "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
-            "TZDIR=/usr/share/zoneinfo"
-          ];
-          User = "app_user:app_user";
-          WorkingDir = "/app";
-          #runAsRoot = ''
-          #  chown -R 1000:1000 /app
-          #'';
-        };
-        enableFakechroot = true;
-
-        fakeRootCommands = ''
-          set -x
-          echo "DEBUG: Execuiting dockerImage fakeroot commands"
-          mkdir -p /etc
-          cat > /etc/passwd <<-EOF
-          root:x:0:0::/root:/bin/bash
-          app_user:x:1000:1000:App User:/app:/bin/bash
-          EOF
-          cat > /etc/group <<-EOF
-          root:x:0:
-          app_user:x:1000:
-          EOF
-          # Optional shadow
-          cat > /etc/shadow <<-EOF
-          root:*:18000:0:99999:7:::
-          app_user:*:18000:0:99999:7:::
-          EOF
-          chown -R 1000:1000 /app
-          chmod -R u+w /app
-          echo "DEBUG: Done execuiting dockerImage fakeroot commands"
-        '';
-      };
+    inherit (mkRailsBuild) app shell dockerImage;
   in {
     apps.${system} = {
       detectBundlerVersion = {
@@ -340,7 +247,7 @@
       };
       generate-dependencies = {
         type = "app";
-        program = "${pkgs.writeShellScriptBin}  " generate-dependencies " ''
+        program = "${pkgs.writeShellScriptBin "generate-dependencies" ''
           echo ${generate-dependencies}
         ''}/bin/generate-dependencies";
       };
@@ -348,7 +255,7 @@
 
     packages.${system} = {
       ruby = rubyPackage;
-      railsPackage = appSrc;
+      railsPackage = app;
       flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
         #!${pkgs.runtimeShell}
         echo "Flake Version: ${version}"
@@ -357,8 +264,7 @@
       manage-redis = manage-redis-script;
       make-rails-app = make-rails-app-with-nix-script;
       generate-dependencies = generate-dependencies-script;
-      dockerImage = dockerImageWithNix;
-      #testDockerImage = testDockerImage;
+      dockerImage = dockerImage;
     };
 
     devShells.${system} = {

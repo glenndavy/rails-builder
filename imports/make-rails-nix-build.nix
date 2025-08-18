@@ -1,4 +1,6 @@
-{pkgs, ...}: {
+# imports/make-rails-nix-build.nix
+{
+  pkgs,
   rubyVersion,
   gccVersion ? "latest",
   opensslVersion ? "3_2",
@@ -6,70 +8,17 @@
   buildRailsApp,
   gems,
   nodeModules,
+  universalBuildInputs,
+  rubyPackage,
+  rubyMajorMinor,
+  yarnOfflineCache,
+  gccPackage,
+  opensslPackage,
+  usrBinDerivation,
+  tzinfo,
+  defaultShellHook,
   ...
 }: let
-  rubyPackage = pkgs."ruby-${rubyVersion}";
-  rubyVersionSplit = builtins.splitVersion rubyVersion;
-  rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
-  gccPackage =
-    if gccVersion == "latest"
-    then pkgs.gcc
-    else pkgs."gcc${gccVersion}";
-  opensslPackage =
-    if opensslVersion == "3_2"
-    then pkgs.openssl_3
-    else pkgs."openssl_${opensslVersion}";
-  usrBinDerivation = pkgs.stdenv.mkDerivation {
-    name = "usr-bin-env";
-    buildInputs = [pkgs.coreutils];
-    dontUnpack = true;
-    installPhase = ''
-      echo "DEBUG: usrBinDerviation install phase" >&2
-      echo "DEBUG: Creating usr/bin/env symlink" >&2
-      mkdir -p $out/usr/bin
-      ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
-      echo "DEBUG: usrBinDerivation completed" >&2
-    '';
-  };
-  tzinfo = pkgs.stdenv.mkDerivation {
-    name = "tzinfo";
-    buildInputs = [pkgs.tzdata];
-    dontUnpack = true;
-    installPhase = ''
-      mkdir -p $out/usr/share
-      ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
-    '';
-  };
-
-  yarnHashFile = pkgs.runCommand "yarn-hash" {} ''
-    ${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps ${src}/yarn.lock > $out
-  '';
-
-  yarnHash = (import yarnHashFile).sha256;
-
-  yarnOfflineCache = pkgs.fetchYarnDeps {
-    yarnLock = "${src}yarn.lock";
-    sh256 = yarnHash;
-  };
-
-  universalBuildInputs = [
-    rubyPackage
-    usrBinDerivation
-    tzinfo
-    opensslPackage
-    pkgs.libpqxx
-    pkgs.sqlite
-    pkgs.libxml2
-    pkgs.libxslt
-    pkgs.zlib
-    pkgs.libyaml
-    pkgs.postgresql
-    pkgs.zlib
-    pkgs.libyaml
-    pkgs.curl
-    tzinfo
-  ];
-
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
@@ -111,13 +60,7 @@
         pkgs.nodejs
       ];
 
-    shellHook = ''
-      echo "DEBUG: Shell hook for shell " >&2
-      export PS1="shell:>"
-      export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
-      export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
-      echo "DEBUG: shell hook done" >&2
-    '';
+    shellHook = defaultShellHook;
   };
 in {
   inherit shell app;
