@@ -40,6 +40,18 @@
       ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
     '';
   };
+
+  yarnHashFile = pkgs.runCommand "yarn-hash" {} ''
+    ${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps ${src}/yarn.lock > $out
+  '';
+
+  yarnHash = (import yarnHashFile).sha256;
+
+  yarnOfflineCache = pkgs.fetchYarnDeps {
+    yarnLock = "${src}yarn.lock";
+    sh256 = yarnHash;
+  };
+
   universalBuildInputs = [
     rubyPackage
     usrBinDerivation
@@ -61,12 +73,21 @@
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
-    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
+    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs pkgs.yarnConfigHook pkgs.yarnInstallHook];
     buildInputs = universalBuildInputs;
+    #yarnFlags = ["--offline" "--frozen-lockfile"];
+
+    preConfigure = ''
+      export HOME=$PWD
+      yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
+    '';
+
     buildPhase = ''
       echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
+      yarn install ${toString ["--offline" "--frozen-lockfile"]}
+      bundle exec rails assets:precompile
       echo "DEBUG: rails-app build phase done" >&2
     '';
 
