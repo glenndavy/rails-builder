@@ -145,9 +145,6 @@
       yarnLock = ./yarn.lock;
       packageJSON = ./package.json;
       yarnFlags = ["--offline" "--frozen-lockfile"];
-
-      # Import generated yarn.nix if complex; else yarn2nix auto-generates
-      # yarnNix = ./yarn.nix;  # If pre-generated
     };
 
     universalBuildInputs = [
@@ -338,6 +335,7 @@
       manage-postgres = manage-postgres-script;
       manage-redis = manage-redis-script;
       make-rails-app = make-rails-app-with-nix-script;
+      generate-dependencies = generate-dependencies-script;
       dockerImage = dockerImageWithNix;
       #testDockerImage = testDockerImage;
     };
