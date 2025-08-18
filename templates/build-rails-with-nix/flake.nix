@@ -179,7 +179,7 @@
     manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import (rails-builder + /imports/manage-redis-script.nix) {inherit pkgs;});
     make-rails-app-with-nix-script = pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (rails-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;});
 
-    #generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (rails-builder + /imports/generate-dependencies.nix));
+    generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (rails-builder + /imports/generate-dependencies.nix));
 
     builderExtraInputs =
       [
