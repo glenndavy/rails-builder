@@ -321,13 +321,15 @@
         type = "app";
         program = "${self.packages.${system}.flakeVersion}/bin/flake-version";
       };
+      generate-dependencies = {
+        type = "app";
+        program = "${self.packages.${system}.generate-dependencies}/bin/generate-dependencies";
+      };
     };
 
     packages.${system} = {
       ruby = rubyPackage;
       railsPackage = appSrc;
-      #dockerImage = "placeholder";
-      #railsAppModule="placeholder"
       flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
         #!${pkgs.runtimeShell}
         echo "Flake Version: ${version}"
