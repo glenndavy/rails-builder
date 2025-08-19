@@ -14,7 +14,7 @@
   export PATH=$GEM_HOME/bin:$PATH
   ${rubyPackage}/bin/bundle install --path vendor/bundle --standalone
   sed -i 's|system("bundle", |system("${rubyPackage}/bin/bundle", |g' $GEM_HOME/gems/bundix-*/lib/bundix/commandline.rb
-  bundix --magic  # Now patched bundix uses correct bundle
+  ${rubyPackage}/bin/ruby $GEM_HOME/gems/bundix-2.5.0/bin/bundix --magic
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
