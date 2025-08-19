@@ -247,9 +247,7 @@
       };
       generate-dependencies = {
         type = "app";
-        program = "${pkgs.writeShellScriptBin "generate-dependencies" ''
-          echo ${generate-dependencies}
-        ''}/bin/generate-dependencies";
+        program = "${self.packages.${system}.generate-dependencies}/bin/generate-dependencies";
       };
     };
 
