@@ -129,8 +129,6 @@
       '';
     };
 
-    customBundix = pkgs.bundix.override {ruby = rubyPackage;};
-
     gems = pkgs.bundlerEnv {
       name = "rails-gems";
       inherit rubyPackage;
