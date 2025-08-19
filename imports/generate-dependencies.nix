@@ -2,6 +2,7 @@
   pkgs,
   rubyPackage,
   bundlerVersion,
+  customBundix,
 }: ''
   #!${pkgs.runtimeShell}
   set -e
@@ -12,7 +13,7 @@
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
   export PATH=$GEM_HOME/bin:$PATH
   ${rubyPackage}/bin/bundle install --path vendor/bundle --standalone
-  ${pkgs.bundix}/bin/bundix --magic  # Or bundix -l for lock-only
+  ${customBundix}/bin/bundix --magic  # Or bundix -l for lock-only
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
