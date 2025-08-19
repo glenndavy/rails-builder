@@ -263,7 +263,7 @@
       '';
       manage-postgres = manage-postgres-script;
       manage-redis = manage-redis-script;
-      make-rails-app = make-rails-app-with-nix-script;
+      make-rails-app-with-nix = make-rails-app-with-nix-script;
       generate-dependencies = generate-dependencies-script;
       dockerImage = dockerImage;
     };
