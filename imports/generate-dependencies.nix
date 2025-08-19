@@ -13,8 +13,10 @@
   ${rubyPackage}/bin/gem install bundix --no-document
   export PATH=$GEM_HOME/bin:$PATH
   ${rubyPackage}/bin/bundle install --path vendor/bundle --standalone
-  sed -i 's|system("bundle", |system("${rubyPackage}/bin/bundle", |g' $GEM_HOME/gems/bundix-*/lib/bundix/commandline.rb
-  ${rubyPackage}/bin/ruby $GEM_HOME/gems/bundix-2.5.0/bin/bundix --magic
+  cp Gemfile Gemfile.bak
+  sed -i '/ruby /d' Gemfile
+  bundix --magic
+  mv Gemfile.bak Gemfile
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
