@@ -156,8 +156,6 @@
     };
 
     universalBuildInputs = [
-      gems
-      nodeModules
       rubyPackage
       usrBinDerivation
       tzinfo
@@ -173,6 +171,11 @@
       pkgs.libyaml
       pkgs.curl
       pkgs.nodejs
+    ];
+
+    appSpecificBuildInputs = [
+      gems
+      nodeModules
     ];
 
     manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
@@ -266,6 +269,14 @@
     };
 
     devShells.${system} = {
+      bare = pkgs.mkShell {
+        buildInputs = universalBuildInputs ++ builderExtraInputs;
+        shellHook =
+          defaultShellHook
+          + ''
+            export PS1="bare-shell:>"
+          '';
+      };
       default = pkgs.mkShell {
         buildInputs = universalBuildInputs ++ builderExtraInputs;
         shellHook = defaultShellHook;
