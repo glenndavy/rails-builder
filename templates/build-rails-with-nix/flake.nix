@@ -220,7 +220,7 @@
         #${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
       '';
 
-    mkRailsBuild = import (rails-builder + "./imports/make-rails-nix-build.nix") {
+    mkRailsBuild = import (rails-builder + "/imports/make-rails-nix-build.nix") {
       inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems nodeModules yarnOfflineCache gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook;
       src = ./.;
       buildRailsApp = self.packages.${system}.make-rails-app-with-nix; # Adjust as needed
