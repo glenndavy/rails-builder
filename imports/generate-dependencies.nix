@@ -13,13 +13,7 @@
   ${rubyPackage}/bin/gem install bundix --no-document
   export PATH=$GEM_HOME/bin:$PATH
   bundix -l
-  # Filter out entries without valid sha256
-  awk '
-    BEGIN { RS = "}"; ORS = "}"; printing = 1 }
-    /sha256 = ""/ || /sha256 = nil/ { printing = 0; next }
-    printing { print $0 }
-    { printing = 1 }
-  ' gemset.nix > gemset-clean.nix
+  nix --impure eval --expr 'with import <nixpkgs> {}; let gemset = import ./gemset.nix; filtered = builtins.filterAttrs (n: v: (v.source or {} ? sha256) && v.source.sha256 != "" && v.source.sha256 != null) gemset; in lib.generators.toPretty {} filtered' > gemset-clean.nix
   mv gemset-clean.nix gemset.nix
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
