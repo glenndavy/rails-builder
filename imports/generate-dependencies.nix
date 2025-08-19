@@ -11,10 +11,10 @@
   export GEM_HOME=$(mktemp -d)
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
   ${rubyPackage}/bin/gem install bundix --no-document
-  sed -i 's/system("bundle", /system("${rubyPackage}/bin/bundle", /g' $GEM_HOME/gems/bundix-*/lib/bundix/commandline.rb
   export PATH=$GEM_HOME/bin:$PATH
   ${rubyPackage}/bin/bundle install --path vendor/bundle --standalone
-  bundix --magic  # Or bundix -l for lock-only
+  sed -i 's|system("bundle", |system("${rubyPackage}/bin/bundle", |g' $GEM_HOME/gems/bundix-*/lib/bundix/commandline.rb
+  bundix --magic  # Now patched bundix uses correct bundle
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
