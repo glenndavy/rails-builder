@@ -10,7 +10,7 @@
     flake-compat.flake = false;
     rails-builder = {
       url = "github:glenndavy/rails-builder";
-      flake = false;
+      flake = true;
     };
   };
 
