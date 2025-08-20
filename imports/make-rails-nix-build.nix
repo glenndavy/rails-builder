@@ -37,8 +37,12 @@
       export HOME=$PWD
       export source=$PWD
       if [ -f ./yarn.lock ]; then
-        yarn install ${toString ["--offline" "--frozen-lockfile"]}
+      yarn install ${toString ["--offline" "--frozen-lockfile"]}
       fi
+      mkdir -p vendor/bundle
+      ln -sf ${gems} vendor/bundle/ruby
+      export BUNDLE_PATH=vendor/bundle
+      export PATH=${gems}/bin:$PATH
       bundle exec rails assets:precompile
       echo "DEBUG: rails-app build phase done" >&2
     '';
