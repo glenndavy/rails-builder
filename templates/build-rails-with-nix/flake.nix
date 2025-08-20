@@ -129,7 +129,18 @@
       '';
     };
 
-    gems = pkgs.bundlerEnv {
+    bundler = pkgs.bundler.override {
+      ruby = rubyPackage;
+      version = bundlerVersion;
+    };
+    bundlerEnv = args:
+      pkgs.bundlerEnv (args
+        // {
+          ruby = rubyPackage;
+          bundler = bundler;
+        });
+
+    gems = bundlerEnv {
       name = "rails-gems";
       inherit rubyPackage;
       gemdir = ./.; # Points to Gemfile/Gemfile.lock, but uses gemset.nix
