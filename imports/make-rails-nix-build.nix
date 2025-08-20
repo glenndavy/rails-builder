@@ -36,7 +36,9 @@
       echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
-      [[ -f ./yarn.lock ]] &&  yarn install ${toString ["--offline" "--frozen-lockfile"]}
+      if [ -f ./yarn.lock ]; then
+        yarn install ${toString ["--offline" "--frozen-lockfile"]}
+      fi
       bundle exec rails assets:precompile
       echo "DEBUG: rails-app build phase done" >&2
     '';
