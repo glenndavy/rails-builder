@@ -12,14 +12,14 @@
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
   export PATH=$GEM_HOME/bin:$PATH
   bundix -l
-  # Remove invalid entries if errors persist
-  awk '
-    BEGIN { RS = "}"; ORS = "}"; printing = 1 }
-    /sha256 = ""/ || /sha256 = nil/ { printing = 0; next }
-    printing { print $0 }
-    { printing = 1 }
-  ' gemset.nix > gemset-clean.nix
-  mv gemset-clean.nix gemset.nix
+  ## Remove invalid entries if errors persist
+  #awk '
+  #  BEGIN { RS = "}"; ORS = "}"; printing = 1 }
+  #  /sha256 = ""/ || /sha256 = nil/ { printing = 0; next }
+  #  printing { print $0 }
+  #  { printing = 1 }
+  #' gemset.nix > gemset-clean.nix
+  #mv gemset-clean.nix gemset.nix
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
