@@ -35,11 +35,14 @@
 
     preConfigure = ''
       export HOME=$PWD
-
-      [[ -f ./yarn.lock ]] && yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
+      echo "DEBUG: configurePhase start" >&2
+      if [ -f ./yarn.lock ]; then
+       yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
+      fi
     '';
 
     buildPhase = ''
+      set -x
       echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
