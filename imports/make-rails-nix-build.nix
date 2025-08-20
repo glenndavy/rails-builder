@@ -28,14 +28,15 @@
 
     preConfigure = ''
       export HOME=$PWD
-      yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
+
+      [[ -f ./yarn.log ]] && yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
     '';
 
     buildPhase = ''
       echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
-      yarn install ${toString ["--offline" "--frozen-lockfile"]}
+      [[ -f ./yarn.log ]] &&  yarn install ${toString ["--offline" "--frozen-lockfile"]}
       bundle exec rails assets:precompile
       echo "DEBUG: rails-app build phase done" >&2
     '';
