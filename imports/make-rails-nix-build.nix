@@ -22,7 +22,14 @@
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
-    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs pkgs.yarnConfigHook pkgs.yarnInstallHook gems rubyPackage];
+    nativeBuildInputs =
+      [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage]
+      ++ (
+        if builtins.pathExists (src + "/yarn.lock")
+        then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
+        else []
+      );
+    #nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs pkgs.yarnConfigHook pkgs.yarnInstallHook gems rubyPackage];
     buildInputs = universalBuildInputs;
     #yarnFlags = ["--offline" "--frozen-lockfile"];
 
