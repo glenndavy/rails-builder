@@ -138,7 +138,7 @@ in {
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/usr/share/zoneinfo"
         ];
-        #User = "app_user:app_user";
+        User = "app_user:app_user";
         WorkingDir = "/app";
         #runAsRoot = ''
         #  chown -R 1000:1000 /app
