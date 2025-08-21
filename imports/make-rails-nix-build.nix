@@ -42,16 +42,18 @@
     '';
 
     buildPhase = ''
+      set -x
       echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
       if [ -f ./yarn.lock ]; then
       yarn install ${toString ["--offline" "--frozen-lockfile"]}
       fi
-      mkdir -p vendor/bundle
-      ln -sf ${gems} vendor/bundle/ruby
+      mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems
+      cp -rL ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/gems/* vendor/bundle/ruby/${rubyMajorMinor}.0/gems/
+      cp -rL ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems/* vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems/
       export BUNDLE_PATH=vendor/bundle
-      export PATH=${gems}/bin:$PATH
+      export PATH=vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$PATH
       bundle env
       bundle exec rails assets:precompile
       echo "DEBUG: rails-app build phase done" >&2
@@ -133,7 +135,7 @@ in {
         Env = [
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
-          "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
+          "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
           "RAILS_ENV=production"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
