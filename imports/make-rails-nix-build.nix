@@ -93,6 +93,7 @@ in {
         universalBuildInputs
         ++ [
           app
+          gems
           usrBinDerivation
           pkgs.goreman
           rubyPackage
@@ -132,7 +133,7 @@ in {
         Env = [
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
-          "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0/gems"
+          "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
           "RAILS_ENV=production"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
