@@ -47,11 +47,11 @@
       export HOME=$PWD
       export source=$PWD
       if [ -f ./yarn.lock ]; then
-      yarn install ${toString ["--offline" "--frozen-lockfile"]}
+        yarn install ${toString ["--offline" "--frozen-lockfile"]}
       fi
-      mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems
-      cp -rL ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/gems/* vendor/bundle/ruby/${rubyMajorMinor}.0/gems/
-      cp -rL ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bundler/gems/* vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems/
+      mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0/{gems,bundler/gems}
+      cp -rL ${gems}/lib/ruby/gems/*/gems/* vendor/bundle/ruby/${rubyMajorMinor}.0/gems/
+      cp -rL ${gems}/lib/ruby/gems/*/bundler/gems/* vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems/
       export BUNDLE_PATH=vendor/bundle
       export PATH=vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$PATH
       bundle env
