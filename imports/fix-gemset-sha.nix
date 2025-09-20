@@ -64,9 +64,9 @@
       pkgs = import <nixpkgs> {};
       gemset = import ./gemset.nix;
     in
-      pkgs.lib.mapAttrs (name: attrs: pkgs.fetchurl {
-        url = attrs.source.remotes or [ \"https://rubygems.org\" ] ++ [ \"/downloads/\${attrs.source.sha || attrs.source.sha256}.gem\" ];
-        inherit (attrs.source) sha256;
+      pkgs.lib.mapAttrs (name: gemAttrs: pkgs.fetchurl {
+        url = \"https://rubygems.org/downloads/\" + name + \"-\" + gemAttrs.version + \".gem\";
+        inherit (gemAttrs.source) sha256;
       }) gemset
   " 2> "$temp_result"; then
     echo "✅ All gem SHAs are correct!"
@@ -84,9 +84,9 @@
               pkgs = import <nixpkgs> {};
               gemset = import ./gemset.nix;
             in
-              pkgs.lib.mapAttrs (name: attrs: pkgs.fetchurl {
-                url = attrs.source.remotes or [ \"https://rubygems.org\" ] ++ [ \"/downloads/\${attrs.source.sha || attrs.source.sha256}.gem\" ];
-                inherit (attrs.source) sha256;
+              pkgs.lib.mapAttrs (name: gemAttrs: pkgs.fetchurl {
+                url = \"https://rubygems.org/downloads/\${name}-\${gemAttrs.version}.gem\";
+                inherit (gemAttrs.source) sha256;
               }) gemset
           " 2>/dev/null; then
             echo "✅ SHA fix successful!"

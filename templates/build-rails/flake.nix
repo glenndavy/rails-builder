@@ -288,8 +288,9 @@
         };
         flakeVersion = {
           type = "app";
-          program = "${pkgs.bash}/bin/bash";
-          args = ["-c" "echo 'Flake Version: ${version}'"];
+          program = "${pkgs.writeShellScript "show-version" ''
+            echo 'Flake Version: ${version}'
+          ''}";
         };
       };
 
