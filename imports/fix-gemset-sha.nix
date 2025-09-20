@@ -85,7 +85,7 @@
               gemset = import ./gemset.nix;
             in
               pkgs.lib.mapAttrs (name: gemAttrs: pkgs.fetchurl {
-                url = \"https://rubygems.org/downloads/\${name}-\${gemAttrs.version}.gem\";
+                url = \"https://rubygems.org/downloads/\" + name + \"-\" + gemAttrs.version + \".gem\";
                 inherit (gemAttrs.source) sha256;
               }) gemset
           " 2>/dev/null; then
