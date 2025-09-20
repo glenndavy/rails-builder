@@ -315,9 +315,14 @@
     in {
       inherit apps packages devShells;
     };
-  in {
-    apps = forAllSystems (system: (mkOutputsForSystem system).apps);
-    packages = forAllSystems (system: (mkOutputsForSystem system).packages);
-    devShells = forAllSystems (system: (mkOutputsForSystem system).devShells);
-  };
+  in
+    builtins.foldl' (acc: system: let
+      outputs = mkOutputsForSystem system;
+    in
+      acc
+      // {
+        apps.${system} = outputs.apps;
+        packages.${system} = outputs.packages;
+        devShells.${system} = outputs.devShells;
+      }) {} systems;
 }
