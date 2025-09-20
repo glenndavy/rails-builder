@@ -77,11 +77,12 @@
       testBasicBuild = pkgs.stdenv.mkDerivation {
         name = "test-basic-rails-build";
         dontUnpack = true;
-        buildInputs = [pkgs.ruby];
+        buildInputs = [pkgs.ruby pkgs.bundix];
         buildPhase = ''
           echo "Testing basic Rails build creation..."
           echo "✓ mkRailsBuild function available"
           echo "✓ mkRailsNixBuild function available"
+          echo "✓ bundix available: $(bundix --version)"
         '';
         installPhase = ''
           mkdir -p $out

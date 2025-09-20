@@ -134,7 +134,7 @@
 
       devShells = {
         default = railsBuild.shell.overrideAttrs (old: {
-          buildInputs = (old.buildInputs or []) ++ [rubyPackage];
+          buildInputs = (old.buildInputs or []) ++ [rubyPackage pkgs.bundix];
           shellHook = ''
             export PS1="$(pwd) railsBuild shell >"
             echo "DEBUG: Entered railsBuild Shell hook" >&2
@@ -166,6 +166,7 @@
             ++ [
               rubyPackage
               pkgs.rsync
+              pkgs.bundix
               packages.manage-postgres
               packages.manage-redis
               packages.build-rails-app

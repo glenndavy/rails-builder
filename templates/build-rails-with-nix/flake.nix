@@ -226,6 +226,7 @@
           gccPackage
           pkgs.pkg-config
           pkgs.rsync
+          pkgs.bundix  # For generating gemset.nix
         ]
         ++ [
           packages.manage-postgres
@@ -258,6 +259,11 @@
           ${if builtins.pathExists ./package.json
             then "export NODE_PATH=${nodeModules}/lib/node_modules"
             else "# No package.json found, skipping NODE_PATH"}
+
+          # Bundix is available for generating gemset.nix
+          echo "🔧 bundix is available for generating gemset.nix from Gemfile.lock"
+          echo "   Run: bundix to generate/update gemset.nix"
+
           # pausing on this, till we know we can't use the bundler package
           #${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
         '';

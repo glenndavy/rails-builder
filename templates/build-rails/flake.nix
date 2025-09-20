@@ -172,6 +172,7 @@
           gccPackage
           pkgs.pkg-config
           pkgs.rsync
+          pkgs.bundix  # For generating gemset.nix if needed
         ]
         ++ [
           manage-postgres-script
