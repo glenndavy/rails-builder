@@ -28,18 +28,15 @@
       inherit system overlays;
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
-    # Auto-incrementing version based on current date and git info
-    getVersion = let
-      timestamp = builtins.currentTime;
-      date = builtins.substring 0 8 (builtins.toString timestamp);
+    # Simple version with git info (avoiding builtins.currentTime)
+    version = let
       gitRev =
         if builtins.pathExists ./.git
         then let
           headContent = builtins.readFile ./.git/HEAD;
         in builtins.substring 0 7 headContent
         else "nogit";
-    in "1.0.${date}-${gitRev}";
-    version = getVersion;
+    in "1.0.0-${gitRev}";
     gccVersion = "latest";
     opensslVersion = "3";
 
