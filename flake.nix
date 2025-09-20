@@ -11,17 +11,22 @@
     nixpkgs,
     nixpkgs-ruby,
   }: let
-    system = "x86_64-linux";
+    systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     version = "2.0.58";
+    forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
-    pkgs = import nixpkgs {inherit system overlays;};
-    mkRailsBuild = import ./derivations/make-rails-build.nix {inherit pkgs;};
-    mkRailsNixBuild = import ./derivations/make-rails-nix-build.nix {inherit pkgs;};
-  in {
-    lib = {
+
+    mkPkgsForSystem = system: import nixpkgs {inherit system overlays;};
+    mkLibForSystem = system: let
+      pkgs = mkPkgsForSystem system;
+      mkRailsBuild = import ./derivations/make-rails-build.nix {inherit pkgs;};
+      mkRailsNixBuild = import ./derivations/make-rails-nix-build.nix {inherit pkgs;};
+    in {
       inherit mkRailsBuild mkRailsNixBuild;
       version = version;
     };
+  in {
+    lib = forAllSystems mkLibForSystem;
     templates.new-app = {
       path = ./templates/new-app;
       description = "A template for a Rails application";
