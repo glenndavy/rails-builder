@@ -25,7 +25,16 @@
       inherit system overlays;
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
-    version = "2.0.131";
+    # Auto-incrementing version based on current date and git info
+    getVersion = let
+      timestamp = builtins.currentTime;
+      date = builtins.substring 0 8 (builtins.toString timestamp);
+      gitRev =
+        if builtins.pathExists ./.git
+        then builtins.substring 0 7 (builtins.readFile ./.git/HEAD or "unknown")
+        else "nogit";
+    in "2.0.${date}-${gitRev}";
+    version = getVersion;
     detectRubyVersion = {src}: let
       rubyVersionFile = src + "/.ruby-version";
       gemfile = src + "/Gemfile";
@@ -116,7 +125,8 @@
         };
         flakeVersion = {
           type = "app";
-          program = "${packages.flakeVersion}/bin/flake-version";
+          program = "${pkgs.bash}/bin/bash";
+          args = ["-c" "echo 'Frontend Flake Version: ${version}'"];
         };
       };
 
@@ -178,12 +188,9 @@
         app = railsBuild.app;
         buildApp = railsBuild.app;
         dockerImage = railsBuild.dockerImage;
-        flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
-          #!${pkgs.runtimeShell}
-          cat ${pkgs.writeText "flake-version" ''
-            Frontend Flake Version: ${version}
-            Backend Flake Version: ${rails-builder.lib.${system}.version}
-          ''}
+        flakeVersion = pkgs.writeText "flake-version" ''
+          Frontend Flake Version: ${version}
+          Backend Flake Version: ${rails-builder.lib.${system}.version}
         '';
         manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
           #!${pkgs.runtimeShell}

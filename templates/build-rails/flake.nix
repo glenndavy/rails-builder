@@ -28,7 +28,16 @@
       inherit system overlays;
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
-    version = "1.0.0";
+    # Auto-incrementing version based on current date and git info
+    getVersion = let
+      timestamp = builtins.currentTime;
+      date = builtins.substring 0 8 (builtins.toString timestamp);
+      gitRev =
+        if builtins.pathExists ./.git
+        then builtins.substring 0 7 (builtins.readFile ./.git/HEAD or "unknown")
+        else "nogit";
+    in "1.0.${date}-${gitRev}";
+    version = getVersion;
     gccVersion = "latest";
     opensslVersion = "3";
 
@@ -279,17 +288,15 @@
         };
         flakeVersion = {
           type = "app";
-          program = "${packages.flakeVersion}/bin/flake-version";
+          program = "${pkgs.bash}/bin/bash";
+          args = ["-c" "echo 'Flake Version: ${version}'"];
         };
       };
 
       packages = {
         ruby = rubyPackage;
         railsPackage = appSrc;
-        flakeVersion = pkgs.writeShellScriptBin "flake-version" ''
-          #!${pkgs.runtimeShell}
-          echo "Flake Version: ${version}"
-        '';
+        flakeVersion = pkgs.writeText "flake-version" "Flake Version: ${version}";
         manage-postgres = manage-postgres-script;
         manage-redis = manage-redis-script;
         make-rails-app = make-rails-app-script;

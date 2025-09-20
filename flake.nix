@@ -12,7 +12,16 @@
     nixpkgs-ruby,
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
-    version = "2.0.58";
+    # Auto-incrementing version based on current date and git info
+    getVersion = let
+      timestamp = builtins.currentTime;
+      date = builtins.substring 0 8 (builtins.toString timestamp);
+      gitRev =
+        if builtins.pathExists ./.git
+        then builtins.substring 0 7 (builtins.readFile ./.git/HEAD or "unknown")
+        else "nogit";
+    in "2.0.${date}-${gitRev}";
+    version = getVersion;
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
