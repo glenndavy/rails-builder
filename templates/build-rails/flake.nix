@@ -309,12 +309,9 @@
     in {
       inherit apps packages devShells;
     };
-  in
-    forAllSystems (system: let
-      outputs = mkOutputsForSystem system;
-    in {
-      apps = outputs.apps;
-      packages = outputs.packages;
-      devShells = outputs.devShells;
-    });
+  in {
+    apps = forAllSystems (system: (mkOutputsForSystem system).apps);
+    packages = forAllSystems (system: (mkOutputsForSystem system).packages);
+    devShells = forAllSystems (system: (mkOutputsForSystem system).devShells);
+  };
 }
