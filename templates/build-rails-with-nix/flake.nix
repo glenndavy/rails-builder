@@ -221,6 +221,8 @@
 
       generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (rails-builder + /imports/generate-dependencies.nix) {inherit pkgs bundlerVersion rubyPackage;});
 
+      fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import (rails-builder + /imports/fix-gemset-sha.nix) {inherit pkgs;});
+
       builderExtraInputs =
         [
           gccPackage
@@ -233,6 +235,7 @@
           packages.manage-redis
           packages.make-rails-app-with-nix
           packages.generate-dependencies
+          packages.fix-gemset-sha
         ];
 
       defaultShellHook = ''
@@ -260,9 +263,11 @@
             then "export NODE_PATH=${nodeModules}/lib/node_modules"
             else "# No package.json found, skipping NODE_PATH"}
 
-          # Bundix is available for generating gemset.nix
-          echo "🔧 bundix is available for generating gemset.nix from Gemfile.lock"
-          echo "   Run: bundix to generate/update gemset.nix"
+          # Bundix and gemset tools available
+          echo "🔧 Nix gem management tools available:"
+          echo "   bundix              - Generate gemset.nix from Gemfile.lock"
+          echo "   fix-gemset-sha      - Fix SHA mismatches in gemset.nix"
+          echo "   generate-dependencies - Generate both gemset.nix and yarn dependencies"
 
           # pausing on this, till we know we can't use the bundler package
           #${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
@@ -298,6 +303,10 @@
           type = "app";
           program = "${packages.generate-dependencies}/bin/generate-dependencies";
         };
+        fix-gemset-sha = {
+          type = "app";
+          program = "${packages.fix-gemset-sha}/bin/fix-gemset-sha";
+        };
       };
 
       packages = {
@@ -308,6 +317,7 @@
         manage-redis = manage-redis-script;
         make-rails-app-with-nix = make-rails-app-with-nix-script;
         generate-dependencies = generate-dependencies-script;
+        fix-gemset-sha = fix-gemset-sha-script;
         dockerImage = dockerImage;
       };
 
