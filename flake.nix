@@ -18,7 +18,9 @@
       date = builtins.substring 0 8 (builtins.toString timestamp);
       gitRev =
         if builtins.pathExists ./.git
-        then builtins.substring 0 7 (builtins.readFile ./.git/HEAD or "unknown")
+        then let
+          headContent = builtins.readFile ./.git/HEAD;
+        in builtins.substring 0 7 headContent
         else "nogit";
     in "2.0.${date}-${gitRev}";
     version = getVersion;

@@ -36,7 +36,9 @@
       date = builtins.substring 0 8 (builtins.toString timestamp);
       gitRev =
         if builtins.pathExists ./.git
-        then builtins.substring 0 7 (builtins.readFile ./.git/HEAD or "unknown")
+        then let
+          headContent = builtins.readFile ./.git/HEAD;
+        in builtins.substring 0 7 headContent
         else "nogit";
     in "1.0.${date}-${gitRev}";
     version = getVersion;
@@ -180,13 +182,16 @@
           }
         else pkgs.runCommand "empty-cache" {} "mkdir -p $out";
 
-      nodeModules = pkgs.mkYarnPackage {
-        name = "rails-node-modules";
-        src = ./.; # Filters to JS dirs if needed
-        yarnLock = ./yarn.lock;
-        packageJSON = ./package.json;
-        yarnFlags = ["--offline" "--frozen-lockfile"];
-      };
+      nodeModules =
+        if builtins.pathExists ./package.json && builtins.pathExists ./yarn.lock
+        then pkgs.mkYarnPackage {
+          name = "rails-node-modules";
+          src = ./.; # Filters to JS dirs if needed
+          yarnLock = ./yarn.lock;
+          packageJSON = ./package.json;
+          yarnFlags = ["--offline" "--frozen-lockfile"];
+        }
+        else pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
 
       universalBuildInputs = [
         rubyPackage
@@ -208,8 +213,7 @@
 
       appSpecificBuildInputs = [
         gems
-        nodeModules
-      ];
+      ] ++ (if builtins.pathExists ./package.json then [nodeModules] else []);
 
       manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
       manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import (rails-builder + /imports/manage-redis-script.nix) {inherit pkgs;});
@@ -251,7 +255,9 @@
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
           export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
           export BUNDLE_PATH=${gems}/ruby/${rubyMajorMinor}/gems
-          export NODE_PATH=${nodeModules}/lib/node_modules
+          ${if builtins.pathExists ./package.json
+            then "export NODE_PATH=${nodeModules}/lib/node_modules"
+            else "# No package.json found, skipping NODE_PATH"}
           # pausing on this, till we know we can't use the bundler package
           #${rubyPackage}/bin/gem install bundler:${bundlerVersion} --no-document
         '';
