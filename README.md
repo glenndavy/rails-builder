@@ -1,18 +1,24 @@
 ## TLDR;
 
- Usage:
+  📚 Usage:
 
-  # Initialize with unified template
+  # Initialize unified template
   nix flake init -t github:glenndavy/rails-builder#rails
 
-  # Use bundler approach (works on Darwin)
-  nix develop .#with-bundler
-  bundle install
-  bundle exec rails s
+  # Development shells
+  nix develop .#with-bundler    # Darwin-compatible, uses bundle exec
+  nix develop .#with-bundix     # Linux-focused, direct gem access
 
-  # Use bundix approach (requires gemset.nix, better for Linux)
-  nix develop .#with-bundix  # Only available if gemset.nix exists
-  rails s  # Direct, no bundle exec needed
+  # Package builds
+  nix build .#package-with-bundler   # Traditional bundler build
+  nix build .#package-with-bundix    # Pure Nix bundlerEnv build
+
+  # Docker images
+  nix build .#docker-with-bundler    # Docker with bundler
+  nix build .#docker-with-bundix     # Docker with bundlerEnv
+
+  This elegantly solves the Darwin bundlerEnv issue by providing clear choices rather than
+  trying to force a single approach to work everywhere.
 
 
 ## What is this
