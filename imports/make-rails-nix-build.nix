@@ -101,11 +101,10 @@ in {
           opensslPackage
           pkgs.rsync
           pkgs.zlib
-          pkgs.gosu
           pkgs.nodejs
           pkgs.bash
           pkgs.coreutils
-        ];
+        ] ++ (if pkgs.stdenv.isLinux then [pkgs.gosu] else []);
       enableFakechroot = !pkgs.stdenv.isDarwin;
       fakeRootCommands = ''
             set -x
@@ -129,7 +128,7 @@ in {
             echo "DEBUG: Done execuiting dockerImage fakeroot commands"
       '';
       config = {
-        Cmd = ["${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web"];
+        Cmd = ["${pkgs.bash}/bin/bash" "-c" "${if pkgs.stdenv.isLinux then "${pkgs.gosu}/bin/gosu app_user " else ""}${pkgs.goreman}/bin/goreman start web"];
         Env = [
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
