@@ -106,7 +106,7 @@ in {
           pkgs.bash
           pkgs.coreutils
         ];
-      enableFakechroot = true;
+      enableFakechroot = !pkgs.stdenv.isDarwin;
       fakeRootCommands = ''
             set -x
             echo "DEBUG: Execuiting dockerImage fakeroot commands"

@@ -137,7 +137,7 @@ in {
         #runAsRoot = ''
         #  chown -R 1000:1000 /app
         #'';
-        enableFakechroot = true;
+        enableFakechroot = !pkgs.stdenv.isDarwin;
         fakeRootCommands = ''
               set -x
               echo "DEBUG: Execuiting dockerImage fakeroot commands"
