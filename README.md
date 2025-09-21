@@ -1,3 +1,19 @@
+## TLDR;
+
+ Usage:
+
+  # Initialize with unified template
+  nix flake init -t github:glenndavy/rails-builder#rails
+
+  # Use bundler approach (works on Darwin)
+  nix develop .#with-bundler
+  bundle install
+  bundle exec rails s
+
+  # Use bundix approach (requires gemset.nix, better for Linux)
+  nix develop .#with-bundix  # Only available if gemset.nix exists
+  rails s  # Direct, no bundle exec needed
+
 
 ## What is this
 

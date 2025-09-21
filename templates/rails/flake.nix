@@ -141,8 +141,8 @@
       fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import (rails-builder + /imports/fix-gemset-sha.nix) {inherit pkgs;});
 
       # Bundler approach (traditional)
-      bundlerBuild = import (rails-builder + "/imports/make-rails-build.nix") {
-        inherit pkgs rubyVersion gccVersion opensslVersion;
+      bundlerBuild = (import (rails-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
+        inherit rubyVersion gccVersion opensslVersion;
         src = ./.;
         buildRailsApp = pkgs.writeShellScriptBin "make-rails-app" (import (rails-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;});
       };
@@ -196,34 +196,35 @@
             };
           };
 
+          usrBinDerivation = pkgs.stdenv.mkDerivation {
+            name = "usr-bin-env";
+            buildInputs = [pkgs.coreutils];
+            dontUnpack = true;
+            installPhase = ''
+              mkdir -p $out/usr/bin
+              ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
+            '';
+          };
+          tzinfo = pkgs.stdenv.mkDerivation {
+            name = "tzinfo";
+            buildInputs = [pkgs.tzdata];
+            dontUnpack = true;
+            installPhase = ''
+              mkdir -p $out/usr/share
+              ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
+            '';
+          };
+          defaultShellHook = ''
+            export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
+            export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
+          '';
+
           bundixRailsBuild = import (rails-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage;
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook;
             src = ./.;
             buildRailsApp = pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (rails-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;});
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
             yarnOfflineCache = pkgs.runCommand "empty-cache" {} "mkdir -p $out";
-            usrBinDerivation = pkgs.stdenv.mkDerivation {
-              name = "usr-bin-env";
-              buildInputs = [pkgs.coreutils];
-              dontUnpack = true;
-              installPhase = ''
-                mkdir -p $out/usr/bin
-                ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
-              '';
-            };
-            tzinfo = pkgs.stdenv.mkDerivation {
-              name = "tzinfo";
-              buildInputs = [pkgs.tzdata];
-              dontUnpack = true;
-              installPhase = ''
-                mkdir -p $out/usr/share
-                ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
-              '';
-            };
-            defaultShellHook = ''
-              export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
-              export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
-            '';
           };
         in bundixRailsBuild
         else null;
@@ -274,10 +275,18 @@
         fix-gemset-sha = fix-gemset-sha-script;
 
         # Bundler approach packages
+        package-with-bundler = bundlerBuild.app;
+        docker-with-bundler = bundlerBuild.dockerImage;
+
+        # Legacy aliases for compatibility
         with-bundler-railsPackage = bundlerBuild.app;
         with-bundler-dockerImage = bundlerBuild.dockerImage;
       } // (if bundixBuild != null then {
         # Bundix approach packages (only if gemset.nix exists)
+        package-with-bundix = bundixBuild.app;
+        docker-with-bundix = bundixBuild.dockerImage;
+
+        # Legacy aliases for compatibility
         with-bundix-railsPackage = bundixBuild.app;
         with-bundix-dockerImage = bundixBuild.dockerImage;
       } else {});
