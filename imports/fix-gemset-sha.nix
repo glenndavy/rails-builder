@@ -10,6 +10,24 @@
     exit 1
   fi
 
+  # Function to add dontBuild = false to gems with native extensions
+  fix_native_extensions() {
+    echo "🔧 Adding dontBuild = false to gems with native extensions..."
+    local gems_with_extensions=("json" "bootsnap" "msgpack" "nokogiri" "bcrypt" "nio4r" "websocket-driver" "ffi" "racc" "sassc" "debug" "byebug")
+
+    for gem in "''${gems_with_extensions[@]}"; do
+      if grep -q "^  $gem = {" gemset.nix; then
+        if ! grep -A 20 "^  $gem = {" gemset.nix | grep -q "dontBuild"; then
+          echo "  Adding dontBuild = false to $gem..."
+          # Find the closing brace for this gem and add dontBuild before it
+          sed -i.bak "/^  $gem = {/,/^  };/{
+            s/^  };$/    dontBuild = false;  # Ensure native extensions are built\n  };/
+          }" gemset.nix
+        fi
+      fi
+    done
+  }
+
 
   # Function to extract gem name and incorrect SHA from nix error
   fix_sha_from_error() {
@@ -98,7 +116,11 @@
     exit $?
   fi
 
+  # Fix native extensions first
+  fix_native_extensions
+
   # Otherwise, try building dev environment and fix any SHA errors
+  DEBUG_LOG="/tmp/fix-gemset-debug.log"
   echo "🧪 Testing by building dev environment..."
 
   temp_result=$(mktemp)
