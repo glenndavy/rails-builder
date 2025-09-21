@@ -50,11 +50,16 @@
       yarn install ${toString ["--offline" "--frozen-lockfile"]}
       fi
       mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
+      # Copy gems from bundlerEnv to vendor for compatibility
       cp -r ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
-      export BUNDLE_PATH=vendor/bundle
-      export PATH=vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$PATH
-      bundle env
-      bundle exec rails assets:precompile
+
+      # Set up environment for direct gem access (no bundle exec needed)
+      export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
+      export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
+      export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
+
+      # Use direct Rails command (bundlerEnv approach - no bundle exec)
+      rails assets:precompile
       echo "DEBUG: rails-app build phase done" >&2
     '';
     installPhase = ''

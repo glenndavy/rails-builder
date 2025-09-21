@@ -160,12 +160,42 @@
           libxslt
           zlib
           libyaml
+        ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          # Darwin-specific build dependencies for native extensions
+          pkgs.darwin.apple_sdk.frameworks.CoreServices
+          pkgs.darwin.apple_sdk.frameworks.Foundation
+          pkgs.libiconv
         ];
+
+        # Configure environment for native extension compilation
+        configurePhase = pkgs.lib.optionalString pkgs.stdenv.isDarwin ''
+          # Darwin-specific environment for native extensions
+          export CPPFLAGS="-I${pkgs.libiconv}/include $CPPFLAGS"
+          export LDFLAGS="-L${pkgs.libiconv}/lib $LDFLAGS"
+        '';
 
         # Override for gems with native extensions
         postBuild = ''
           echo "Building native extensions for gems..."
         '';
+
+        # Darwin-specific gem overrides for problematic native extensions
+        gemConfig = pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+          json = attrs: {
+            buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+            configureFlags = (attrs.configureFlags or []) ++ [
+              "--enable-shared"
+              "--with-iconv-include=${pkgs.libiconv}/include"
+              "--with-iconv-lib=${pkgs.libiconv}/lib"
+            ];
+          };
+          bootsnap = attrs: {
+            buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+          };
+          msgpack = attrs: {
+            buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+          };
+        };
       };
 
       yarnHashFile =
