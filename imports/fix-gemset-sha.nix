@@ -3,16 +3,17 @@
   set -euo pipefail
 
   echo "🔧 Fixing SHA mismatches in gemset.nix..."
+  echo "Arguments received: $#: $@"
 
   if [ ! -f "gemset.nix" ]; then
     echo "❌ No gemset.nix found. Run 'bundix' first to generate it."
     exit 1
   fi
 
+
   # Function to extract gem name and incorrect SHA from nix error
   fix_sha_from_error() {
     local error_output="$1"
-
     # Extract derivation path that contains gem name and version
     local drv_path=$(echo "$error_output" | grep -o "'/nix/store/[^']*\.gem\.drv'" | head -1 | tr -d "'")
 
@@ -49,46 +50,77 @@
     fi
   }
 
-  # If we have error output as argument, fix specific gem
+  # If we have a gem name as argument, fix that specific gem
   if [ $# -gt 0 ]; then
-    fix_sha_from_error "$1"
+    if [[ "$1" == *"hash mismatch"* ]]; then
+      # Parse error output
+      fix_sha_from_error "$1"
+      exit $?
+    else
+      # Treat as gem name directly
+      gem_name="$1"
+      gem_version=""
+      if [ $# -gt 1 ]; then
+        gem_version="$2"
+      else
+        # Extract version from gemset.nix
+        gem_version=$(grep -A 10 "\"$gem_name\"" gemset.nix | grep "version =" | sed 's/.*version = "\([^"]*\)".*/\1/')
+      fi
+
+      if [ -z "$gem_version" ]; then
+        echo "❌ Could not determine version for gem: $gem_name"
+        echo "💡 Usage: fix-gemset-sha [gem-name] [version]"
+        echo "💡    or: fix-gemset-sha 'error line with hash mismatch'"
+        exit 1
+      fi
+
+      echo "🔍 Fixing SHA for $gem_name-$gem_version..."
+      gem_url="https://rubygems.org/downloads/$gem_name-$gem_version.gem"
+      echo "📥 Fetching correct SHA from: $gem_url"
+
+      correct_sha=""
+      if correct_sha=$(${pkgs.nix}/bin/nix-prefetch-url "$gem_url" 2>/dev/null); then
+        echo "✅ Correct SHA: $correct_sha"
+
+        # Update gemset.nix with correct SHA
+        ${pkgs.gnused}/bin/sed -i.bak \
+          "/\"$gem_name\" = {/,/};/ s/sha256 = \"[^\"]*\"/sha256 = \"$correct_sha\"/" \
+          gemset.nix
+
+        echo "✅ Updated $gem_name SHA in gemset.nix"
+        echo "📦 Backup saved as gemset.nix.bak"
+        exit 0
+      else
+        echo "❌ Failed to fetch correct SHA for $gem_name-$gem_version"
+        exit 1
+      fi
+    fi
     exit $?
   fi
 
-  # Otherwise, try building and fix any SHA errors interactively
-  echo "🧪 Testing gemset.nix by building gems..."
+  # Otherwise, try building dev environment and fix any SHA errors
+  echo "🧪 Testing by building dev environment..."
 
   temp_result=$(mktemp)
-  if nix build --no-link --expr "
-    let
-      pkgs = import <nixpkgs> {};
-      gemset = import ./gemset.nix;
-    in
-      pkgs.lib.mapAttrs (name: gemAttrs: pkgs.fetchurl {
-        url = \"https://rubygems.org/downloads/\" + name + \"-\" + gemAttrs.version + \".gem\";
-        inherit (gemAttrs.source) sha256;
-      }) gemset
-  " 2> "$temp_result"; then
+  echo "🔄 Running 'nix develop .#dev --command echo test' to trigger gem builds..."
+  echo "Running dev environment test..." >> "$DEBUG_LOG"
+  if nix develop .#dev --command echo "test" 2> "$temp_result" >/dev/null; then
     echo "✅ All gem SHAs are correct!"
+    echo "Dev environment succeeded" >> "$DEBUG_LOG"
     rm -f "$temp_result"
   else
     echo "🔧 Found SHA mismatches, attempting to fix..."
+    echo "Dev environment failed, error output:" >> "$DEBUG_LOG"
+    cat "$temp_result" >> "$DEBUG_LOG"
 
     while read -r line; do
+      echo "Processing line: $line" >> "$DEBUG_LOG"
       if [[ "$line" == *"hash mismatch in fixed-output derivation"* ]]; then
+        echo "Found hash mismatch line: $line" >> "$DEBUG_LOG"
         if fix_sha_from_error "$line"; then
-          echo "🔄 Retrying build after SHA fix..."
-          # Retry the build
-          if nix build --no-link --expr "
-            let
-              pkgs = import <nixpkgs> {};
-              gemset = import ./gemset.nix;
-            in
-              pkgs.lib.mapAttrs (name: gemAttrs: pkgs.fetchurl {
-                url = \"https://rubygems.org/downloads/\" + name + \"-\" + gemAttrs.version + \".gem\";
-                inherit (gemAttrs.source) sha256;
-              }) gemset
-          " 2>/dev/null; then
+          echo "🔄 Retesting dev environment after SHA fix..."
+          # Retry the dev environment
+          if nix develop .#dev --command echo "test" 2>/dev/null >/dev/null; then
             echo "✅ SHA fix successful!"
           else
             echo "⚠️  Still have issues, may need manual intervention"

@@ -12,15 +12,41 @@
     nixpkgs-ruby,
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
-    # Simple version with git info (avoiding builtins.currentTime)
+    # Version with git info and commit count for auto-increment
     version = let
-      gitRev =
+      gitInfo =
         if builtins.pathExists ./.git
         then let
-          headContent = builtins.readFile ./.git/HEAD;
-        in builtins.substring 0 7 headContent
-        else "nogit";
-    in "2.0.0-${gitRev}";
+          headFile = ./.git/HEAD;
+          headContent = builtins.readFile headFile;
+          # Extract the commit hash
+          gitRev =
+            if builtins.hasPrefix "ref: " headContent
+            then let
+              # HEAD points to a reference, read the actual commit
+              refPath = ./.git + "/" + (builtins.substring 5 (-1) (builtins.replaceStrings ["\n"] [""] headContent));
+            in
+              if builtins.pathExists refPath
+              then builtins.substring 0 7 (builtins.readFile refPath)
+              else "noref"
+            else
+              # HEAD contains the commit hash directly
+              builtins.substring 0 7 headContent;
+          # Try to get commit count from packed refs or approximate from HEAD content length
+          commitCount =
+            if builtins.pathExists ./.git/packed-refs
+            then let
+              packedContent = builtins.readFile ./.git/packed-refs;
+              # Count the number of commit lines (rough approximation)
+              lines = builtins.filter (line: builtins.match "^[0-9a-f]{40}.*" line != null)
+                       (builtins.split "\n" packedContent);
+            in toString (builtins.length lines)
+            else
+              # Fallback: use hash of git rev as pseudo-commit count
+              toString (builtins.stringLength (builtins.hashString "md5" gitRev));
+        in { rev = gitRev; count = commitCount; }
+        else { rev = "nogit"; count = "0"; };
+    in "2.${gitInfo.count}.0-${gitInfo.rev}";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
