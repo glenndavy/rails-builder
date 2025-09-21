@@ -255,7 +255,7 @@
         export PS1="shell:>"
         export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
         export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
-        unset RUBYLIB GEM_PATH
+        unset RUBYLIB
         echo "DEBUG: shell hook done" >&2
       '';
 
@@ -269,7 +269,9 @@
           export source=$RAILS_ROOT
           export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
           export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-          export PATH=${rubyPackage}/bin:$GEM_HOME/bin:$HOME/.nix-profile/bin:$PATH
+          export PATH=${gems}/bin:${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
+          export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
+          export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
           export BUNDLE_PATH=${gems}/ruby/${rubyMajorMinor}/gems
           ${if builtins.pathExists ./package.json
             then "export NODE_PATH=${nodeModules}/lib/node_modules"
