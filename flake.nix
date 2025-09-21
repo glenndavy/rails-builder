@@ -185,17 +185,17 @@
       };
     });
 
-    templates.new-app = {
-      path = ./templates/new-app;
-      description = "A template for a Rails application";
+    templates.rails = {
+      path = ./templates/rails;
+      description = "Unified Rails template with bundler and bundix approaches";
     };
     templates.build-rails = {
       path = ./templates/build-rails;
-      description = "A template for building rails";
+      description = "Legacy: Traditional bundler approach (use 'rails' template instead)";
     };
     templates.build-rails-with-nix = {
       path = ./templates/build-rails-with-nix;
-      description = "A template for building rails with nix";
+      description = "Legacy: Nix bundlerEnv approach (use 'rails' template instead)";
     };
   };
 }
