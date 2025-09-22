@@ -87,10 +87,10 @@
         buildPhase = ''
           echo "Testing template validity..."
 
-          if [ -f templates/new-app/flake.nix ]; then
-            echo "✓ new-app template exists"
+          if [ -f templates/rails/flake.nix ]; then
+            echo "✓ rails template exists"
           else
-            echo "✗ new-app template missing"
+            echo "✗ rails template missing"
             exit 1
           fi
 
