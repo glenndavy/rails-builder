@@ -189,6 +189,10 @@
       path = ./templates/rails;
       description = "Unified Rails template with bundler and bundix approaches";
     };
+    templates.ruby = {
+      path = ./templates/ruby;
+      description = "Generic Ruby application template with framework auto-detection (Rails, Hanami, Sinatra, Rack, plain Ruby)";
+    };
     templates.build-rails = {
       path = ./templates/build-rails;
       description = "Legacy: Traditional bundler approach (use 'rails' template instead)";
