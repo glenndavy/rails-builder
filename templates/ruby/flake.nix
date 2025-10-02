@@ -145,11 +145,29 @@
       generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (ruby-builder + /imports/generate-dependencies.nix) {inherit pkgs bundlerVersion rubyPackage;});
       fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import (ruby-builder + /imports/fix-gemset-sha.nix) {inherit pkgs;});
 
-      # Bundler approach (traditional)
-      bundlerBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
-        inherit rubyVersion gccVersion opensslVersion;
-        src = ./.;
-        buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
+      # Bundler approach (traditional) - using Rails builder with framework override
+      bundlerBuild = let
+        railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
+          inherit rubyVersion gccVersion opensslVersion;
+          src = ./.;
+          buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
+        };
+        # Override the app name to be framework-specific
+        frameworkApp = pkgs.stdenv.mkDerivation {
+          name = "${framework}-app";
+          src = railsBuild.app;
+          installPhase = ''
+            cp -r $src $out
+          '';
+        };
+        # Override the docker image name
+        frameworkDockerImage = pkgs.dockerTools.buildLayeredImage (railsBuild.dockerImage.args // {
+          name = "${framework}-app-image";
+        });
+      in {
+        app = frameworkApp;
+        shell = railsBuild.shell;
+        dockerImage = frameworkDockerImage;
       };
 
       # Bundix approach (only if gemset.nix exists)
@@ -218,10 +236,10 @@
             export LD_LIBRARY_PATH="${pkgs.curl}/lib${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""}:${opensslPackage}/lib"
           '';
 
-          bundixRubyBuild = import (ruby-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook;
+          bundixRubyBuild = import (ruby-builder + "/imports/make-ruby-nix-build.nix") {
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook framework;
             src = ./.;
-            buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app-with-nix" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
+            buildRubyApp = pkgs.writeShellScriptBin "make-ruby-app-with-nix" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
             yarnOfflineCache = pkgs.runCommand "empty-cache" {} "mkdir -p $out";
           };
