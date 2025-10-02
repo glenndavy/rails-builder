@@ -193,6 +193,10 @@
       path = ./templates/ruby;
       description = "Generic Ruby application template with framework auto-detection (Rails, Hanami, Sinatra, Rack, plain Ruby)";
     };
+    templates.ruby-fixed = {
+      path = ./templates/ruby;
+      description = "Latest Ruby template with bundix fixes (v2.2.0) - use this if 'ruby' template is cached";
+    };
     templates.build-rails = {
       path = ./templates/build-rails;
       description = "Legacy: Traditional bundler approach (use 'rails' template instead)";
