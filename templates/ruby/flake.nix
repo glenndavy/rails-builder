@@ -31,7 +31,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
 
-    version = "2.2.0-bundix-fixed";
+    version = "2.2.2-ruby-template";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
@@ -250,18 +250,20 @@
 
             preConfigure = ''
               export HOME=$PWD
-              if [ -f ./yarn.lock ] && [ "${if frameworkInfo.hasAssets then "true" else "false"}" = "true" ]; then
+              ${if frameworkInfo.hasAssets == true then ''
+              if [ -f ./yarn.lock ]; then
                yarn config --offline set yarn-offline-mirror ${pkgs.runCommand "empty-cache" {} "mkdir -p $out"}
-              fi
+              fi'' else ""}
             '';
 
             buildPhase = ''
               export HOME=$PWD
               export source=$PWD
               
-              if [ -f ./yarn.lock ] && [ "${if frameworkInfo.hasAssets then "true" else "false"}" = "true" ]; then
+              ${if frameworkInfo.hasAssets == true then ''
+              if [ -f ./yarn.lock ]; then
                 yarn install ${toString ["--offline" "--frozen-lockfile"]}
-              fi
+              fi'' else ""}
               
               mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
               # Copy gems from bundlerEnv to vendor for compatibility

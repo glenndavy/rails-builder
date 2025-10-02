@@ -32,7 +32,7 @@
     };
 
     # Simple version for template compatibility
-    version = "2.2.0-rails-updated";
+    version = "2.2.2-rails-template";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
