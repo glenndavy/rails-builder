@@ -13,7 +13,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "2.1.0-static";
+    version = "2.2.0-bundix-fix";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 

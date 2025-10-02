@@ -31,7 +31,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
     # Simple version for template compatibility
-    version = "1.1.5-build-rails-with-nix";
+    version = "2.2.0-legacy-bundix";
     gccVersion = "latest";
     opensslVersion = "3_2";
 

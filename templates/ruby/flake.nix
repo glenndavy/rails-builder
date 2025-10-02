@@ -31,7 +31,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
 
-    version = "2.0.0-generic-ruby";
+    version = "2.2.0-bundix-fixed";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
