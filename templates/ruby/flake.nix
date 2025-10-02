@@ -237,12 +237,12 @@
           # Inline bundix build instead of importing from ruby-builder
           rubyNixApp = pkgs.stdenv.mkDerivation {
             name = "${framework}-app";
-            inherit src;
+            src = ./.;
             nativeBuildInputs =
               [pkgs.rsync pkgs.coreutils pkgs.bash rubyPackage gems]
               ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
               ++ (
-                if builtins.pathExists (src + "/yarn.lock")
+                if builtins.pathExists (./. + "/yarn.lock")
                 then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
                 else []
               );
