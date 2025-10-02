@@ -279,7 +279,7 @@
                 if [ -f bin/hanami ]; then
                   hanami assets compile || true
                 fi
-              '' else if frameworkInfo.hasAssets then ''
+              '' else if frameworkInfo.hasAssets == true then ''
                 # For other frameworks, try basic asset compilation if rake task exists
                 if [ -f Rakefile ] && rake -T | grep -q assets; then
                   rake assets:precompile || true
