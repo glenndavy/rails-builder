@@ -234,26 +234,141 @@
             export LD_LIBRARY_PATH="${pkgs.curl}/lib${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""}:${opensslPackage}/lib"
           '';
 
-          railsNixBuild = import (ruby-builder + "/imports/make-ruby-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook;
-            src = ./.;
-            buildRubyApp = pkgs.writeShellScriptBin "make-ruby-app-with-nix" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
-            nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
-            yarnOfflineCache = pkgs.runCommand "empty-cache" {} "mkdir -p $out";
+          # Inline bundix build instead of importing from ruby-builder
+          rubyNixApp = pkgs.stdenv.mkDerivation {
+            name = "${framework}-app";
+            inherit src;
+            nativeBuildInputs =
+              [pkgs.rsync pkgs.coreutils pkgs.bash rubyPackage gems]
+              ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
+              ++ (
+                if builtins.pathExists (src + "/yarn.lock")
+                then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
+                else []
+              );
+            buildInputs = universalBuildInputs;
+
+            preConfigure = ''
+              export HOME=$PWD
+              if [ -f ./yarn.lock ] && [ "${if frameworkInfo.hasAssets then "true" else "false"}" = "true" ]; then
+               yarn config --offline set yarn-offline-mirror ${pkgs.runCommand "empty-cache" {} "mkdir -p $out"}
+              fi
+            '';
+
+            buildPhase = ''
+              export HOME=$PWD
+              export source=$PWD
+              
+              if [ -f ./yarn.lock ] && [ "${if frameworkInfo.hasAssets then "true" else "false"}" = "true" ]; then
+                yarn install ${toString ["--offline" "--frozen-lockfile"]}
+              fi
+              
+              mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
+              # Copy gems from bundlerEnv to vendor for compatibility
+              cp -r ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
+
+              # Set up environment for direct gem access (no bundle exec needed)
+              export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
+              export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
+              export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
+
+              # Framework-specific asset compilation
+              ${if framework == "rails" then ''
+                rails assets:precompile
+              '' else if framework == "hanami" then ''
+                if [ -f bin/hanami ]; then
+                  hanami assets compile || true
+                fi
+              '' else if frameworkInfo.hasAssets then ''
+                # For other frameworks, try basic asset compilation if rake task exists
+                if [ -f Rakefile ] && rake -T | grep -q assets; then
+                  rake assets:precompile || true
+                fi
+              '' else ""}
+            '';
+            
+            installPhase = ''
+              mkdir -p $out/app
+              rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
+            '';
           };
-          # Override the app name to be framework-specific
-          bundixRubyBuild = {
-            app = pkgs.stdenv.mkDerivation {
-              name = "${framework}-app";
-              src = railsNixBuild.app;
-              installPhase = ''
-                cp -r $src $out
-              '';
+          
+          rubyNixShell = pkgs.mkShell {
+            buildInputs =
+              universalBuildInputs
+              ++ [
+                gccPackage
+                pkgs.pkg-config
+                pkgs.rsync
+              ] ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
+              ++ (if pkgs.stdenv.isLinux then [pkgs.gosu] else []);
+
+            shellHook = defaultShellHook;
+          };
+          
+          rubyNixDockerImage = pkgs.dockerTools.buildLayeredImage {
+            name = "${framework}-app-image";
+            contents =
+              universalBuildInputs
+              ++ [
+                rubyNixApp
+                gems
+                usrBinDerivation
+                rubyPackage
+                pkgs.curl
+                opensslPackage
+                pkgs.rsync
+                pkgs.zlib
+                pkgs.bash
+                pkgs.coreutils
+              ] ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
+              ++ (if pkgs.stdenv.isLinux then [pkgs.gosu pkgs.goreman] else []);
+            enableFakechroot = !pkgs.stdenv.isDarwin;
+            fakeRootCommands = ''
+              mkdir -p /etc
+              cat > /etc/passwd <<-EOF
+              root:x:0:0::/root:/bin/bash
+              app_user:x:1000:1000:App User:/app:/bin/bash
+              EOF
+              cat > /etc/group <<-EOF
+              root:x:0:
+              app_user:x:1000:
+              EOF
+              cat > /etc/shadow <<-EOF
+              root:*:18000:0:99999:7:::
+              app_user:*:18000:0:99999:7:::
+              EOF
+              chown -R 1000:1000 /app
+              chmod -R u+w /app
+            '';
+            config = {
+              Cmd = ["${pkgs.bash}/bin/bash" "-c" "${if pkgs.stdenv.isLinux then "${pkgs.gosu}/bin/gosu app_user " else ""}${if frameworkInfo.isWebApp then 
+                if framework == "rails" then "rails server -b 0.0.0.0"
+                else if framework == "hanami" then "hanami server"
+                else "rackup -o 0.0.0.0"
+              else "ruby -v"}"];
+              Env = [
+                "BUNDLE_PATH=/app/vendor/bundle"
+                "BUNDLE_GEMFILE=/app/Gemfile"
+                "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
+                "RAILS_ENV=production"
+                "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
+                "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
+                "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
+                "TZDIR=/usr/share/zoneinfo"
+              ];
+              User = "app_user:app_user";
+              WorkingDir = "/app";
             };
-            shell = railsNixBuild.shell;
-            dockerImage = railsNixBuild.dockerImage;
           };
-        in bundixRubyBuild
+
+          railsNixBuild = {
+            app = rubyNixApp;
+            shell = rubyNixShell;
+            dockerImage = rubyNixDockerImage;
+          };
+          # Use the inline bundix build we created above
+        in railsNixBuild
         else null;
 
       # Shared shell hook
