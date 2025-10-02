@@ -64,6 +64,7 @@ nix develop
 # ✅ Redis support (redis gem found)  
 # ✅ Asset compilation (sprockets detected)
 # ✅ Database management scripts
+# ✅ Package names: "rails-app", "rails-app-image"
 ```
 
 ### Hanami Application
@@ -78,6 +79,7 @@ nix develop
 # ✅ Hanami detected
 # ✅ Framework-specific commands
 # ✅ Only dependencies your app uses
+# ✅ Package names: "hanami-app", "hanami-app-image"
 ```
 
 ### Sinatra API
@@ -93,6 +95,7 @@ nix develop
 # ✅ PostgreSQL support only
 # ❌ No Redis (not in Gemfile.lock)
 # ❌ No asset compilation (not needed)
+# ✅ Package names: "sinatra-app", "sinatra-app-image"
 ```
 
 ### Plain Ruby Project
@@ -108,6 +111,7 @@ nix develop
 # ✅ Minimal dependencies
 # ❌ No databases (not needed)
 # ❌ No web server tools
+# ✅ Package names: "ruby-app", "ruby-app-image"
 ```
 
 ## 🛠 Development Commands
@@ -161,21 +165,27 @@ manage-redis        # Start/stop Redis
 ### Development Builds
 
 ```bash
-# Build your application
-nix build .#package-with-bundler   # Traditional approach
-nix build .#package-with-bundix    # Pure Nix approach
+# Build your application (names reflect detected framework)
+nix build .#package-with-bundler   # Traditional approach -> creates "framework-app"
+nix build .#package-with-bundix    # Pure Nix approach -> creates "framework-app"
+
+# Examples of framework-specific naming:
+# Rails app:    "rails-app"
+# Sinatra app:  "sinatra-app" 
+# Hanami app:   "hanami-app"
+# Plain Ruby:   "ruby-app"
 ```
 
 ### Docker Images
 
 ```bash
-# Create production Docker images
-nix build .#docker-with-bundler
-nix build .#docker-with-bundix
+# Create production Docker images (framework-specific names)
+nix build .#docker-with-bundler    # -> "framework-app-image.tar.gz"
+nix build .#docker-with-bundix     # -> "framework-app-image.tar.gz"
 
 # Load and run
 docker load < result
-docker run your-app:latest
+docker run framework-app:latest    # Name matches your detected framework
 ```
 
 ## 🎯 Framework-Specific Features
@@ -207,12 +217,19 @@ docker run your-app:latest
 # See what was detected
 nix run .#detectFramework
 
-# Output example:
+# Output example for a Rails app:
 # Framework: rails
 # Database gems detected:
 #   PostgreSQL (pg): yes  
 #   Redis: yes
 # Has assets: yes (sprockets)
+
+# Output example for a Sinatra app:
+# Framework: sinatra
+# Database gems detected:
+#   PostgreSQL (pg): yes
+#   Redis: no
+# Has assets: no
 ```
 
 ## 🛠 Advanced Configuration
