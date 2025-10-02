@@ -125,8 +125,22 @@ nix develop
 # Traditional bundler approach (macOS compatible)
 nix develop .#with-bundler
 
-# Pure Nix approach (Linux optimized, automatic SHA fixing)
+# Pure Nix approach (Linux optimized, requires gemset.nix)
+nix develop .#with-bundix    # Only available after generating gemset.nix
+```
+
+### Enabling Bundix Support
+
+The bundix approach requires a `gemset.nix` file. To enable it:
+
+```bash
+# Generate gemset.nix from your Gemfile.lock
+nix run .#generate-dependencies
+
+# Now bundix shells and packages become available
 nix develop .#with-bundix
+nix build .#package-with-bundix
+nix build .#docker-with-bundix
 ```
 
 ### Inside the Shell
@@ -166,22 +180,23 @@ manage-redis        # Start/stop Redis
 
 ```bash
 # Build your application (names reflect detected framework)
-nix build .#package-with-bundler   # Traditional approach -> creates "framework-app"
-nix build .#package-with-bundix    # Pure Nix approach -> creates "framework-app"
+nix build .#package-with-bundler   # Always available -> creates "framework-app"
+nix build .#package-with-bundix    # Requires gemset.nix -> creates "framework-app"
 
 # Examples of framework-specific naming:
 # Rails app:    "rails-app"
 # Sinatra app:  "sinatra-app" 
 # Hanami app:   "hanami-app"
 # Plain Ruby:   "ruby-app"
+# Rack app:     "rack-app"
 ```
 
 ### Docker Images
 
 ```bash
 # Create production Docker images (framework-specific names)
-nix build .#docker-with-bundler    # -> "framework-app-image.tar.gz"
-nix build .#docker-with-bundix     # -> "framework-app-image.tar.gz"
+nix build .#docker-with-bundler    # Always available -> "framework-app-image.tar.gz"
+nix build .#docker-with-bundix     # Requires gemset.nix -> "framework-app-image.tar.gz"
 
 # Load and run
 docker load < result
