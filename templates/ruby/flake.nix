@@ -198,7 +198,7 @@
               pkgs.libiconv
             ];
 
-            gemConfig = pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+            gemConfig = if pkgs.stdenv.isDarwin then {
               json = attrs: {
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
@@ -208,7 +208,7 @@
               msgpack = attrs: {
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
-            };
+            } else {};
           };
 
           usrBinDerivation = pkgs.stdenv.mkDerivation {
