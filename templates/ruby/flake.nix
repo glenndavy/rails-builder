@@ -342,11 +342,13 @@
               chmod -R u+w /app
             '';
             config = {
-              Cmd = ["${pkgs.bash}/bin/bash" "-c" "${if pkgs.stdenv.isLinux then "${pkgs.gosu}/bin/gosu app_user " else ""}${if frameworkInfo.isWebApp then 
-                if framework == "rails" then "rails server -b 0.0.0.0"
-                else if framework == "hanami" then "hanami server"
-                else "rackup -o 0.0.0.0"
-              else "ruby -v"}"];
+              Cmd = ["${pkgs.bash}/bin/bash" "-c" "${if pkgs.stdenv.isLinux then "${pkgs.gosu}/bin/gosu app_user " else ""}${
+                if frameworkInfo.isWebApp then 
+                  if framework == "rails" then "rails server -b 0.0.0.0"
+                  else if framework == "hanami" then "hanami server"
+                  else "rackup -o 0.0.0.0"
+                else "ruby -v"
+              }"];
               Env = [
                 "BUNDLE_PATH=/app/vendor/bundle"
                 "BUNDLE_GEMFILE=/app/Gemfile"
