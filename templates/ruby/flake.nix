@@ -161,9 +161,7 @@
           '';
         };
         # Override the docker image name
-        frameworkDockerImage = pkgs.dockerTools.buildLayeredImage (railsBuild.dockerImage.args // {
-          name = "${framework}-app-image";
-        });
+        frameworkDockerImage = railsBuild.dockerImage;
       in {
         app = frameworkApp;
         shell = railsBuild.shell;
@@ -236,12 +234,24 @@
             export LD_LIBRARY_PATH="${pkgs.curl}/lib${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""}:${opensslPackage}/lib"
           '';
 
-          bundixRubyBuild = import (ruby-builder + "/imports/make-ruby-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook framework;
+          railsNixBuild = import (ruby-builder + "/imports/make-ruby-nix-build.nix") {
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo defaultShellHook;
             src = ./.;
             buildRubyApp = pkgs.writeShellScriptBin "make-ruby-app-with-nix" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
             yarnOfflineCache = pkgs.runCommand "empty-cache" {} "mkdir -p $out";
+          };
+          # Override the app name to be framework-specific
+          bundixRubyBuild = {
+            app = pkgs.stdenv.mkDerivation {
+              name = "${framework}-app";
+              src = railsNixBuild.app;
+              installPhase = ''
+                cp -r $src $out
+              '';
+            };
+            shell = railsNixBuild.shell;
+            dockerImage = railsNixBuild.dockerImage;
           };
         in bundixRubyBuild
         else null;
