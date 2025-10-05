@@ -31,7 +31,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
 
-    version = "2.2.2-ruby-template";
+    version = "2.2.3-ruby-template";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
@@ -250,7 +250,7 @@
 
             preConfigure = ''
               export HOME=$PWD
-              ${if frameworkInfo.hasAssets == true then ''
+              ${if frameworkInfo.hasAssets then ''
               if [ -f ./yarn.lock ]; then
                yarn config --offline set yarn-offline-mirror ${pkgs.runCommand "empty-cache" {} "mkdir -p $out"}
               fi'' else ""}
@@ -260,7 +260,7 @@
               export HOME=$PWD
               export source=$PWD
               
-              ${if frameworkInfo.hasAssets == true then ''
+              ${if frameworkInfo.hasAssets then ''
               if [ -f ./yarn.lock ]; then
                 yarn install ${toString ["--offline" "--frozen-lockfile"]}
               fi'' else ""}
@@ -281,7 +281,7 @@
                 if [ -f bin/hanami ]; then
                   hanami assets compile || true
                 fi
-              '' else if frameworkInfo.hasAssets == true then ''
+              '' else if frameworkInfo.hasAssets then ''
                 # For other frameworks, try basic asset compilation if rake task exists
                 if [ -f Rakefile ] && rake -T | grep -q assets; then
                   rake assets:precompile || true

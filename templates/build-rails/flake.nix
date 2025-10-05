@@ -29,7 +29,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
     # Version with git info and commit count for auto-increment
-    version = "2.2.2-legacy-bundler";
+    version = "2.2.3-legacy-bundler";
     gccVersion = "latest";
     opensslVersion = "3";
 

@@ -31,7 +31,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
     # Simple version for template compatibility
-    version = "2.2.2-legacy-bundix";
+    version = "2.2.3-legacy-bundix";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
