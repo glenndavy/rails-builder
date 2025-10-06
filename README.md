@@ -4,23 +4,50 @@ A Nix-based Ruby application builder that provides cross-platform compatibility 
 
 ## 🚀 Quick Start
 
-### For Any Ruby Application (Recommended)
+### Get the Latest Template (Recommended)
 ```bash
-# In your Ruby project directory
-nix flake init -t github:glenndavy/rails-builder#ruby
+# Always get the freshest template (bypasses Nix caching)
+nix flake init -t github:glenndavy/rails-builder#ruby --option tarball-ttl 0
+
+# Alternative: Use versioned releases (most reliable)
+nix flake init -t github:glenndavy/rails-builder/v2.2.4#ruby
 
 # Start developing immediately
 nix develop
 ```
 
+### Standard Usage (may use cached version)
+```bash
+# In your Ruby project directory (may give cached template up to 1 hour old)
+nix flake init -t github:glenndavy/rails-builder#ruby
+
+# Start developing
+nix develop
+```
+
 ### For Rails-Specific Projects
 ```bash
-# In your Rails project directory  
-nix flake init -t github:glenndavy/rails-builder#rails
+# Get latest Rails template
+nix flake init -t github:glenndavy/rails-builder#rails --option tarball-ttl 0
 
 # Choose your approach
 nix develop .#with-bundler    # Traditional bundler (works on macOS)
 nix develop .#with-bundix     # Pure Nix approach (Linux-optimized)
+```
+
+### 🔄 Cache Troubleshooting
+If you suspect you have an old template or encounter issues:
+```bash
+# Method 1: Force fresh download (recommended)
+nix flake init -t github:glenndavy/rails-builder#ruby \
+  --option tarball-ttl 0 \
+  --option eval-cache false
+
+# Method 2: Clear Nix caches manually
+rm -rf ~/.cache/nix/
+
+# Method 3: Use specific version (always works)
+nix flake init -t github:glenndavy/rails-builder/v2.2.4#ruby
 ```
 
 ## 📋 Requirements
