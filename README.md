@@ -10,7 +10,7 @@ A Nix-based Ruby application builder that provides cross-platform compatibility 
 nix flake init -t github:glenndavy/rails-builder#ruby --option tarball-ttl 0
 
 # Alternative: Use versioned releases (most reliable)
-nix flake init -t github:glenndavy/rails-builder/v2.2.4#ruby
+nix flake init -t github:glenndavy/rails-builder/v2.2.6#ruby
 
 # Start developing immediately
 nix develop
@@ -47,7 +47,7 @@ nix flake init -t github:glenndavy/rails-builder#ruby \
 rm -rf ~/.cache/nix/
 
 # Method 3: Use specific version (always works)
-nix flake init -t github:glenndavy/rails-builder/v2.2.4#ruby
+nix flake init -t github:glenndavy/rails-builder/v2.2.6#ruby
 ```
 
 ## 📋 Requirements

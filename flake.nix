@@ -198,16 +198,16 @@
       description = "Latest Ruby template with bundix fixes (v2.2.0) - use this if 'ruby' template is cached";
     };
     templates.ruby-v2-2-3 = {
-    templates.ruby-v2-2-6 = {
       path = ./templates/ruby;
-      description = "Ruby template v2.2.6 with latest fixes - versioned for cache-busting";
+      description = "Ruby template v2.2.3 with boolean expression fixes - cache-bust version";
     };
     templates.ruby-v2-2-5 = {
       path = ./templates/ruby;
       description = "Ruby template v2.2.5 with latest fixes - versioned for cache-busting";
     };
+    templates.ruby-v2-2-6 = {
       path = ./templates/ruby;
-      description = "Ruby template v2.2.3 with boolean expression fixes - cache-bust version";
+      description = "Ruby template v2.2.6 with latest fixes - versioned for cache-busting";
     };
     templates.build-rails = {
       path = ./templates/build-rails;
