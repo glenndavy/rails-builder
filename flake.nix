@@ -13,7 +13,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "2.2.6-auto-bump";
+    version = "2.2.7-auto-bump";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -198,6 +198,10 @@
       description = "Latest Ruby template with bundix fixes (v2.2.0) - use this if 'ruby' template is cached";
     };
     templates.ruby-v2-2-3 = {
+    templates.ruby-v2-2-7 = {
+      path = ./templates/ruby;
+      description = "Ruby template v2.2.7 with latest fixes - versioned for cache-busting";
+    };
       path = ./templates/ruby;
       description = "Ruby template v2.2.3 with boolean expression fixes - cache-bust version";
     };
