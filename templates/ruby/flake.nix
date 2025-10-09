@@ -31,7 +31,7 @@
       config.permittedInsecurePackages = ["openssl-1.1.1w"];
     };
 
-    version = "2.2.8-ruby-template";
+    version = "2.2.9-ruby-template";
     gccVersion = "latest";
     opensslVersion = "3_2";
 

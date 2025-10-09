@@ -32,7 +32,7 @@
     };
 
     # Simple version for template compatibility
-    version = "2.2.8-rails-template";
+    version = "2.2.9-rails-template";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
@@ -177,11 +177,11 @@
               libxslt
               zlib
               libyaml
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            ] ++ (if pkgs.stdenv.isDarwin then [
               pkgs.darwin.apple_sdk.frameworks.CoreServices
               pkgs.darwin.apple_sdk.frameworks.Foundation
               pkgs.libiconv
-            ];
+            ] else []);
 
             # Darwin-specific gem overrides for problematic native extensions
             gemConfig = if pkgs.stdenv.isDarwin then {
