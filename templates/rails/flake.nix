@@ -32,7 +32,7 @@
     };
 
     # Simple version for template compatibility
-    version = "2.2.7-rails-template";
+    version = "2.2.8-rails-template";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
@@ -184,7 +184,7 @@
             ];
 
             # Darwin-specific gem overrides for problematic native extensions
-            gemConfig = pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+            gemConfig = if pkgs.stdenv.isDarwin then {
               json = attrs: {
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
@@ -194,7 +194,7 @@
               msgpack = attrs: {
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
-            };
+            } else {};
           };
 
           usrBinDerivation = pkgs.stdenv.mkDerivation {
