@@ -303,13 +303,13 @@
 
         # Default shell (same as bare)
         default = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ manage-postgres-script manage-redis-script ];
           shellHook = defaultShellHook;
         };
 
         # Traditional bundler approach
         with-bundler = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ manage-postgres-script manage-redis-script ];
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundler-shell >"
             export RAILS_ROOT=$(pwd)
@@ -323,7 +323,7 @@
       } // (if bundixBuild != null then {
         # Bundix approach shell (only if gemset.nix exists)
         with-bundix = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ manage-postgres-script manage-redis-script ];
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundix-shell >"
             export RAILS_ROOT=$(pwd)

@@ -405,7 +405,7 @@
       devShells = {
         # Default shell
         default = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
           shellHook = defaultShellHook + ''
             echo "🔧 ${framework} application detected"
             echo "   Framework: ${framework}"
@@ -419,7 +419,7 @@
 
         # Traditional bundler approach
         with-bundler = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundler-shell >"
             export APP_ROOT=$(pwd)
@@ -437,7 +437,7 @@
       } // (if bundixBuild != null then {
         # Bundix approach shell (only if gemset.nix exists)
         with-bundix = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundix-shell >"
             export APP_ROOT=$(pwd)

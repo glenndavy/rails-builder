@@ -64,8 +64,38 @@
   			echo "PostgreSQL is not running or PGDATA not found."
   		fi
   		;;
+  	help)
+  		echo "manage-postgres - PostgreSQL development server management"
+  		echo ""
+  		echo "USAGE:"
+  		echo "  manage-postgres {start|stop|help}"
+  		echo ""
+  		echo "COMMANDS:"
+  		echo "  start  - Initialize and start PostgreSQL server"
+  		echo "  stop   - Stop PostgreSQL server"
+  		echo "  help   - Show this help message"
+  		echo ""
+  		echo "CONNECTION INFO:"
+  		echo "  Database: rails_build"
+  		echo "  Host: localhost (via Unix socket in ./tmp/)"
+  		echo "  User: postgres (current system user)"
+  		echo "  Port: 5432 (default)"
+  		echo ""
+  		echo "DATABASE_URL FORMAT:"
+  		echo "  postgresql://postgres@localhost/rails_build?host=$PWD/tmp"
+  		echo ""
+  		echo "DIRECT CONNECTION COMMANDS:"
+  		echo "  psql -h $PWD/tmp -d rails_build"
+  		echo "  psql postgresql://postgres@localhost/rails_build?host=$PWD/tmp"
+  		echo ""
+  		echo "DATA LOCATION:"
+  		echo "  Data directory: $PWD/tmp/pgdata"
+  		echo "  Socket directory: $PWD/tmp"
+  		echo "  Log file: $PWD/tmp/pg.log"
+  		;;
   	*)
-  		echo "Usage: manage-postgres {start|stop}" >&2
+  		echo "Usage: manage-postgres {start|stop|help}" >&2
+  		echo "Run 'manage-postgres help' for detailed information" >&2
   		exit 1
   		;;
   esac
