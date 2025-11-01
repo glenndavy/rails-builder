@@ -424,14 +424,20 @@
             export PS1="$(pwd) bundler-shell >"
             export APP_ROOT=$(pwd)
 
+            # Bundle isolation - same as build scripts
+            export BUNDLE_PATH=$APP_ROOT/vendor/bundle
+            export BUNDLE_GEMFILE=$PWD/Gemfile
+            export PATH=$BUNDLE_PATH/bin:$APP_ROOT/bin:${rubyPackage}/bin:$PATH
+
             echo "🔧 Traditional bundler environment for ${framework}:"
-            echo "   bundle install  - Install gems"
+            echo "   bundle install  - Install gems to ./vendor/bundle"
             echo "   bundle exec     - Run commands with bundler"
             ${if frameworkInfo.isWebApp then ''
             echo "   Start server:   - bundle exec ${if framework == "rails" then "rails s" else if framework == "hanami" then "hanami server" else "rackup"}"
             '' else ''
             echo "   Run app:        - bundle exec ruby your_script.rb"
             ''}
+            echo "   Gems isolated in: ./vendor/bundle"
           '';
         };
       } // (if bundixBuild != null then {

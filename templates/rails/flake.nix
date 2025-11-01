@@ -314,10 +314,16 @@
             export PS1="$(pwd) bundler-shell >"
             export RAILS_ROOT=$(pwd)
 
+            # Bundle isolation - same as build scripts
+            export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
+            export BUNDLE_GEMFILE=$PWD/Gemfile
+            export PATH=$BUNDLE_PATH/bin:$RAILS_ROOT/bin:${rubyPackage}/bin:$PATH
+
             echo "🔧 Traditional bundler environment:"
-            echo "   bundle install  - Install gems"
+            echo "   bundle install  - Install gems to ./vendor/bundle"
             echo "   bundle exec     - Run commands with bundler"
             echo "   rails s         - Start server (via bundle exec)"
+            echo "   Gems isolated in: ./vendor/bundle"
           '';
         };
       } // (if bundixBuild != null then {
