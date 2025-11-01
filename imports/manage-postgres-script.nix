@@ -53,7 +53,7 @@
   		if ! ${pkgs.postgresql}/bin/psql -h "$PGHOST" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
   			${pkgs.postgresql}/bin/createdb -h "$PGHOST" "$PGDATABASE"
   		fi
-  		echo "PostgreSQL started successfully. DATABASE_URL: postgresql://postgres@localhost/$PGDATABASE?host=$PGHOST" >&2
+  		echo "PostgreSQL started successfully. DATABASE_URL: postgresql://$USER@localhost/$PGDATABASE?host=$PGHOST" >&2
   		;;
   	stop)
   		echo "DEBUG: Stopping PostgreSQL" >&2
@@ -78,15 +78,15 @@
   		echo "CONNECTION INFO:"
   		echo "  Database: rails_build"
   		echo "  Host: localhost (via Unix socket in ./tmp/)"
-  		echo "  User: postgres (current system user)"
+  		echo "  User: $USER (current Unix user)"
   		echo "  Port: 5432 (default)"
   		echo ""
   		echo "DATABASE_URL FORMAT:"
-  		echo "  postgresql://postgres@localhost/rails_build?host=$PWD/tmp"
+  		echo "  postgresql://$USER@localhost/rails_build?host=$PWD/tmp"
   		echo ""
   		echo "DIRECT CONNECTION COMMANDS:"
   		echo "  psql -h $PWD/tmp -d rails_build"
-  		echo "  psql postgresql://postgres@localhost/rails_build?host=$PWD/tmp"
+  		echo "  psql postgresql://$USER@localhost/rails_build?host=$PWD/tmp"
   		echo ""
   		echo "DATA LOCATION:"
   		echo "  Data directory: $PWD/tmp/pgdata"
