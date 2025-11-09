@@ -461,6 +461,21 @@
             ''}
             echo "   bundix          - Generate gemset.nix from Gemfile.lock"
             echo "   fix-gemset-sha  - Fix SHA mismatches in gemset.nix"
+            echo ""
+            ${if frameworkInfo.needsPostgresql || frameworkInfo.needsRedis then ''
+            echo "🗄️ Database & Services:"
+            ${if frameworkInfo.needsPostgresql then ''
+            echo "   manage-postgres start - Start PostgreSQL server"
+            echo "   manage-postgres help  - Show PostgreSQL connection info"
+            '' else ""}
+            ${if frameworkInfo.needsRedis then ''
+            echo "   manage-redis start    - Start Redis server"
+            '' else ""}
+            echo "   Gems accessed directly from Nix store (no bundle exec needed)"
+            '' else ''
+            echo "🗄️ No database gems detected - manage-postgres/redis not included"
+            echo "   Gems accessed directly from Nix store (no bundle exec needed)"
+            ''}
           '';
         };
       } else {});

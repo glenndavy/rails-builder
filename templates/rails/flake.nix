@@ -343,6 +343,12 @@
             echo "   rails s         - Start server (direct, no bundle exec)"
             echo "   bundix          - Generate gemset.nix from Gemfile.lock"
             echo "   fix-gemset-sha  - Fix SHA mismatches in gemset.nix"
+            echo ""
+            echo "🗄️ Database & Services:"
+            echo "   manage-postgres start - Start PostgreSQL server"
+            echo "   manage-postgres help  - Show PostgreSQL connection info"
+            echo "   manage-redis start    - Start Redis server"
+            echo "   Gems accessed directly from Nix store (no bundle exec needed)"
           '';
         };
       } else {});
