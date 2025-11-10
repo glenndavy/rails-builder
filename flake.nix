@@ -185,49 +185,43 @@
       };
     });
 
-    templates.rails = {
-      path = ./templates/rails;
-      description = "Unified Rails template with bundler and bundix approaches";
-    };
-    templates.ruby = {
-      path = ./templates/ruby;
-      description = "Generic Ruby application template with framework auto-detection (Rails, Hanami, Sinatra, Rack, plain Ruby)";
-    };
-    templates.ruby-fixed = {
-      path = ./templates/ruby;
-      description = "Latest Ruby template with bundix fixes (v2.2.0) - use this if 'ruby' template is cached";
-    };
-    templates.ruby-v2-2-3 = {
-    templates.ruby-v2-2-9 = {
-      path = ./templates/ruby;
-      description = "Ruby template v2.2.9 with latest fixes - versioned for cache-busting";
-    };
-    templates.ruby-v2-2-8 = {
-      path = ./templates/ruby;
-      description = "Ruby template v2.2.8 with latest fixes - versioned for cache-busting";
-    };
-    templates.ruby-v2-2-7 = {
-      path = ./templates/ruby;
-      description = "Ruby template v2.2.7 with latest fixes - versioned for cache-busting";
-    };
-      path = ./templates/ruby;
-      description = "Ruby template v2.2.3 with boolean expression fixes - cache-bust version";
-    };
-    templates.ruby-v2-2-5 = {
-      path = ./templates/ruby;
-      description = "Ruby template v2.2.5 with latest fixes - versioned for cache-busting";
-    };
-    templates.ruby-v2-2-6 = {
-      path = ./templates/ruby;
-      description = "Ruby template v2.2.6 with latest fixes - versioned for cache-busting";
-    };
-    templates.build-rails = {
-      path = ./templates/build-rails;
-      description = "Legacy: Traditional bundler approach (use 'rails' template instead)";
-    };
-    templates.build-rails-with-nix = {
-      path = ./templates/build-rails-with-nix;
-      description = "Legacy: Nix bundlerEnv approach (use 'rails' template instead)";
+    templates = {
+      rails = {
+        path = ./templates/rails;
+        description = "Unified Rails template with bundler and bundix approaches";
+      };
+      ruby = {
+        path = ./templates/ruby;
+        description = "Generic Ruby application template with framework auto-detection (Rails, Hanami, Sinatra, Rack, plain Ruby)";
+      };
+      ruby-fixed = {
+        path = ./templates/ruby;
+        description = "Latest Ruby template with bundix fixes (v2.2.0) - use this if 'ruby' template is cached";
+      };
+      ruby-v2-2-3 = {
+        path = ./templates/ruby;
+        description = "Ruby template v2.2.3 with bundix fixes - versioned for cache-busting";
+      };
+      ruby-v2-2-9 = {
+        path = ./templates/ruby;
+        description = "Ruby template v2.2.9 with latest fixes - versioned for cache-busting";
+      };
+      ruby-v2-2-8 = {
+        path = ./templates/ruby;
+        description = "Ruby template v2.2.8 with latest fixes - versioned for cache-busting";
+      };
+      ruby-v2-2-7 = {
+        path = ./templates/ruby;
+        description = "Ruby template v2.2.7 with latest fixes - versioned for cache-busting";
+      };
+      ruby-v2-2-5 = {
+        path = ./templates/ruby;
+        description = "Ruby template v2.2.5 with latest fixes - versioned for cache-busting";
+      };
+      ruby-v2-2-6 = {
+        path = ./templates/ruby;
+        description = "Ruby template v2.2.6 with latest fixes - versioned for cache-busting";
+      };
     };
   };
 }
