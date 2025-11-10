@@ -94,17 +94,10 @@
             exit 1
           fi
 
-          if [ -f templates/build-rails/flake.nix ]; then
-            echo "✓ build-rails template exists"
+          if [ -f templates/ruby/flake.nix ]; then
+            echo "✓ ruby template exists"
           else
-            echo "✗ build-rails template missing"
-            exit 1
-          fi
-
-          if [ -f templates/build-rails-with-nix/flake.nix ]; then
-            echo "✓ build-rails-with-nix template exists"
-          else
-            echo "✗ build-rails-with-nix template missing"
+            echo "✗ ruby template missing"
             exit 1
           fi
         '';

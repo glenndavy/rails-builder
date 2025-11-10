@@ -440,8 +440,8 @@
             echo "   Gems isolated in: ./vendor/bundle"
           '';
         };
-      } // (if bundixBuild != null && builtins.pathExists ./gemset.nix then {
-        # Bundix approach shell (only if gemset.nix exists)
+      } // {
+        # Bundix approach shell
         with-bundix = let
           # Create bundler with correct version for dependency management
           bundlerPackage = pkgs.bundler.override {
@@ -550,7 +550,7 @@
             echo "   No bundle exec needed - direct gem access"
           '';
         };
-      } else {});
+      };
 
       apps = {
         detectFramework = {

@@ -5,7 +5,7 @@
   rubyPackage,
   bundlerVersion,
   gemdir,
-  gemset,
+  gemset ? null,
   buildInputs ? [],
   gemConfig ? {},
   name ? "rails-gems",
@@ -18,7 +18,7 @@
   };
 
   # Auto-fix gemset SHAs for common problematic gems
-  autoFixedGemset = if autoFix then pkgs.runCommand "auto-fixed-gemset.nix" {
+  autoFixedGemset = if gemset == null then null else if autoFix then pkgs.runCommand "auto-fixed-gemset.nix" {
     buildInputs = with pkgs; [nix gnused coreutils];
     gemsetSource = gemset;
   } ''
@@ -73,12 +73,23 @@
     fi
   '' else gemset;
 
-in pkgs.bundlerEnv (args // {
-  inherit name;
-  gemset = autoFixedGemset;
-  bundler = bundler;
-  ruby = rubyPackage;
-  gemdir = gemdir;
-  buildInputs = buildInputs;
-  gemConfig = gemConfig;
-})
+in if autoFixedGemset == null then
+  # Create a minimal shell environment when no gemset.nix exists
+  pkgs.mkShell {
+    inherit buildInputs;
+    nativeBuildInputs = [ bundler rubyPackage ];
+    shellHook = ''
+      echo "⚠️  No gemset.nix found. Run 'bundix' to generate it first."
+      echo "   Then exit and re-enter this shell to use bundlerEnv."
+    '';
+  }
+else
+  pkgs.bundlerEnv (args // {
+    inherit name;
+    gemset = autoFixedGemset;
+    bundler = bundler;
+    ruby = rubyPackage;
+    gemdir = gemdir;
+    buildInputs = buildInputs;
+    gemConfig = gemConfig;
+  })
