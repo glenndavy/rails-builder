@@ -202,47 +202,166 @@ nix develop .#with-bundix
 
 ## Database Services
 
-Rails Builder includes PostgreSQL and Redis management for local development.
+Rails Builder includes PostgreSQL and Redis management for local development with flexible port configuration.
 
 ### PostgreSQL
 
+#### Basic Usage
 ```bash
 # Get help and connection info
 manage-postgres help
 
-# Start PostgreSQL server
+# Start PostgreSQL server (default port 5432)
 manage-postgres start
 
 # Stop PostgreSQL server
 manage-postgres stop
 ```
 
-**Connection Information:**
+#### Custom Port Usage
+```bash
+# Start on custom port
+manage-postgres start --port 5433
+
+# Get connection info for custom port
+manage-postgres help --port 5433
+
+# Stop (works regardless of port)
+manage-postgres stop
+```
+
+#### Connection Information
+
+**Default Configuration:**
 - **Database:** `rails_build`
 - **User:** Your Unix username (no password needed)
 - **Host:** Unix socket in `./tmp/`
-- **DATABASE_URL:** `postgresql://yourusername@localhost/rails_build?host=/path/to/project/tmp`
+- **Port:** `5432` (default)
+- **DATABASE_URL:** `postgresql://yourusername@localhost:5432/rails_build?host=/path/to/project/tmp`
 
-**Direct Connection:**
+**Example with Custom Port:**
 ```bash
-# Using psql
+# Start on port 5433
+manage-postgres start --port 5433
+
+# The help shows actual connection details:
+manage-postgres help --port 5433
+# OUTPUT:
+# CONNECTION INFO:
+#   Database: rails_build
+#   User: yourusername (current Unix user)
+#   Port: 5433
+#
+# DATABASE_URL:
+#   postgresql://yourusername@localhost:5433/rails_build?host=/path/to/project/tmp
+#
+# DIRECT CONNECTION COMMANDS:
+#   psql -h /path/to/project/tmp -p 5433 -d rails_build
+```
+
+#### Direct Connection Examples
+```bash
+# Default port (5432)
 psql -h ./tmp -d rails_build
 
-# Using DATABASE_URL
-psql "$(manage-postgres help | grep postgresql://)"
+# Custom port (5433)
+psql -h ./tmp -p 5433 -d rails_build
+
+# Using DATABASE_URL (copy from help output)
+psql "postgresql://yourusername@localhost:5433/rails_build?host=/path/to/project/tmp"
 ```
 
 ### Redis
 
+#### Basic Usage
 ```bash
-# Start Redis server
+# Get help and connection info
+manage-redis help
+
+# Start Redis server (default port 6379)
 manage-redis start
 
 # Stop Redis server
 manage-redis stop
 ```
 
-**Connection:** `redis://localhost:6379`
+#### Custom Port Usage
+```bash
+# Start on custom port
+manage-redis start --port 6380
+
+# Get connection info for custom port
+manage-redis help --port 6380
+
+# Stop (works regardless of port)
+manage-redis stop
+```
+
+#### Connection Information
+
+**Default Configuration:**
+- **Host:** `localhost`
+- **Port:** `6379` (default)
+- **Database:** `0` (default Redis database)
+- **REDIS_URL:** `redis://localhost:6379/0`
+
+**Example with Custom Port:**
+```bash
+# Start on port 6380
+manage-redis start --port 6380
+
+# The help shows actual connection details:
+manage-redis help --port 6380
+# OUTPUT:
+# CONNECTION INFO:
+#   Host: localhost
+#   Port: 6380
+#   Database: 0 (default)
+#
+# REDIS_URL:
+#   redis://localhost:6380/0
+#
+# DIRECT CONNECTION COMMANDS:
+#   redis-cli -p 6380
+#   redis-cli -p 6380 ping
+```
+
+#### Direct Connection Examples
+```bash
+# Default port (6379)
+redis-cli
+redis-cli ping
+
+# Custom port (6380)
+redis-cli -p 6380
+redis-cli -p 6380 ping
+
+# Test connection
+redis-cli -p 6380 ping
+# Should return: PONG
+```
+
+### Multiple Environment Setup
+
+The `--port` feature allows running multiple database instances simultaneously:
+
+```bash
+# Terminal 1: Main development environment
+nix develop .#with-bundler
+manage-postgres start                    # Port 5432
+manage-redis start                       # Port 6379
+rails s                                  # Port 3000
+
+# Terminal 2: Test environment
+nix develop .#with-bundler
+manage-postgres start --port 5433        # Different PostgreSQL port
+manage-redis start --port 6380           # Different Redis port
+
+# Set environment variables for test
+export DATABASE_URL="postgresql://$(whoami)@localhost:5433/rails_build?host=$PWD/tmp"
+export REDIS_URL="redis://localhost:6380/0"
+rails s -p 3001                         # Different Rails port
+```
 
 ### Rails Database Setup
 
@@ -391,13 +510,72 @@ exit
 nix develop .#with-bundix  # Direct gem access, no bundle exec
 ```
 
+### Multi-Environment Development
+
+Use custom ports to run multiple environments simultaneously:
+
+```bash
+# Development Environment (Terminal 1)
+nix develop .#with-bundler
+manage-postgres start                # Default port 5432
+manage-redis start                   # Default port 6379
+bundle exec rake db:create db:migrate
+rails s                             # Port 3000
+
+# Testing Environment (Terminal 2)
+nix develop .#with-bundler
+manage-postgres start --port 5433    # Custom PostgreSQL port
+manage-redis start --port 6380       # Custom Redis port
+
+# Configure Rails for test environment
+export DATABASE_URL="postgresql://$(whoami)@localhost:5433/rails_build?host=$PWD/tmp"
+export REDIS_URL="redis://localhost:6380/0"
+export RAILS_ENV=test
+
+bundle exec rake db:create db:migrate
+rails s -p 3001                     # Port 3001
+
+# Staging Environment (Terminal 3)
+nix develop .#with-bundler
+manage-postgres start --port 5434    # Another PostgreSQL port
+export DATABASE_URL="postgresql://$(whoami)@localhost:5434/rails_build?host=$PWD/tmp"
+export RAILS_ENV=staging
+rails s -p 3002                     # Port 3002
+```
+
+### Port Conflict Resolution
+
+If default ports are already in use:
+
+```bash
+# Check what's using ports
+lsof -i :5432  # PostgreSQL
+lsof -i :6379  # Redis
+lsof -i :3000  # Rails
+
+# Start services on available ports
+manage-postgres start --port 5433
+manage-redis start --port 6380
+rails s -p 3001
+
+# Update application configuration
+export DATABASE_URL="postgresql://$(whoami)@localhost:5433/rails_build?host=$PWD/tmp"
+export REDIS_URL="redis://localhost:6380/0"
+```
+
 ### Testing
 
 ```bash
-# Run tests in isolated environment
+# Run tests in isolated environment with custom ports
 nix develop .#with-bundler --command bash -c '
-  manage-postgres start
-  bundle exec rake db:create db:migrate RAILS_ENV=test
+  manage-postgres start --port 5433
+  manage-redis start --port 6380
+
+  export DATABASE_URL="postgresql://$(whoami)@localhost:5433/rails_build?host=$PWD/tmp"
+  export REDIS_URL="redis://localhost:6380/0"
+  export RAILS_ENV=test
+
+  bundle exec rake db:create db:migrate
   bundle exec rspec
 '
 ```
@@ -412,13 +590,51 @@ nix develop .#with-bundler --command bash -c '
 
 **"PostgreSQL connection failed"**
 ```bash
-# Check if service is running
-manage-postgres help  # Shows actual connection string
+# Check if service is running and get connection info
+manage-postgres help  # Shows actual connection string for default port
+manage-postgres help --port 5433  # For custom port
+
+# Check running processes
 ps aux | grep postgres
+lsof -i :5432  # Check if port is in use
 
 # Restart if needed
 manage-postgres stop
 manage-postgres start
+
+# Or restart on custom port
+manage-postgres start --port 5433
+```
+
+**"Port already in use" errors**
+```bash
+# Check what's using the ports
+lsof -i :5432  # PostgreSQL default
+lsof -i :6379  # Redis default
+netstat -tuln | grep 5432
+
+# Use custom ports
+manage-postgres start --port 5433
+manage-redis start --port 6380
+
+# Update your application configuration
+export DATABASE_URL="postgresql://$(whoami)@localhost:5433/rails_build?host=$PWD/tmp"
+export REDIS_URL="redis://localhost:6380/0"
+```
+
+**"Redis connection failed"**
+```bash
+# Check if Redis is running
+manage-redis help --port 6379  # Default port
+manage-redis help --port 6380  # Custom port
+
+# Test connection
+redis-cli ping                  # Default port
+redis-cli -p 6380 ping         # Custom port
+
+# Restart if needed
+manage-redis stop
+manage-redis start --port 6380
 ```
 
 **"Gems not found in bundix environment"**
