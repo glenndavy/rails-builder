@@ -440,18 +440,72 @@
             echo "   Gems isolated in: ./vendor/bundle"
           '';
         };
-      } // (if bundixBuild != null then {
+      } // (if bundixBuild != null && builtins.pathExists ./gemset.nix then {
         # Bundix approach shell (only if gemset.nix exists)
-        with-bundix = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
+        with-bundix = let
+          # Use the bundlerEnv gems directly for proper closure
+          bundlerEnv = (import (ruby-builder + "/imports/bundler-env-with-auto-fix.nix")) {
+            inherit pkgs rubyPackage bundlerVersion;
+            name = "${framework}-bundix-env";
+            gemdir = ./.;
+            gemset = ./gemset.nix;
+            autoFix = true;
+
+            buildInputs = with pkgs; [
+              gccPackage
+              pkg-config
+              opensslPackage
+              libxml2
+              libxslt
+              zlib
+              libyaml
+            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+              pkgs.darwin.apple_sdk.frameworks.CoreServices
+              pkgs.darwin.apple_sdk.frameworks.Foundation
+              pkgs.libiconv
+            ];
+
+            gemConfig = if pkgs.stdenv.isDarwin then {
+              json = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+              };
+              bootsnap = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+              };
+              msgpack = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+              };
+            } else {};
+          };
+        in pkgs.mkShell {
+          # Use bundlerEnv as primary buildInput for proper closure
+          buildInputs = [
+            bundlerEnv
+            rubyPackage  # Same Ruby version as bundlerEnv
+            pkgs.git
+            pkgs.rsync
+          ] ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ])
+          ++ (pkgs.lib.optionals frameworkInfo.needsPostgresql [ pkgs.postgresql ])
+          ++ (pkgs.lib.optionals frameworkInfo.needsRedis [ pkgs.redis ])
+          ++ (pkgs.lib.optionals frameworkInfo.hasAssets [ pkgs.nodejs ]);
+
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundix-shell >"
             export APP_ROOT=$(pwd)
-            export RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-            export RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0
-            export PATH=${bundixBuild.gems or ""}/bin:${rubyPackage}/bin:$HOME/.nix-profile/bin:$PATH
-            export GEM_HOME=${bundixBuild.gems or ""}/lib/ruby/gems/${rubyMajorMinor}.0
-            export GEM_PATH=${bundixBuild.gems or ""}/lib/ruby/gems/${rubyMajorMinor}.0
+
+            # Use bundlerEnv Ruby and gems - proper closure
+            export RUBYLIB=${bundlerEnv}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+            export RUBYOPT=-I${bundlerEnv}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+
+            # Proper gem paths from bundlerEnv closure
+            export GEM_HOME=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
+            export GEM_PATH=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
+
+            # Binstubs from bundlerEnv + Ruby binaries
+            export PATH=${bundlerEnv}/bin:${rubyPackage}/bin:$PATH
+
+            # Unset conflicting bundle environment
+            unset BUNDLE_PATH BUNDLE_GEMFILE
 
             echo "🔧 Nix bundlerEnv environment for ${framework}:"
             ${if frameworkInfo.isWebApp then ''
@@ -459,6 +513,7 @@
             '' else ''
             echo "   Run app:        - ruby your_script.rb (direct, no bundle exec)"
             ''}
+            echo "   gem list        - Show installed gems from Nix closure"
             echo "   bundix          - Generate gemset.nix from Gemfile.lock"
             echo "   fix-gemset-sha  - Fix SHA mismatches in gemset.nix"
             echo ""
@@ -471,11 +526,14 @@
             ${if frameworkInfo.needsRedis then ''
             echo "   manage-redis start    - Start Redis server"
             '' else ""}
-            echo "   Gems accessed directly from Nix store (no bundle exec needed)"
-            '' else ''
-            echo "🗄️ No database gems detected - manage-postgres/redis not included"
-            echo "   Gems accessed directly from Nix store (no bundle exec needed)"
-            ''}
+            '' else ""}
+            echo ""
+            echo "💎 Gem Environment:"
+            echo "   Gems: Nix closure from gemset.nix"
+            echo "   Ruby: ${rubyPackage.version} (same as bundlerEnv)"
+            echo "   Framework: ${framework} (auto-detected)"
+            echo "   GEM_HOME: ${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0"
+            echo "   No bundle exec needed - direct gem access"
           '';
         };
       } else {});
