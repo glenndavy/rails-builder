@@ -329,6 +329,12 @@
       } // (if bundixBuild != null && builtins.pathExists ./gemset.nix then {
         # Bundix approach shell (only if gemset.nix exists)
         with-bundix = let
+          # Create bundler with correct version for dependency management
+          bundlerPackage = pkgs.bundler.override {
+            ruby = rubyPackage;
+            version = bundlerVersion;
+          };
+
           # Use the bundlerEnv gems directly for proper closure
           bundlerEnv = (import (rails-builder + "/imports/bundler-env-with-auto-fix.nix")) {
             inherit pkgs rubyPackage bundlerVersion;
@@ -369,7 +375,9 @@
           # Use bundlerEnv as primary buildInput for proper closure
           buildInputs = [
             bundlerEnv
-            rubyPackage  # Same Ruby version as bundlerEnv
+            bundlerPackage   # Correct bundler version for dependency management
+            rubyPackage      # Same Ruby version as bundlerEnv
+            pkgs.bundix      # For regenerating gemset.nix
             manage-postgres-script
             manage-redis-script
             # Essential system tools only
@@ -391,8 +399,8 @@
             export GEM_HOME=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
             export GEM_PATH=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
 
-            # Binstubs from bundlerEnv + Ruby binaries
-            export PATH=${bundlerEnv}/bin:${rubyPackage}/bin:$PATH
+            # Binstubs from bundlerEnv + bundler + Ruby binaries
+            export PATH=${bundlerEnv}/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
 
             # Unset conflicting bundle environment
             unset BUNDLE_PATH BUNDLE_GEMFILE
@@ -400,7 +408,12 @@
             echo "🔧 Nix bundlerEnv environment:"
             echo "   rails s         - Start server (direct, no bundle exec)"
             echo "   gem list        - Show installed gems from Nix closure"
-            echo "   bundix          - Generate gemset.nix from Gemfile.lock"
+            echo ""
+            echo "📦 Dependency Management:"
+            echo "   bundler -v      - Show bundler version (${bundlerVersion})"
+            echo "   bundle lock     - Update Gemfile.lock"
+            echo "   bundle add gem  - Add new gem to Gemfile"
+            echo "   bundix          - Regenerate gemset.nix from Gemfile.lock"
             echo "   fix-gemset-sha  - Fix SHA mismatches in gemset.nix"
             echo ""
             echo "🗄️ Database & Services:"
@@ -411,6 +424,7 @@
             echo "💎 Gem Environment:"
             echo "   Gems: Nix closure from gemset.nix"
             echo "   Ruby: ${rubyPackage.version} (same as bundlerEnv)"
+            echo "   Bundler: ${bundlerVersion} (correct version for Gemfile.lock)"
             echo "   GEM_HOME: ${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0"
             echo "   No bundle exec needed - direct gem access"
           '';
