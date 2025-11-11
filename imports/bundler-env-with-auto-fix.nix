@@ -88,10 +88,10 @@ let
 in
 if autoFixedGemset == null || !tryBundlerEnv.success then
   # Bootstrap mode: provide a shell with bundix to fix gemset.nix
-  pkgs.symlinkJoin {
+  pkgs.buildEnv {
     name = name + "-bootstrap";
-    paths = [ bundler rubyPackage pkgs.bundix ] ++ buildInputs;
-    # Bundler comes first so its bundle command takes precedence
+    paths = [ rubyPackage pkgs.bundix ] ++ buildInputs;
+    # bundlerPackage will be handled via PATH ordering in shell
   }
 else
   tryBundlerEnv.value

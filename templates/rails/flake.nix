@@ -375,10 +375,10 @@
             { success = false; value = null; };
 
           # Use bundlerEnv if successful, otherwise bootstrap environment
-          bundlerEnv = if bundlerEnvResult.success then bundlerEnvResult.value else pkgs.symlinkJoin {
+          bundlerEnv = if bundlerEnvResult.success then bundlerEnvResult.value else pkgs.buildEnv {
             name = "rails-bundix-bootstrap";
-            paths = [ bundlerPackage rubyPackage pkgs.bundix ];
-            # Bundler comes first so its bundle command takes precedence
+            paths = [ rubyPackage pkgs.bundix ];
+            # bundlerPackage will be handled via PATH ordering in shell
           };
         in pkgs.mkShell {
           # Use bundlerEnv as primary buildInput for proper closure
