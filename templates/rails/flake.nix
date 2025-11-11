@@ -187,7 +187,7 @@
             gemConfig = {
               # PostgreSQL gem configuration
               pg = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql.dev pkgs.libpq.dev ];
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev pkgs.libpq.dev ];
                 preBuild = ''
                   export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
                 '';
@@ -371,7 +371,7 @@
               gemConfig = {
                 # PostgreSQL gem configuration
                 pg = attrs: {
-                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql.dev pkgs.libpq.dev ];
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev pkgs.libpq.dev ];
                   preBuild = ''
                     export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
                   '';
@@ -404,6 +404,7 @@
               pkgs.libxslt
               pkgs.zlib
               pkgs.libyaml
+              pkgs.postgresql      # For pg_config binary
               pkgs.postgresql.dev  # For pg gem headers
               pkgs.libpq.dev      # PostgreSQL client library headers
             ] ++ (if pkgs.stdenv.isDarwin then [

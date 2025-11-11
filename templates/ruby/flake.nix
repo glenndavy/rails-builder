@@ -197,7 +197,16 @@
               pkgs.libiconv
             ];
 
-            gemConfig = if pkgs.stdenv.isDarwin then {
+            gemConfig = {
+              # PostgreSQL gem configuration
+              pg = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev pkgs.libpq.dev ];
+                preBuild = ''
+                  export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
+                '';
+              };
+            } // (if pkgs.stdenv.isDarwin then {
+              # Darwin-specific overrides
               json = attrs: {
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
@@ -207,7 +216,7 @@
               msgpack = attrs: {
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
-            } else {};
+            } else {});
           };
 
           usrBinDerivation = pkgs.stdenv.mkDerivation {
@@ -475,7 +484,7 @@
               gemConfig = {
                 # PostgreSQL gem configuration
                 pg = attrs: {
-                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql.dev pkgs.libpq.dev ];
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev pkgs.libpq.dev ];
                   preBuild = ''
                     export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
                   '';
@@ -508,6 +517,7 @@
               pkgs.libxslt
               pkgs.zlib
               pkgs.libyaml
+              pkgs.postgresql      # For pg_config binary
               pkgs.postgresql.dev  # For pg gem headers
               pkgs.libpq.dev      # PostgreSQL client library headers
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
