@@ -572,9 +572,14 @@
               export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
               export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
-              # Same environment variables as normal mode for identical compilation context
-              export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib/pkgconfig" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib/pkgconfig" else ""}"
-              export LD_LIBRARY_PATH="${pkgs.curl}/lib${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""}:${opensslPackage}/lib"
+              # Same Ruby environment as normal mode would have
+              export RUBYLIB=${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+              export RUBYOPT=-I${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+              export GEM_HOME=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+              export GEM_PATH=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+
+              # Unset conflicting bundle environment (same as normal mode)
+              unset BUNDLE_PATH BUNDLE_GEMFILE
 
               echo "⚠️  BOOTSTRAP MODE: gemset.nix has hash mismatches"
               echo ""
