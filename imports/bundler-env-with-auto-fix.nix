@@ -90,7 +90,7 @@ if autoFixedGemset == null || !tryBundlerEnv.success then
   # Bootstrap mode: provide a shell with bundix to fix gemset.nix
   pkgs.buildEnv {
     name = name + "-bootstrap";
-    paths = [ bundler rubyPackage pkgs.bundix ] ++ buildInputs;
+    paths = [ rubyPackage pkgs.bundix ] ++ buildInputs;
   }
 else
   tryBundlerEnv.value
