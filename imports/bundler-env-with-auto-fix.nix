@@ -73,19 +73,25 @@
     fi
   '' else gemset;
 
-in if autoFixedGemset == null then
-  # Create a minimal bundlerEnv-like structure when no gemset.nix exists
+in
+# Try bundlerEnv first, fall back to bootstrap shell if it fails
+let
+  tryBundlerEnv = if autoFixedGemset == null then null else
+    builtins.tryEval (pkgs.bundlerEnv (args // {
+      inherit name;
+      gemset = autoFixedGemset;
+      bundler = bundler;
+      ruby = rubyPackage;
+      gemdir = gemdir;
+      buildInputs = buildInputs;
+      gemConfig = gemConfig;
+    }));
+in
+if autoFixedGemset == null || !tryBundlerEnv.success then
+  # Bootstrap mode: provide a shell with bundix to fix gemset.nix
   pkgs.buildEnv {
-    name = name + "-empty";
-    paths = [ bundler rubyPackage ] ++ buildInputs;
+    name = name + "-bootstrap";
+    paths = [ bundler rubyPackage pkgs.bundix ] ++ buildInputs;
   }
 else
-  pkgs.bundlerEnv (args // {
-    inherit name;
-    gemset = autoFixedGemset;
-    bundler = bundler;
-    ruby = rubyPackage;
-    gemdir = gemdir;
-    buildInputs = buildInputs;
-    gemConfig = gemConfig;
-  })
+  tryBundlerEnv.value
