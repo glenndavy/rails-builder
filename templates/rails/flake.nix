@@ -327,15 +327,15 @@
           '';
         };
       } // {
-        # Bundix approach shell
+        # Bundix approach shell - with bootstrap fallback for hash mismatches
         with-bundix = let
           # Create bundler with correct version for dependency management
           bundlerPackage = pkgs.bundler.override {
             ruby = rubyPackage;
           };
 
-          # Use the bundlerEnv gems directly for proper closure
-          bundlerEnv = (import (rails-builder + "/imports/bundler-env-with-auto-fix.nix")) {
+          # Try to create bundlerEnv, fall back to bootstrap if it fails
+          bundlerEnvResult = builtins.tryEval ((import (rails-builder + "/imports/bundler-env-with-auto-fix.nix")) {
             inherit pkgs rubyPackage bundlerVersion;
             name = "rails-bundix-env";
             gemdir = ./.;
@@ -369,6 +369,12 @@
                 buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
               };
             } else {};
+          });
+
+          # Use bundlerEnv if successful, otherwise bootstrap environment
+          bundlerEnv = if bundlerEnvResult.success then bundlerEnvResult.value else pkgs.buildEnv {
+            name = "rails-bundix-bootstrap";
+            paths = [ bundlerPackage rubyPackage pkgs.bundix ];
           };
         in pkgs.mkShell {
           # Use bundlerEnv as primary buildInput for proper closure
@@ -387,45 +393,64 @@
           ];
 
           shellHook = defaultShellHook + ''
-            export PS1="$(pwd) bundix-shell >"
             export RAILS_ROOT=$(pwd)
 
-            # Use bundlerEnv Ruby and gems - proper closure
-            export RUBYLIB=${bundlerEnv}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-            export RUBYOPT=-I${bundlerEnv}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+            ${if bundlerEnvResult.success then ''
+              # Normal mode: bundlerEnv loaded successfully
+              export PS1="$(pwd) bundix-shell >"
 
-            # Proper gem paths from bundlerEnv closure
-            export GEM_HOME=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
-            export GEM_PATH=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
+              # Use bundlerEnv Ruby and gems - proper closure
+              export RUBYLIB=${bundlerEnv}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+              export RUBYOPT=-I${bundlerEnv}/lib/ruby/site_ruby/${rubyMajorMinor}.0
 
-            # Binstubs from bundlerEnv + bundler + Ruby binaries
-            export PATH=${bundlerEnv}/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
+              # Proper gem paths from bundlerEnv closure
+              export GEM_HOME=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
+              export GEM_PATH=${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0
 
-            # Unset conflicting bundle environment
-            unset BUNDLE_PATH BUNDLE_GEMFILE
+              # Binstubs from bundlerEnv + bundler + Ruby binaries
+              export PATH=${bundlerEnv}/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
 
-            echo "🔧 Nix bundlerEnv environment:"
-            echo "   rails s         - Start server (direct, no bundle exec)"
-            echo "   gem list        - Show installed gems from Nix closure"
+              # Unset conflicting bundle environment
+              unset BUNDLE_PATH BUNDLE_GEMFILE
+
+              echo "🔧 Nix bundlerEnv environment:"
+              echo "   rails s         - Start server (direct, no bundle exec)"
+              echo "   gem list        - Show installed gems from Nix closure"
+              echo ""
+              echo "💎 Gem Environment:"
+              echo "   Gems: Nix closure from gemset.nix"
+              echo "   Ruby: ${rubyPackage.version} (same as bundlerEnv)"
+              echo "   Bundler: ${bundlerVersion} (correct version for Gemfile.lock)"
+              echo "   GEM_HOME: ${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0"
+              echo "   No bundle exec needed - direct gem access"
+            '' else ''
+              # Bootstrap mode: bundlerEnv failed, providing bundix to fix hashes
+              export PS1="$(pwd) bundix-bootstrap >"
+              export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
+
+              echo "⚠️  BOOTSTRAP MODE: gemset.nix has hash mismatches"
+              echo ""
+              echo "🔧 Fix gemset.nix hashes by running:"
+              echo "   bundix          - Regenerate gemset.nix with correct hashes"
+              echo "   exit            - Exit this shell"
+              echo "   nix develop .#with-bundix  - Re-enter shell (will use fixed gemset.nix)"
+              echo ""
+              echo "💎 Bootstrap Environment:"
+              echo "   Ruby: ${rubyPackage.version} (same as target bundlerEnv)"
+              echo "   Bundler: Available for dependency management"
+              echo "   Bundix: Available to regenerate gemset.nix"
+            ''}
+
             echo ""
             echo "📦 Dependency Management:"
-            echo "   bundler -v      - Show bundler version (${bundlerVersion})"
             echo "   bundle lock     - Update Gemfile.lock"
             echo "   bundle add gem  - Add new gem to Gemfile"
             echo "   bundix          - Regenerate gemset.nix from Gemfile.lock"
-            echo "   fix-gemset-sha  - Fix SHA mismatches in gemset.nix"
             echo ""
             echo "🗄️ Database & Services:"
             echo "   manage-postgres start - Start PostgreSQL server"
             echo "   manage-postgres help  - Show PostgreSQL connection info"
             echo "   manage-redis start    - Start Redis server"
-            echo ""
-            echo "💎 Gem Environment:"
-            echo "   Gems: Nix closure from gemset.nix"
-            echo "   Ruby: ${rubyPackage.version} (same as bundlerEnv)"
-            echo "   Bundler: ${bundlerVersion} (correct version for Gemfile.lock)"
-            echo "   GEM_HOME: ${bundlerEnv}/lib/ruby/gems/${rubyMajorMinor}.0"
-            echo "   No bundle exec needed - direct gem access"
           '';
         };
       };
