@@ -471,8 +471,15 @@
                 pkgs.libiconv
               ];
 
-              # Darwin-specific gem overrides for problematic native extensions
-              gemConfig = if pkgs.stdenv.isDarwin then {
+              # Gem overrides for problematic native extensions
+              gemConfig = {
+                # PostgreSQL gem configuration
+                pg = attrs: {
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.libpq ];
+                  buildFlags = [ "--with-pg-config=${pkgs.postgresql}/bin/pg_config" ];
+                };
+              } // (if pkgs.stdenv.isDarwin then {
+                # Darwin-specific overrides
                 json = attrs: {
                   buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
                 };
@@ -482,7 +489,7 @@
                 msgpack = attrs: {
                   buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
                 };
-              } else {};
+              } else {});
             })
           else
             { success = false; value = null; };
@@ -499,6 +506,8 @@
               pkgs.libxslt
               pkgs.zlib
               pkgs.libyaml
+              pkgs.postgresql  # For pg gem
+              pkgs.libpq      # PostgreSQL client library
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               pkgs.darwin.apple_sdk.frameworks.CoreServices
               pkgs.darwin.apple_sdk.frameworks.Foundation
@@ -560,6 +569,10 @@
               export PS1="$(pwd) bundix-bootstrap >"
               export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
               export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
+
+              # Same environment variables as normal mode for identical compilation context
+              export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib/pkgconfig" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib/pkgconfig" else ""}"
+              export LD_LIBRARY_PATH="${pkgs.curl}/lib${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""}:${opensslPackage}/lib"
 
               echo "⚠️  BOOTSTRAP MODE: gemset.nix has hash mismatches"
               echo ""
