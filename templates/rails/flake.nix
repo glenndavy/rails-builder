@@ -187,8 +187,10 @@
             gemConfig = {
               # PostgreSQL gem configuration
               pg = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.libpq ];
-                buildFlags = [ "--with-pg-config=${pkgs.postgresql}/bin/pg_config" ];
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql.dev pkgs.libpq.dev ];
+                preBuild = ''
+                  export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
+                '';
               };
             } // (if pkgs.stdenv.isDarwin then {
               # Darwin-specific overrides
@@ -369,8 +371,10 @@
               gemConfig = {
                 # PostgreSQL gem configuration
                 pg = attrs: {
-                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.libpq ];
-                  buildFlags = [ "--with-pg-config=${pkgs.postgresql}/bin/pg_config" ];
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql.dev pkgs.libpq.dev ];
+                  preBuild = ''
+                    export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
+                  '';
                 };
               } // (if pkgs.stdenv.isDarwin then {
                 # Darwin-specific overrides
@@ -400,8 +404,8 @@
               pkgs.libxslt
               pkgs.zlib
               pkgs.libyaml
-              pkgs.postgresql  # For pg gem
-              pkgs.libpq      # PostgreSQL client library
+              pkgs.postgresql.dev  # For pg gem headers
+              pkgs.libpq.dev      # PostgreSQL client library headers
             ] ++ (if pkgs.stdenv.isDarwin then [
               pkgs.darwin.apple_sdk.frameworks.CoreServices
               pkgs.darwin.apple_sdk.frameworks.Foundation
