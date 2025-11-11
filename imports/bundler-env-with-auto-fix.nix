@@ -91,7 +91,7 @@ if autoFixedGemset == null || !tryBundlerEnv.success then
   pkgs.buildEnv {
     name = name + "-bootstrap";
     paths = [ rubyPackage pkgs.bundix ] ++ buildInputs;
-    # bundlerPackage will be handled via PATH ordering in shell
+    # Includes same build inputs to ensure identical compilation environment
   }
 else
   tryBundlerEnv.value
