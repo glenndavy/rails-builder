@@ -14,7 +14,6 @@
 }@args: let
   bundler = pkgs.bundler.override {
     ruby = rubyPackage;
-    version = bundlerVersion;
   };
 
   # Auto-fix gemset SHAs for common problematic gems
