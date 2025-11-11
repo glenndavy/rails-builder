@@ -559,11 +559,12 @@
               # Bootstrap mode: bundlerEnv failed, providing bundix to fix hashes
               export PS1="$(pwd) bundix-bootstrap >"
               export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
+              export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
               echo "⚠️  BOOTSTRAP MODE: gemset.nix has hash mismatches"
               echo ""
               echo "🔧 Fix gemset.nix hashes by running:"
-              echo "   bundix          - Regenerate gemset.nix with correct hashes"
+              echo "   bundix          - Generate ruby platform gems (BUNDLE_FORCE_RUBY_PLATFORM set)"
               echo "   exit            - Exit this shell"
               echo "   nix develop .#with-bundix  - Re-enter shell (will use fixed gemset.nix)"
               echo ""
