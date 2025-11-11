@@ -112,6 +112,11 @@
         then pkgs.openssl_3
         else pkgs."openssl_${opensslVersion}";
 
+      # Bundler package with correct version
+      bundlerPackage = pkgs.bundler.override {
+        ruby = rubyPackage;
+      };
+
       # Shared build inputs for all approaches
       universalBuildInputs = [
         rubyPackage
@@ -133,11 +138,6 @@
         pkgs.rsync
         pkgs.bundix  # For generating gemset.nix
       ];
-
-      # Create bundler with correct version for all shells to use
-      bundlerPackage = pkgs.bundler.override {
-        ruby = rubyPackage;
-      };
 
       # Shared scripts
       manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
