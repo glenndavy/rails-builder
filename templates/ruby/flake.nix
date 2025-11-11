@@ -448,41 +448,44 @@
           };
 
           # Try to create bundlerEnv, fall back to bootstrap if it fails
-          bundlerEnvResult = builtins.tryEval ((import (ruby-builder + "/imports/bundler-env-with-auto-fix.nix")) {
-            inherit pkgs rubyPackage bundlerVersion;
-            name = "${framework}-bundix-env";
-            gemdir = ./.;
-            gemset = if builtins.pathExists ./gemset.nix then ./gemset.nix else null;
-            autoFix = false;
+          bundlerEnvResult = if builtins.pathExists ./gemset.nix then
+            builtins.tryEval ((import (ruby-builder + "/imports/bundler-env-with-auto-fix.nix")) {
+              inherit pkgs rubyPackage bundlerVersion;
+              name = "${framework}-bundix-env";
+              gemdir = ./.;
+              gemset = ./gemset.nix;
+              autoFix = false;
 
-            # Enhanced build inputs for native extensions
-            buildInputs = with pkgs; [
-              gccPackage
-              pkg-config
-              opensslPackage
-              libxml2
-              libxslt
-              zlib
-              libyaml
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.darwin.apple_sdk.frameworks.CoreServices
-              pkgs.darwin.apple_sdk.frameworks.Foundation
-              pkgs.libiconv
-            ];
+              # Enhanced build inputs for native extensions
+              buildInputs = with pkgs; [
+                gccPackage
+                pkg-config
+                opensslPackage
+                libxml2
+                libxslt
+                zlib
+                libyaml
+              ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+                pkgs.darwin.apple_sdk.frameworks.CoreServices
+                pkgs.darwin.apple_sdk.frameworks.Foundation
+                pkgs.libiconv
+              ];
 
-            # Darwin-specific gem overrides for problematic native extensions
-            gemConfig = if pkgs.stdenv.isDarwin then {
-              json = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
-              };
-              bootsnap = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
-              };
-              msgpack = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
-              };
-            } else {};
-          });
+              # Darwin-specific gem overrides for problematic native extensions
+              gemConfig = if pkgs.stdenv.isDarwin then {
+                json = attrs: {
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+                };
+                bootsnap = attrs: {
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+                };
+                msgpack = attrs: {
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+                };
+              } else {};
+            })
+          else
+            { success = false; value = null; };
 
           # Use bundlerEnv if successful, otherwise bootstrap environment
           bundlerEnv = if bundlerEnvResult.success then bundlerEnvResult.value else pkgs.buildEnv {
