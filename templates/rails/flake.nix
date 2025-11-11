@@ -134,6 +134,11 @@
         pkgs.bundix  # For generating gemset.nix
       ];
 
+      # Create bundler with correct version for all shells to use
+      bundlerPackage = pkgs.bundler.override {
+        ruby = rubyPackage;
+      };
+
       # Shared scripts
       manage-postgres-script = pkgs.writeShellScriptBin "manage-postgres" (import (rails-builder + /imports/manage-postgres-script.nix) {inherit pkgs;});
       manage-redis-script = pkgs.writeShellScriptBin "manage-redis" (import (rails-builder + /imports/manage-redis-script.nix) {inherit pkgs;});
@@ -342,11 +347,6 @@
       } // {
         # Bundix approach shell - with bootstrap fallback for hash mismatches
         with-bundix = let
-          # Create bundler with correct version for dependency management
-          bundlerPackage = pkgs.bundler.override {
-            ruby = rubyPackage;
-          };
-
           # Try to create bundlerEnv, fall back to bootstrap if it fails
           bundlerEnvResult = if builtins.pathExists ./gemset.nix then
             builtins.tryEval ((import (rails-builder + "/imports/bundler-env-with-auto-fix.nix")) {
