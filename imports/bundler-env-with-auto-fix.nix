@@ -74,14 +74,10 @@
   '' else gemset;
 
 in if autoFixedGemset == null then
-  # Create a minimal shell environment when no gemset.nix exists
-  pkgs.mkShell {
-    inherit buildInputs;
-    nativeBuildInputs = [ bundler rubyPackage ];
-    shellHook = ''
-      echo "⚠️  No gemset.nix found. Run 'bundix' to generate it first."
-      echo "   Then exit and re-enter this shell to use bundlerEnv."
-    '';
+  # Create a minimal bundlerEnv-like structure when no gemset.nix exists
+  pkgs.buildEnv {
+    name = name + "-empty";
+    paths = [ bundler rubyPackage ] ++ buildInputs;
   }
 else
   pkgs.bundlerEnv (args // {
