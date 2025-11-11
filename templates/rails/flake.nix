@@ -304,21 +304,24 @@
       devShells = {
         # Bare shell with just build inputs
         bare = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ bundlerPackage ];
           shellHook = defaultShellHook + ''
             export PS1="bare-shell:>"
+            export PATH=${bundlerPackage}/bin:$PATH  # Ensure correct bundler version comes first
           '';
         };
 
         # Default shell (same as bare)
         default = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ manage-postgres-script manage-redis-script ];
-          shellHook = defaultShellHook;
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ bundlerPackage manage-postgres-script manage-redis-script ];
+          shellHook = defaultShellHook + ''
+            export PATH=${bundlerPackage}/bin:$PATH  # Ensure correct bundler version comes first
+          '';
         };
 
         # Traditional bundler approach
         with-bundler = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ manage-postgres-script manage-redis-script ];
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ bundlerPackage manage-postgres-script manage-redis-script ];
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundler-shell >"
             export RAILS_ROOT=$(pwd)
@@ -326,13 +329,14 @@
             # Bundle isolation - same as build scripts
             export BUNDLE_PATH=$RAILS_ROOT/vendor/bundle
             export BUNDLE_GEMFILE=$PWD/Gemfile
-            export PATH=$BUNDLE_PATH/bin:$RAILS_ROOT/bin:${rubyPackage}/bin:$PATH
+            export PATH=$BUNDLE_PATH/bin:$RAILS_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
 
             echo "🔧 Traditional bundler environment:"
             echo "   bundle install  - Install gems to ./vendor/bundle"
             echo "   bundle exec     - Run commands with bundler"
             echo "   rails s         - Start server (via bundle exec)"
             echo "   Gems isolated in: ./vendor/bundle"
+            echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
           '';
         };
       } // {

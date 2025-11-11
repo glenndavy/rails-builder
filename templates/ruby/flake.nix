@@ -413,8 +413,10 @@
       devShells = {
         # Default shell
         default = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ bundlerPackage ] ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
           shellHook = defaultShellHook + ''
+            export PATH=${bundlerPackage}/bin:$PATH  # Ensure correct bundler version comes first
+
             echo "🔧 ${framework} application detected"
             echo "   Framework: ${framework}"
             echo "   Entry point: ${frameworkInfo.entryPoint or "auto-detected"}"
@@ -422,12 +424,13 @@
             echo "   Has assets: ${if frameworkInfo.hasAssets then "yes (${frameworkInfo.assetPipeline or "unknown"})" else "no"}"
             echo "   Database: ${if frameworkInfo.needsPostgresql then "PostgreSQL" else if frameworkInfo.needsMysql then "MySQL" else if frameworkInfo.needsSqlite then "SQLite" else "none detected"}"
             echo "   Cache: ${if frameworkInfo.needsRedis then "Redis" else if frameworkInfo.needsMemcached then "Memcached" else "none detected"}"
+            echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
           '';
         };
 
         # Traditional bundler approach
         with-bundler = pkgs.mkShell {
-          buildInputs = universalBuildInputs ++ builderExtraInputs ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
+          buildInputs = universalBuildInputs ++ builderExtraInputs ++ [ bundlerPackage ] ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ]);
           shellHook = defaultShellHook + ''
             export PS1="$(pwd) bundler-shell >"
             export APP_ROOT=$(pwd)
@@ -435,7 +438,7 @@
             # Bundle isolation - same as build scripts
             export BUNDLE_PATH=$APP_ROOT/vendor/bundle
             export BUNDLE_GEMFILE=$PWD/Gemfile
-            export PATH=$BUNDLE_PATH/bin:$APP_ROOT/bin:${rubyPackage}/bin:$PATH
+            export PATH=$BUNDLE_PATH/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
 
             echo "🔧 Traditional bundler environment for ${framework}:"
             echo "   bundle install  - Install gems to ./vendor/bundle"
@@ -446,6 +449,7 @@
             echo "   Run app:        - bundle exec ruby your_script.rb"
             ''}
             echo "   Gems isolated in: ./vendor/bundle"
+            echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
           '';
         };
       } // {
