@@ -339,7 +339,7 @@
             inherit pkgs rubyPackage bundlerVersion;
             name = "rails-bundix-env";
             gemdir = ./.;
-            gemset = ./gemset.nix;
+            gemset = if builtins.pathExists ./gemset.nix then ./gemset.nix else null;
             autoFix = false;
 
             # Enhanced build inputs for native extensions
