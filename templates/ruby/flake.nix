@@ -200,7 +200,7 @@
             gemConfig = {
               # PostgreSQL gem configuration
               pg = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev pkgs.libpq.dev ];
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev ];
                 preBuild = ''
                   export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
                 '';
@@ -484,7 +484,7 @@
               gemConfig = {
                 # PostgreSQL gem configuration
                 pg = attrs: {
-                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev pkgs.libpq.dev ];
+                  buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev ];
                   preBuild = ''
                     export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
                   '';
@@ -518,8 +518,7 @@
               pkgs.zlib
               pkgs.libyaml
               pkgs.postgresql      # For pg_config binary
-              pkgs.postgresql.dev  # For pg gem headers
-              pkgs.libpq.dev      # PostgreSQL client library headers
+              pkgs.postgresql.dev  # For pg gem headers (includes libpq)
             ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               pkgs.darwin.apple_sdk.frameworks.CoreServices
               pkgs.darwin.apple_sdk.frameworks.Foundation
