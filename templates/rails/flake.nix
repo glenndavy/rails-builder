@@ -377,7 +377,8 @@
           # Use bundlerEnv if successful, otherwise bootstrap environment
           bundlerEnv = if bundlerEnvResult.success then bundlerEnvResult.value else pkgs.buildEnv {
             name = "rails-bundix-bootstrap";
-            paths = [ rubyPackage pkgs.bundix ];
+            paths = [ bundlerPackage rubyPackage pkgs.bundix ];
+            ignoreCollisions = true;  # Let correct bundler version supersede Ruby's bundler
           };
         in pkgs.mkShell {
           # Use bundlerEnv as primary buildInput for proper closure
@@ -440,7 +441,7 @@
               echo ""
               echo "💎 Bootstrap Environment:"
               echo "   Ruby: ${rubyPackage.version} (same as target bundlerEnv)"
-              echo "   Bundler: ${bundlerVersion} (from Ruby, for dependency management)"
+              echo "   Bundler: ${bundlerVersion} (correct version, supersedes Ruby's bundler)"
               echo "   Bundix: Available to regenerate gemset.nix"
             ''}
 
