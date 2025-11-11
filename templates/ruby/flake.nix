@@ -174,7 +174,6 @@
         then let
           bundler = pkgs.bundler.override {
             ruby = rubyPackage;
-            version = bundlerVersion;
           };
 
           gems = (import (ruby-builder + "/imports/bundler-env-with-auto-fix.nix")) {
@@ -182,7 +181,7 @@
             name = "${framework}-gems";
             gemdir = ./.;
             gemset = ./gemset.nix;
-            autoFix = true;
+            autoFix = false;
 
             buildInputs = with pkgs; [
               gccPackage
@@ -446,7 +445,6 @@
           # Create bundler with correct version for dependency management
           bundlerPackage = pkgs.bundler.override {
             ruby = rubyPackage;
-            version = bundlerVersion;
           };
 
           # Use the bundlerEnv gems directly for proper closure
@@ -455,7 +453,7 @@
             name = "${framework}-bundix-env";
             gemdir = ./.;
             gemset = ./gemset.nix;
-            autoFix = true;
+            autoFix = false;
 
             buildInputs = with pkgs; [
               gccPackage

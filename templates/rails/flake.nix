@@ -332,7 +332,6 @@
           # Create bundler with correct version for dependency management
           bundlerPackage = pkgs.bundler.override {
             ruby = rubyPackage;
-            version = bundlerVersion;
           };
 
           # Use the bundlerEnv gems directly for proper closure
@@ -341,7 +340,7 @@
             name = "rails-bundix-env";
             gemdir = ./.;
             gemset = ./gemset.nix;
-            autoFix = true;
+            autoFix = false;
 
             # Enhanced build inputs for native extensions
             buildInputs = with pkgs; [
