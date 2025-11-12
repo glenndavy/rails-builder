@@ -112,9 +112,19 @@
         then pkgs.openssl_3
         else pkgs."openssl_${opensslVersion}";
 
-      # Bundler package with correct version
-      bundlerPackage = pkgs.bundler.override {
-        ruby = rubyPackage;
+      # Bundler package with correct version from Gemfile.lock
+      bundlerPackage = pkgs.stdenv.mkDerivation {
+        name = "bundler-${bundlerVersion}";
+        buildInputs = [rubyPackage];
+        dontUnpack = true;
+        buildPhase = ''
+          export GEM_HOME=$out
+          ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
+        '';
+        installPhase = ''
+          mkdir -p $out/bin
+          ln -sf $out/bin/bundle $out/bin/bundler
+        '';
       };
 
       # Shared build inputs for all approaches
