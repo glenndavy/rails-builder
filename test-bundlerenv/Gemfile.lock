@@ -1,0 +1,15 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rails (8.0.0)
+    pg (1.5.9)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  rails (~> 8.0)
+  pg
+
+BUNDLED WITH
+   2.6.8
