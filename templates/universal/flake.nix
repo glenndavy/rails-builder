@@ -417,11 +417,11 @@
                 echo "🔧 BundlerEnv Environment for ${framework} (Direct gem access)"
                 echo "   Framework: ${framework} (auto-detected)"
                 echo "   Ruby: ${rubyPackage.version}"
-                echo "   Mode: ${
-                  if builtins.pathExists ./gemset.nix
-                  then "gemset.nix + Gemfile.lock"
-                  else "Gemfile.lock only"
-                }"
+                if [ -f ./gemset.nix ]; then
+                  echo "   Mode: gemset.nix + Gemfile.lock"
+                else
+                  echo "   Mode: Gemfile.lock only"
+                fi
                 echo "   Gem executables: Available directly (no bundle exec needed)"
                 echo ""
                 echo "🎯 Ready to use:"
