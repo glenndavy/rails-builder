@@ -112,13 +112,15 @@
         name = "bundler-${bundlerVersion}";
         buildInputs = [rubyPackage];
         dontUnpack = true;
-        buildPhase = ''
-          export GEM_HOME=$out
-          ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
-        '';
         installPhase = ''
           mkdir -p $out/bin
-          ln -sf $out/bin/bundle $out/bin/bundler
+          export GEM_HOME=$out/lib/ruby/gems/${rubyMajorMinor}.0
+          export PATH=$out/bin:${rubyPackage}/bin:$PATH
+          ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document --bindir=$out/bin
+          # Ensure both bundle and bundler commands work
+          if [ ! -f $out/bin/bundler ]; then
+            ln -sf $out/bin/bundle $out/bin/bundler
+          fi
         '';
       };
 
