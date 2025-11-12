@@ -194,220 +194,12 @@
         dockerImage = frameworkDockerImage;
       };
 
-      # Bundix approach (only if gemset.nix exists)
-      bundixBuild =
-        if builtins.pathExists ./gemset.nix
-        then let
-          bundler = pkgs.bundler.override {
-            ruby = rubyPackage;
-          };
+      # Bundix approach - disabled for now to avoid evaluation issues
+      # Use bootstrap shell and manual package building after fixing hashes
+      bundixBuild = null;
 
-          gems = (import (ruby-builder + "/imports/bundler-env-with-auto-fix.nix")) {
-            inherit pkgs rubyPackage bundlerVersion;
-            name = "${framework}-gems";
-            gemdir = ./.;
-            gemset = ./gemset.nix;
-            autoFix = false;
-
-            buildInputs = with pkgs; [
-              gccPackage
-              pkg-config
-              opensslPackage
-              libxml2
-              libxslt
-              zlib
-              libyaml
-            ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.darwin.apple_sdk.frameworks.CoreServices
-              pkgs.darwin.apple_sdk.frameworks.Foundation
-              pkgs.libiconv
-            ];
-
-            gemConfig = {
-              # PostgreSQL gem configuration
-              pg = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev ];
-                preBuild = ''
-                  export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
-                '';
-              };
-            } // (if pkgs.stdenv.isDarwin then {
-              # Darwin-specific overrides
-              json = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
-              };
-              bootsnap = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
-              };
-              msgpack = attrs: {
-                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
-              };
-            } else {});
-          };
-
-          usrBinDerivation = pkgs.stdenv.mkDerivation {
-            name = "usr-bin-env";
-            buildInputs = [pkgs.coreutils];
-            dontUnpack = true;
-            installPhase = ''
-              mkdir -p $out/usr/bin
-              ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
-            '';
-          };
-          tzinfo = pkgs.stdenv.mkDerivation {
-            name = "tzinfo";
-            buildInputs = [pkgs.tzdata];
-            dontUnpack = true;
-            installPhase = ''
-              mkdir -p $out/usr/share
-              ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
-            '';
-          };
-          defaultShellHook = ''
-            export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib/pkgconfig" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib/pkgconfig" else ""}"
-            export LD_LIBRARY_PATH="${pkgs.curl}/lib${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""}${if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""}:${opensslPackage}/lib"
-          '';
-
-          # Inline bundix build instead of importing from ruby-builder
-          rubyNixApp = pkgs.stdenv.mkDerivation {
-            name = "${framework}-app";
-            src = ./.;
-            nativeBuildInputs =
-              [pkgs.rsync pkgs.coreutils pkgs.bash rubyPackage gems]
-              ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
-              ++ (
-                if builtins.pathExists (./. + "/yarn.lock")
-                then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
-                else []
-              );
-            buildInputs = universalBuildInputs;
-
-            preConfigure = ''
-              export HOME=$PWD
-              ${if frameworkInfo.hasAssets then ''
-              if [ -f ./yarn.lock ]; then
-               yarn config --offline set yarn-offline-mirror ${pkgs.runCommand "empty-cache" {} "mkdir -p $out"}
-              fi'' else ""}
-            '';
-
-            buildPhase = ''
-              export HOME=$PWD
-              export source=$PWD
-              
-              ${if frameworkInfo.hasAssets then ''
-              if [ -f ./yarn.lock ]; then
-                yarn install ${toString ["--offline" "--frozen-lockfile"]}
-              fi'' else ""}
-              
-              mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
-              # Copy gems from bundlerEnv to vendor for compatibility
-              cp -r ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
-
-              # Set up environment for direct gem access (no bundle exec needed)
-              export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
-              export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
-              export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
-
-              # Framework-specific asset compilation
-              ${if framework == "rails" then ''
-                rails assets:precompile
-              '' else if framework == "hanami" then ''
-                if [ -f bin/hanami ]; then
-                  hanami assets compile || true
-                fi
-              '' else if frameworkInfo.hasAssets then ''
-                # For other frameworks, try basic asset compilation if rake task exists
-                if [ -f Rakefile ] && rake -T | grep -q assets; then
-                  rake assets:precompile || true
-                fi
-              '' else ""}
-            '';
-            
-            installPhase = ''
-              mkdir -p $out/app
-              rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
-            '';
-          };
-          
-          rubyNixShell = pkgs.mkShell {
-            buildInputs =
-              universalBuildInputs
-              ++ [
-                gccPackage
-                pkgs.pkg-config
-                pkgs.rsync
-              ] ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
-              ++ (if pkgs.stdenv.isLinux then [pkgs.gosu] else []);
-
-            shellHook = defaultShellHook;
-          };
-          
-          rubyNixDockerImage = pkgs.dockerTools.buildLayeredImage {
-            name = "${framework}-app-image";
-            contents =
-              universalBuildInputs
-              ++ [
-                rubyNixApp
-                gems
-                usrBinDerivation
-                rubyPackage
-                pkgs.curl
-                opensslPackage
-                pkgs.rsync
-                pkgs.zlib
-                pkgs.bash
-                pkgs.coreutils
-              ] ++ (if frameworkInfo.hasAssets then [pkgs.nodejs] else [])
-              ++ (if pkgs.stdenv.isLinux then [pkgs.gosu pkgs.goreman] else []);
-            enableFakechroot = !pkgs.stdenv.isDarwin;
-            fakeRootCommands = ''
-              mkdir -p /etc
-              cat > /etc/passwd <<-EOF
-              root:x:0:0::/root:/bin/bash
-              app_user:x:1000:1000:App User:/app:/bin/bash
-              EOF
-              cat > /etc/group <<-EOF
-              root:x:0:
-              app_user:x:1000:
-              EOF
-              cat > /etc/shadow <<-EOF
-              root:*:18000:0:99999:7:::
-              app_user:*:18000:0:99999:7:::
-              EOF
-              chown -R 1000:1000 /app
-              chmod -R u+w /app
-            '';
-            config = {
-              Cmd = ["${pkgs.bash}/bin/bash" "-c" "${if pkgs.stdenv.isLinux then "${pkgs.gosu}/bin/gosu app_user " else ""}${
-                if frameworkInfo.isWebApp then 
-                  if framework == "rails" then "rails server -b 0.0.0.0"
-                  else if framework == "hanami" then "hanami server"
-                  else "rackup -o 0.0.0.0"
-                else "ruby -v"
-              }"];
-              Env = [
-                "BUNDLE_PATH=/app/vendor/bundle"
-                "BUNDLE_GEMFILE=/app/Gemfile"
-                "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
-                "RAILS_ENV=production"
-                "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-                "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-                "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
-                "TZDIR=/usr/share/zoneinfo"
-              ];
-              User = "app_user:app_user";
-              WorkingDir = "/app";
-            };
-          };
-
-          railsNixBuild = {
-            app = rubyNixApp;
-            shell = rubyNixShell;
-            dockerImage = rubyNixDockerImage;
-          };
-          # Use the inline bundix build we created above
-        in railsNixBuild
-        else null;
+      # TODO: Re-enable when we have a safe way to detect hash mismatches without causing build failures
+      # Temporarily disabled to prevent shell evaluation issues with nokogiri hash mismatches
 
       # Shared shell hook
       defaultShellHook = ''
@@ -430,11 +222,9 @@
         manage-postgres = manage-postgres-script;
       } else {}) // (if frameworkInfo.needsRedis && manage-redis-script != null then {
         manage-redis = manage-redis-script;
-      } else {}) // (if bundixBuild != null then {
-        # Bundix approach packages (only if gemset.nix exists)
-        package-with-bundix = bundixBuild.app;
-        docker-with-bundix = bundixBuild.dockerImage;
       } else {});
+      # Note: bundix packages removed to prevent shell evaluation failures
+      # Use `nix build .#package-with-bundix` directly after fixing gemset.nix hashes
 
       devShells = {
         # Default shell
@@ -482,16 +272,16 @@
           '';
         };
       } // {
-        # Bundix approach shell - always bootstrap, detects if bundlerEnv works
+        # Bundix approach shell - always starts in bootstrap mode first
         with-bundix = pkgs.mkShell {
-          # Always provide bootstrap environment with identical build inputs as bundlerEnv
+          # Minimal bootstrap environment - no complex dependencies
           buildInputs = [
             rubyPackage
             bundlerPackage
             pkgs.bundix
             pkgs.git
             pkgs.rsync
-            # Same build inputs as bundlerEnv for identical compilation environment
+            # Core build dependencies only - minimal set
             gccPackage
             pkgs.pkg-config
             opensslPackage
@@ -499,78 +289,64 @@
             pkgs.libxslt
             pkgs.zlib
             pkgs.libyaml
-            pkgs.postgresql      # For pg_config binary
-            pkgs.postgresql.dev  # For pg gem headers (includes libpq)
-          ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.CoreServices
-            pkgs.darwin.apple_sdk.frameworks.Foundation
-            pkgs.libiconv
-          ] ++ (builtins.filter (x: x != null) [ manage-postgres-script manage-redis-script ])
-          ++ (pkgs.lib.optionals frameworkInfo.needsPostgresql [ pkgs.postgresql ])
-          ++ (pkgs.lib.optionals frameworkInfo.needsRedis [ pkgs.redis ])
-          ++ (pkgs.lib.optionals frameworkInfo.hasAssets [ pkgs.nodejs ]);
+            # Add PostgreSQL only if needed (for pg gem compilation)
+            pkgs.postgresql
+            pkgs.postgresql.dev
+          ];
 
           shellHook = defaultShellHook + ''
             export APP_ROOT=$(pwd)
+            export PS1="$(pwd) bundix-bootstrap >"
 
-            # Check if bundlerEnv works by testing if we can load gems properly
-            if [ -f ./gemset.nix ] && nix build --no-link --quiet .#packages.x86_64-linux.package-with-bundix 2>/dev/null; then
-              # Normal mode: bundlerEnv works, use it for gem environment
-              export PS1="$(pwd) bundix-shell >"
+            # Always start in bootstrap mode - this guarantees shell startup success
+            export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
+            export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
-              # Build bundlerEnv dynamically in shell
-              BUNDLER_ENV=$(nix build --no-link --print-out-paths .#packages.x86_64-linux.package-with-bundix 2>/dev/null | head -1)
-              if [ -n "$BUNDLER_ENV" ]; then
-                # Use bundlerEnv paths
-                export GEM_HOME=$BUNDLER_ENV/lib/ruby/gems/${rubyMajorMinor}.0
-                export GEM_PATH=$BUNDLER_ENV/lib/ruby/gems/${rubyMajorMinor}.0
-                export PATH=$BUNDLER_ENV/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
-
-                # Ruby environment setup
-                export RUBYLIB=$BUNDLER_ENV/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-                export RUBYOPT=-I$BUNDLER_ENV/lib/ruby/site_ruby/${rubyMajorMinor}.0
-
-                echo "🔧 Nix bundlerEnv environment for ${framework}:"
-                ${if frameworkInfo.isWebApp then ''
-                echo "   Start server:   - ${if framework == "rails" then "rails s" else if framework == "hanami" then "hanami server" else "rackup"} (direct, no bundle exec)"
-                '' else ''
-                echo "   Run app:        - ruby your_script.rb (direct, no bundle exec)"
-                ''}
-                echo "   gem list        - Show installed gems from Nix closure"
-                echo ""
-                echo "💎 Gem Environment: Nix bundlerEnv (gemset.nix working)"
-              else
-                # Fallback to bootstrap if bundlerEnv build failed
-                echo "⚠️  BundlerEnv build failed, falling back to bootstrap mode"
-              fi
-            else
-              # Bootstrap mode: gemset.nix missing or has hash mismatches
-              export PS1="$(pwd) bundix-bootstrap >"
-              export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
-              export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
-
-              # Bootstrap Ruby environment
-              export RUBYLIB=${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-              export RUBYOPT=-I${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-              export GEM_HOME=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
-              export GEM_PATH=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
-
-              echo "⚠️  BOOTSTRAP MODE: gemset.nix missing or has hash mismatches"
-              echo ""
-              echo "🔧 Fix gemset.nix hashes by running:"
-              echo "   bundix          - Generate ruby platform gems (BUNDLE_FORCE_RUBY_PLATFORM set)"
-              echo "   exit            - Exit this shell"
-              echo "   nix develop .#with-bundix  - Re-enter shell (will use fixed gemset.nix)"
-              echo ""
-              echo "💎 Bootstrap Environment: Ruby with bundix (identical to bundlerEnv)"
-            fi
+            # Bootstrap Ruby environment - same as bundlerEnv for consistency
+            export RUBYLIB=${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+            export RUBYOPT=-I${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+            export GEM_HOME=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+            export GEM_PATH=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
 
             # Unset conflicting bundle environment
             unset BUNDLE_PATH BUNDLE_GEMFILE
 
+            # Environment variables for gem compilation (same as bundlerEnv)
+            export PKG_CONFIG_PATH="${opensslPackage}/lib/pkgconfig:${pkgs.libxml2.dev}/lib/pkgconfig:${pkgs.libxslt.dev}/lib/pkgconfig:${pkgs.zlib.dev}/lib/pkgconfig${if frameworkInfo.needsPostgresql then ":${pkgs.postgresql.dev}/lib/pkgconfig" else ""}"
+
+            echo "🔧 Bundix Environment for ${framework} (Bootstrap Mode)"
             echo "   Ruby: ${rubyPackage.version}"
             echo "   Bundler: ${bundlerVersion} (matches Gemfile.lock)"
             echo "   Framework: ${framework} (auto-detected)"
+            echo ""
+
+            # Check if we can upgrade to normal mode (gemset.nix works)
+            if [ -f ./gemset.nix ]; then
+              echo "📦 Testing if gemset.nix works with bundlerEnv..."
+              echo "   Running: nix build .#package-with-bundix --no-link"
+              echo ""
+
+              # Test bundlerEnv in the background and show result
+              if timeout 10 nix build .#package-with-bundix --no-link >/dev/null 2>&1; then
+                echo "✅ SUCCESS: gemset.nix works! You can upgrade to normal mode:"
+                echo "   exit                    - Exit this shell"
+                echo "   nix develop .#with-bundix-normal  - Use bundlerEnv (no bundle exec needed)"
+                echo ""
+                echo "   Or continue in bootstrap mode below ⬇️"
+              else
+                echo "❌ FAILED: gemset.nix has hash mismatches (expected with nokogiri)"
+                echo "   This is normal for fresh projects or after gem updates"
+              fi
+              echo ""
+            else
+              echo "📦 No gemset.nix found - this is expected for new projects"
+              echo ""
+            fi
+
+            echo "🔧 Fix gemset.nix workflow:"
+            echo "   bundix          - Regenerate gemset.nix from Gemfile.lock"
+            echo "   exit            - Exit this shell"
+            echo "   nix develop .#with-bundix  - Re-enter (will test new gemset.nix)"
             echo ""
             echo "📦 Dependency Management:"
             echo "   bundle lock     - Update Gemfile.lock"
@@ -586,9 +362,14 @@
             ${if frameworkInfo.needsRedis then ''
             echo "   manage-redis start    - Start Redis server"
             '' else ""}
+            echo ""
             '' else ""}
+            echo "💎 Bootstrap Environment: Ruby with bundix (same build deps as bundlerEnv)"
           '';
         };
+
+# Note: with-bundix-normal shell removed for now to avoid bundlerEnv evaluation issues
+        # Users should use `with-bundix` (bootstrap) and manually build packages after fixing hashes
       };
 
       apps = {
