@@ -179,41 +179,72 @@
     });
 
     templates = {
+      # 🚀 Universal Template (single source of truth)
+      universal = {
+        path = ./templates/universal;
+        description = "Universal Ruby application template with smart dependency detection (Rails, Hanami, Sinatra, Rack, Ruby)";
+      };
+
+      # 🎯 Framework-specific aliases (all point to universal template)
       rails = {
-        path = ./templates/rails;
-        description = "Unified Rails template with bundler and bundix approaches";
+        path = ./templates/universal;
+        description = "Rails application template with smart dependency detection";
+      };
+      hanami = {
+        path = ./templates/universal;
+        description = "Hanami application template with smart dependency detection";
+      };
+      sinatra = {
+        path = ./templates/universal;
+        description = "Sinatra application template with smart dependency detection";
+      };
+      rack = {
+        path = ./templates/universal;
+        description = "Rack application template with smart dependency detection";
       };
       ruby = {
-        path = ./templates/ruby;
-        description = "Generic Ruby application template with framework auto-detection (Rails, Hanami, Sinatra, Rack, plain Ruby)";
+        path = ./templates/universal;
+        description = "Generic Ruby application template with framework auto-detection";
       };
+
+      # 📦 Versioned templates for cache-busting
+      universal-v3-0-0 = {
+        path = ./templates/universal;
+        description = "Universal template v3.0.0 with enhanced detection - versioned for cache-busting";
+      };
+      rails-v3-0-0 = {
+        path = ./templates/universal;
+        description = "Rails template v3.0.0 with enhanced detection - versioned for cache-busting";
+      };
+
+      # 🔄 Legacy compatibility (deprecated but functional)
       ruby-fixed = {
-        path = ./templates/ruby;
-        description = "Latest Ruby template with bundix fixes (v2.2.0) - use this if 'ruby' template is cached";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal' or 'rails' instead - same functionality";
       };
       ruby-v2-2-3 = {
-        path = ./templates/ruby;
-        description = "Ruby template v2.2.3 with bundix fixes - versioned for cache-busting";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
       ruby-v2-2-9 = {
-        path = ./templates/ruby;
-        description = "Ruby template v2.2.9 with latest fixes - versioned for cache-busting";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
       ruby-v2-2-8 = {
-        path = ./templates/ruby;
-        description = "Ruby template v2.2.8 with latest fixes - versioned for cache-busting";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
       ruby-v2-2-7 = {
-        path = ./templates/ruby;
-        description = "Ruby template v2.2.7 with latest fixes - versioned for cache-busting";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
       ruby-v2-2-5 = {
-        path = ./templates/ruby;
-        description = "Ruby template v2.2.5 with latest fixes - versioned for cache-busting";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
       ruby-v2-2-6 = {
-        path = ./templates/ruby;
-        description = "Ruby template v2.2.6 with latest fixes - versioned for cache-busting";
+        path = ./templates/universal;
+        description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
     };
   };

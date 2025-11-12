@@ -39,6 +39,30 @@
     redis = hasGem "redis" || hasGem "redis-rails" || hasGem "redis-store";
     memcached = hasGem "memcached" || hasGem "dalli";
   };
+
+  # Background job processing detection
+  backgroundJobGems = {
+    sidekiq = hasGem "sidekiq";
+    resque = hasGem "resque";
+    good_job = hasGem "good_job";
+    solid_queue = hasGem "solid_queue";
+    delayed_job = hasGem "delayed_job_active_record" || hasGem "delayed_job";
+  };
+
+  # Image processing detection
+  imageGems = {
+    vips = hasGem "ruby-vips" || hasGem "image_processing";
+    imagemagick = hasGem "mini_magick" || hasGem "rmagick";
+    libvips = hasGem "ruby-vips" || (hasGem "image_processing" && hasGem "ruby-vips");
+  };
+
+  # Testing/browser automation detection
+  testingGems = {
+    selenium = hasGem "selenium-webdriver";
+    capybara = hasGem "capybara";
+    playwright = hasGem "playwright-ruby";
+    chromedriver = hasGem "webdrivers" || hasGem "chromedriver-helper";
+  };
   
   # Asset-related gems detection
   assetGems = {
@@ -82,8 +106,18 @@ in {
   needsSqlite = databaseGems.sqlite;
   
   # Cache/session store requirements
-  needsRedis = cacheGems.redis;
+  needsRedis = cacheGems.redis || backgroundJobGems.sidekiq || backgroundJobGems.resque;
   needsMemcached = cacheGems.memcached;
+
+  # Background job requirements
+  needsBackgroundJobs = backgroundJobGems.sidekiq || backgroundJobGems.resque || backgroundJobGems.good_job || backgroundJobGems.solid_queue || backgroundJobGems.delayed_job;
+
+  # Image processing requirements
+  needsImageMagick = imageGems.imagemagick;
+  needsLibVips = imageGems.vips || imageGems.libvips;
+
+  # Browser testing requirements
+  needsBrowserDrivers = testingGems.selenium || testingGems.capybara || testingGems.playwright;
   
   # Combined database support needed
   needsDatabase = databaseGems.postgresql || databaseGems.mysql || databaseGems.sqlite;
