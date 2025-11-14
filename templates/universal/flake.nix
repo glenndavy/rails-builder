@@ -109,20 +109,9 @@
         else pkgs."openssl_${opensslVersion}";
 
       # Bundler package with correct version from Gemfile.lock
-      bundlerPackage = pkgs.stdenv.mkDerivation {
-        name = "bundler-${bundlerVersion}";
-        buildInputs = [rubyPackage];
-        dontUnpack = true;
-        installPhase = ''
-          mkdir -p $out/bin
-          export GEM_HOME=$out/lib/ruby/gems/${rubyMajorMinor}.0
-          export PATH=$out/bin:${rubyPackage}/bin:$PATH
-          ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document --bindir=$out/bin
-          # Ensure both bundle and bundler commands work
-          if [ ! -f $out/bin/bundler ]; then
-            ln -sf $out/bin/bundle $out/bin/bundler
-          fi
-        '';
+      # Use system bundler to avoid network access during build
+      bundlerPackage = pkgs.bundler.override {
+        ruby = rubyPackage;
       };
 
       # Shared build inputs for all Ruby apps
@@ -248,7 +237,7 @@
           tryBundixBuild = builtins.tryEval (let
             bundler = pkgs.bundler.override {
               ruby = rubyPackage;
-              version = bundlerVersion;
+              # Don't force specific version - use system bundler to avoid rebuilds
             };
             bundlerEnv = args:
               pkgs.bundlerEnv (args // {
