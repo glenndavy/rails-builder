@@ -140,6 +140,94 @@ The `ruby` template automatically detects your Ruby application framework:
 - **Build optimization**: Only includes dependencies needed for detected gems
 - **Environment setup**: Framework and gem-appropriate environment variables
 
+## Critical Architecture Decisions & Lessons Learned
+
+### Bundler Derivation Architecture
+**CRITICAL RULE**: Never do network operations in Nix build/install phases - they are sandboxed and will fail.
+
+#### ❌ BROKEN PATTERN (What we fixed):
+```nix
+bundlerPackage = pkgs.stdenv.mkDerivation {
+  installPhase = ''
+    # FAILS: Network access blocked in sandboxed build environment
+    ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion}
+  '';
+};
+```
+
+#### ✅ CORRECT PATTERN:
+```nix
+# Use established nixpkgs patterns that handle network access properly
+bundlerPackage = pkgs.bundler.override {
+  ruby = rubyPackage;
+};
+```
+
+**Key Insight**: Network access in Nix happens during the **fetch phase** using fixed-output derivations (FODs) with known SHA256 hashes. The build/install phases are sandboxed and cannot access networks.
+
+### Bundix vs BundlerEnv Modes
+
+#### Bootstrap Mode (Bundix)
+- **Purpose**: Generate gemset.nix from Gemfile.lock for new projects
+- **Tools Available**: bundix, Ruby, bundler, build dependencies
+- **Gem Access**: None directly (must use bundle exec or generate gemset.nix first)
+- **Use Case**: Initial project setup, gem updates, SHA mismatch fixes
+
+#### Production Mode (BundlerEnv)
+- **Purpose**: Direct gem access without bundle exec using pre-built gems
+- **Tools Available**: All gems directly accessible via Nix store paths
+- **Gem Access**: Direct (e.g., `ruby -e "require 'rails'"` works)
+- **Use Case**: Running applications, development with fast gem access
+
+### Platform-Specific Gem Variants
+The fix-gemset-sha script handles multi-platform gems automatically:
+- `nokogiri-1.18.8-x86_64-linux-gnu.gem`
+- `nokogiri-1.18.8-aarch64-linux-gnu.gem`
+- `nokogiri-1.18.8-arm64-darwin.gem`
+- etc.
+
+This enables proper cross-platform builds without manual SHA management.
+
+### Network Dependency Resolution Rules
+
+1. **Fetch Phase**: Network allowed for fixed-output derivations (gems, source code)
+2. **Build Phase**: Network blocked - all dependencies must be pre-fetched
+3. **Install Phase**: Network blocked - only file operations allowed
+4. **Runtime**: No special restrictions
+
+**Lesson**: Previous "working" bundler derivations likely succeeded due to cache hits, not proper architecture. Network calls in build phases are fundamentally unsound in Nix.
+
+### Infrastructure Rules for Bundler Management
+
+**CRITICAL: Use Existing Infrastructure, Don't Reinvent**
+
+1. **bundler-hashes.nix**: Contains pre-computed SHA256 hashes for all bundler versions
+   - Never hardcode bundler hashes in flake.nix
+   - Always reference: `bundlerHashes.${bundlerVersion}.sha256`
+   - Update with existing scripts when new versions needed
+
+2. **#bundlerVersion app**: Extracts bundler version from Gemfile.lock
+   - Use this to detect required version dynamically
+   - Never assume or hardcode bundler versions
+
+3. **Bundler Derivation Pattern**:
+   ```nix
+   bundlerHashes = import ./bundler-hashes.nix;
+   bundlerPackage = let
+     bundlerInfo = bundlerHashes.${bundlerVersion} or (throw "Bundler version ${bundlerVersion} not found");
+   in pkgs.buildRubyGem rec {
+     ruby = rubyPackage;
+     source.sha256 = bundlerInfo.sha256;
+     # ... rest of config
+   };
+   ```
+
+4. **Path Configuration**: Include both derivation gems and local project gems
+   - `GEM_PATH="${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0:$PROJECT/vendor/bundle/ruby/${rubyMajorMinor}.0"`
+   - `RUBYLIB` must include bundler derivation gem paths
+
+**Never**: Hardcode versions, bypass bundler-hashes.nix, or do manual gem installation in build phases.
+
 ## SHA Mismatch Resolution
 
 The templates now include automatic SHA fixing for bundix builds. If you encounter SHA mismatches:
