@@ -172,12 +172,11 @@ let
       gemConfig = gemConfig;
     }));
 in
-if autoFixedGemset == null || !tryBundlerEnv.success then
-  # Bootstrap mode: provide a shell with bundix to fix gemset.nix
-  pkgs.buildEnv {
-    name = name + "-bootstrap";
-    paths = [ rubyPackage pkgs.bundix ] ++ buildInputs;
-    # Includes same build inputs to ensure identical compilation environment
-  }
+# Always return the bundlerEnv result, even if it fails
+# The calling code (bundixBuild) will handle the failure case
+if autoFixedGemset == null then
+  throw "bundler-env-with-auto-fix: gemset is required"
+else if !tryBundlerEnv.success then
+  throw "bundlerEnv failed even after auto-fixing: ${tryBundlerEnv.value or "unknown error"}"
 else
   tryBundlerEnv.value
