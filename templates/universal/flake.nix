@@ -660,17 +660,22 @@
                 export PS1="$(pwd) bundix-bootstrap >"
 
                 # Always start in bootstrap mode - this guarantees shell startup success
-                export PATH=${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH
+                # PATH priority: 1) Local gem bins, 2) Bundler derivation, 3) Ruby, 4) Bundix, 5) System
+                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH"
                 export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
-                # Bootstrap Ruby environment - same as bundlerEnv for consistency
-                export RUBYLIB=${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
+                # Bootstrap Ruby environment with proper gem paths
+                # Include both Ruby stdlib and bundler derivation gems in library path
+                export RUBYLIB=${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0
                 export RUBYOPT=-I${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-                export GEM_HOME=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
-                export GEM_PATH=${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
 
-                # Unset conflicting bundle environment
-                unset BUNDLE_PATH BUNDLE_GEMFILE
+                # Set GEM_PATH to include both bundler derivation and local bundle path
+                # This allows access to bundler gems + local project gems
+                export GEM_PATH="${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0:$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0"
+
+                # Allow bundler to manage local gems in vendor/bundle
+                export BUNDLE_APP_CONFIG="$APP_ROOT/.bundle"
+                export BUNDLE_PATH="$APP_ROOT/vendor/bundle"
 
                 # Environment variables for gem compilation (same as bundlerEnv)
                 export PKG_CONFIG_PATH="${opensslPackage}/lib/pkgconfig:${pkgs.libxml2.dev}/lib/pkgconfig:${pkgs.libxslt.dev}/lib/pkgconfig:${pkgs.zlib.dev}/lib/pkgconfig${
