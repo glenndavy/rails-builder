@@ -632,7 +632,7 @@
         }
         // {
           # Bundix approach shell - always starts in bootstrap mode first
-          with-bundix = pkgs.mkShell {
+          with-bundix-bootstrap = pkgs.mkShell {
             # Minimal bootstrap environment - no complex dependencies
             buildInputs = [
               rubyPackage
@@ -700,7 +700,7 @@
                   if timeout 10 nix build .#package-with-bundix --no-link >/dev/null 2>&1; then
                     echo "✅ SUCCESS: gemset.nix works! You can upgrade to normal mode:"
                     echo "   exit                    - Exit this shell"
-                    echo "   nix develop .#with-bundix-normal  - Use bundlerEnv (no bundle exec needed)"
+                    echo "   nix develop .#with-bundix  - Use bundlerEnv (no bundle exec needed)"
                     echo ""
                     echo "   Or continue in bootstrap mode below ⬇️"
                   else
@@ -716,7 +716,7 @@
                 echo "🔧 Fix gemset.nix workflow:"
                 echo "   bundix          - Regenerate gemset.nix from Gemfile.lock"
                 echo "   exit            - Exit this shell"
-                echo "   nix develop .#with-bundix  - Re-enter (will test new gemset.nix)"
+                echo "   nix develop .#with-bundix-bootstrap  - Re-enter (will test new gemset.nix)"
                 echo ""
                 echo "📦 Dependency Management:"
                 echo "   bundle lock     - Update Gemfile.lock"
@@ -751,7 +751,7 @@
           };
 
           # Normal bundix shell using bundlerEnv - direct gem access
-          with-bundix-normal =
+          with-bundix =
             if bundixBuild != null then
               bundixBuild.devShell
             else
@@ -759,7 +759,7 @@
                 buildInputs = [ rubyPackage pkgs.bundix ];
                 shellHook = ''
                   echo "❌ gemset.nix not available or has issues"
-                  echo "   Use: nix develop .#with-bundix (bootstrap mode)"
+                  echo "   Use: nix develop .#with-bundix-bootstrap (bootstrap mode)"
                 '';
               };
         };
