@@ -29,6 +29,99 @@
   }
 
 
+  # Function to detect current platform for platform-specific gems
+  get_gem_platform() {
+    local arch=$(uname -m)
+    local os=$(uname -s)
+
+    case "$os" in
+      Linux)
+        case "$arch" in
+          x86_64) echo "x86_64-linux-gnu" ;;
+          aarch64) echo "aarch64-linux-gnu" ;;
+          arm*) echo "arm-linux-gnu" ;;
+          *) echo "ruby" ;;  # fallback to ruby platform
+        esac
+        ;;
+      Darwin)
+        case "$arch" in
+          x86_64) echo "x86_64-darwin" ;;
+          arm64) echo "arm64-darwin" ;;
+          *) echo "ruby" ;;  # fallback to ruby platform
+        esac
+        ;;
+      *)
+        echo "ruby"  # fallback to ruby platform for unknown OS
+        ;;
+    esac
+  }
+
+  # Function to try fetching gem SHA with platform variants
+  fetch_gem_sha_with_platform() {
+    local gem_name="$1"
+    local gem_version="$2"
+    local platform="$3"
+
+    # List of platforms to try in order of preference
+    local platforms_to_try=()
+
+    # Add current platform first if it's not ruby
+    if [ "$platform" != "ruby" ]; then
+      platforms_to_try+=("$platform")
+    fi
+
+    # Add common platform variants for problematic gems
+    case "$gem_name" in
+      nokogiri|json|bootsnap|msgpack|bcrypt|nio4r|websocket-driver|ffi|racc|sassc|debug|byebug|pg|mysql2)
+        case "$(uname -s)" in
+          Linux)
+            platforms_to_try+=("x86_64-linux-gnu" "aarch64-linux-gnu" "x86_64-linux-musl" "aarch64-linux-musl")
+            ;;
+          Darwin)
+            platforms_to_try+=("x86_64-darwin" "arm64-darwin")
+            ;;
+        esac
+        ;;
+    esac
+
+    # Always try ruby platform last as fallback
+    platforms_to_try+=("ruby")
+
+    # Remove duplicates while preserving order
+    local unique_platforms=()
+    for plat in "''${platforms_to_try[@]}"; do
+      if [[ ! " ''${unique_platforms[*]} " =~ " $plat " ]]; then
+        unique_platforms+=("$plat")
+      fi
+    done
+
+    echo "🔍 Trying platforms for $gem_name-$gem_version: ''${unique_platforms[*]}"
+
+    for try_platform in "''${unique_platforms[@]}"; do
+      local gem_filename
+      if [ "$try_platform" = "ruby" ]; then
+        gem_filename="$gem_name-$gem_version.gem"
+      else
+        gem_filename="$gem_name-$gem_version-$try_platform.gem"
+      fi
+
+      local gem_url="https://rubygems.org/downloads/$gem_filename"
+      echo "📥 Trying: $gem_url"
+
+      local correct_sha
+      if correct_sha=$(${pkgs.nix}/bin/nix-prefetch-url "$gem_url" 2>/dev/null); then
+        echo "✅ SUCCESS with platform '$try_platform': $correct_sha"
+        echo "$correct_sha"
+        return 0
+      else
+        echo "   ❌ Failed for platform '$try_platform'"
+      fi
+    done
+
+    echo "❌ Failed to fetch SHA for $gem_name-$gem_version on any platform"
+    return 1
+  }
+
   # Function to extract gem name and incorrect SHA from nix error
   fix_sha_from_error() {
     local error_output="$1"
@@ -47,14 +140,11 @@
 
     echo "🔍 Fixing SHA for $gem_name-$gem_version..."
 
-    # Get the correct SHA using nix-prefetch-url
-    local gem_url="https://rubygems.org/downloads/$gem_name-$gem_version.gem"
-    echo "📥 Fetching correct SHA from: $gem_url"
+    local platform=$(get_gem_platform)
+    echo "🖥️  Detected platform: $platform"
 
     local correct_sha
-    if correct_sha=$(${pkgs.nix}/bin/nix-prefetch-url "$gem_url" 2>/dev/null); then
-      echo "✅ Correct SHA: $correct_sha"
-
+    if correct_sha=$(fetch_gem_sha_with_platform "$gem_name" "$gem_version" "$platform"); then
       # Update gemset.nix with correct SHA
       ${pkgs.gnused}/bin/sed -i.bak \
         "/\"$gem_name\" = {/,/};/ s/sha256 = \"[^\"]*\"/sha256 = \"$correct_sha\"/" \
@@ -63,7 +153,7 @@
       echo "✅ Updated $gem_name SHA in gemset.nix"
       return 0
     else
-      echo "❌ Failed to fetch correct SHA for $gem_name-$gem_version"
+      echo "❌ Failed to fetch correct SHA for $gem_name-$gem_version on any platform"
       return 1
     fi
   }
@@ -82,7 +172,7 @@
         gem_version="$2"
       else
         # Extract version from gemset.nix
-        gem_version=$(grep -A 10 "\"$gem_name\"" gemset.nix | grep "version =" | sed 's/.*version = "\([^"]*\)".*/\1/')
+        gem_version=$(grep -A 10 "^  $gem_name = {" gemset.nix | grep "version =" | head -1 | sed 's/.*version = "\([^"]*\)".*/\1/')
       fi
 
       if [ -z "$gem_version" ]; then
@@ -93,13 +183,12 @@
       fi
 
       echo "🔍 Fixing SHA for $gem_name-$gem_version..."
-      gem_url="https://rubygems.org/downloads/$gem_name-$gem_version.gem"
-      echo "📥 Fetching correct SHA from: $gem_url"
+
+      local platform=$(get_gem_platform)
+      echo "🖥️  Detected platform: $platform"
 
       correct_sha=""
-      if correct_sha=$(${pkgs.nix}/bin/nix-prefetch-url "$gem_url" 2>/dev/null); then
-        echo "✅ Correct SHA: $correct_sha"
-
+      if correct_sha=$(fetch_gem_sha_with_platform "$gem_name" "$gem_version" "$platform"); then
         # Update gemset.nix with correct SHA
         ${pkgs.gnused}/bin/sed -i.bak \
           "/\"$gem_name\" = {/,/};/ s/sha256 = \"[^\"]*\"/sha256 = \"$correct_sha\"/" \
@@ -109,7 +198,7 @@
         echo "📦 Backup saved as gemset.nix.bak"
         exit 0
       else
-        echo "❌ Failed to fetch correct SHA for $gem_name-$gem_version"
+        echo "❌ Failed to fetch correct SHA for $gem_name-$gem_version on any platform"
         exit 1
       fi
     fi

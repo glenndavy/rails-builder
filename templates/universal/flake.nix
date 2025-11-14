@@ -240,7 +240,144 @@
 
       # Bundix approach - disabled for now to avoid evaluation issues
       # Use bootstrap shell and manual package building after fixing hashes
-      bundixBuild = null;
+      # Bundix approach (Nix bundlerEnv) - only if gemset.nix exists
+      bundixBuild =
+        if builtins.pathExists ./gemset.nix
+        then let
+          bundler = pkgs.bundler.override {
+            ruby = rubyPackage;
+            version = bundlerVersion;
+          };
+          bundlerEnv = args:
+            pkgs.bundlerEnv (args // {
+              ruby = rubyPackage;
+              bundler = bundler;
+            });
+
+          gems = (import (rails-builder + "/imports/bundler-env-with-auto-fix.nix")) {
+            inherit pkgs rubyPackage bundlerVersion;
+            name = "${framework}-gems";
+            gemdir = ./.;
+            gemset = ./gemset.nix;
+            autoFix = true;
+
+            # Enhanced build inputs for native extensions based on detected framework
+            buildInputs = with pkgs; [
+              gccPackage
+              pkg-config
+              opensslPackage
+              libxml2
+              libxslt
+              zlib
+              libyaml
+            ] ++ (if pkgs.stdenv.isDarwin then [
+              pkgs.darwin.apple_sdk.frameworks.CoreServices
+              pkgs.darwin.apple_sdk.frameworks.Foundation
+              pkgs.libiconv
+            ] else []) ++ (if frameworkInfo.needsPostgresql then [
+              pkgs.postgresql
+              pkgs.postgresql.dev
+            ] else []) ++ (if frameworkInfo.needsMysql then [
+              pkgs.mysql80
+              pkgs.mysql80.dev
+            ] else []) ++ (if frameworkInfo.needsRedis then [
+              pkgs.redis
+            ] else []);
+
+            # Gem overrides for problematic native extensions
+            gemConfig = {
+              # PostgreSQL gem configuration
+              pg = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.postgresql pkgs.postgresql.dev ];
+                preBuild = ''
+                  export PG_CONFIG=${pkgs.postgresql}/bin/pg_config
+                '';
+              };
+              # MySQL gem configuration
+              mysql2 = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.mysql80 pkgs.mysql80.dev ];
+                preBuild = ''
+                  export MYSQL_CONFIG=${pkgs.mysql80}/bin/mysql_config
+                '';
+              };
+            } // (if pkgs.stdenv.isDarwin then {
+              # Darwin-specific overrides
+              json = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+              };
+              bootsnap = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+              };
+              msgpack = attrs: {
+                buildInputs = (attrs.buildInputs or []) ++ [ pkgs.libiconv ];
+              };
+            } else {});
+          };
+
+          usrBinDerivation = pkgs.stdenv.mkDerivation {
+            name = "usr-bin-env";
+            buildInputs = [pkgs.coreutils];
+            dontUnpack = true;
+            installPhase = ''
+              mkdir -p $out/usr/bin
+              ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
+            '';
+          };
+          tzinfo = pkgs.stdenv.mkDerivation {
+            name = "tzinfo";
+            buildInputs = [pkgs.tzdata];
+            dontUnpack = true;
+            installPhase = ''
+              mkdir -p $out/usr/share
+              ln -sf ${pkgs.tzdata}/share/zoneinfo $out/usr/share/zoneinfo
+            '';
+          };
+
+          bundixShellHook = ''
+            export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
+              if frameworkInfo.needsPostgresql
+              then ":${pkgs.postgresql}/lib/pkgconfig"
+              else ""
+            }${
+              if frameworkInfo.needsMysql
+              then ":${pkgs.mysql80}/lib/pkgconfig"
+              else ""
+            }"
+            export LD_LIBRARY_PATH="${pkgs.curl}/lib${
+              if frameworkInfo.needsPostgresql
+              then ":${pkgs.postgresql}/lib"
+              else ""
+            }${
+              if frameworkInfo.needsMysql
+              then ":${pkgs.mysql80}/lib"
+              else ""
+            }:${opensslPackage}/lib"
+          '';
+
+          bundixFrameworkBuild =
+            # Use Rails build script for all frameworks - it's generic enough
+            import (rails-builder + "/imports/make-rails-nix-build.nix") {
+              inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo;
+              src = ./.;
+              defaultShellHook = bundixShellHook;
+              buildRailsApp =
+                if framework == "rails" then
+                  pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (rails-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;})
+                else if frameworkInfo.hasRakefile then
+                  pkgs.writeShellScriptBin "make-${framework}-app-with-nix" ''
+                    echo "Building ${framework} application..."
+                    rake build 2>/dev/null || echo "No build task found, continuing..."
+                  ''
+                else
+                  pkgs.writeShellScriptBin "make-${framework}-app-with-nix" ''
+                    echo "Building ${framework} application..."
+                    echo "No specific build process for ${framework}"
+                  '';
+              nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
+              yarnOfflineCache = pkgs.runCommand "empty-cache" {} "mkdir -p $out";
+            };
+        in bundixFrameworkBuild
+        else null;
 
       # BundlerEnv approach - auto-detects gemset.nix vs lockfile-only mode
       # This provides direct gem access without bundle exec
@@ -251,15 +388,13 @@
         };
         modeConfig =
           if builtins.pathExists ./gemset.nix
-          then {
-            # Use gemset.nix mode for full hash verification
-            gemdir = ./.;
-          }
+          then {gemset = ./gemset.nix;}
           else {
             # Lockfile-only mode - uses Gemfile.lock without hash verification
             gemfile = ./Gemfile;
             lockfile = ./Gemfile.lock;
-            gemset = pkgs.writeText "empty-gemset.nix" "{}";
+            gemdir = ./.;
+            gemset = pkgs.writeText "empty-gemset.nix" "{ }";
           };
       in
         pkgs.bundlerEnv (baseConfig // modeConfig);
@@ -302,6 +437,13 @@
           # BundlerEnv approach - direct gem access
           package-with-bundlerenv = bundlerEnvPackage;
         }
+        // (
+          if bundixBuild != null then {
+            # Bundix approach packages - direct gem access
+            package-with-bundix = bundixBuild.app;
+            docker-with-bundix = bundixBuild.dockerImage;
+          } else {}
+        )
         // (
           if frameworkInfo.needsPostgresql
           then
@@ -608,8 +750,18 @@
               '';
           };
 
-          # Note: with-bundix-normal shell removed for now to avoid bundlerEnv evaluation issues
-          # Users should use `with-bundix` (bootstrap) and manually build packages after fixing hashes
+          # Normal bundix shell using bundlerEnv - direct gem access
+          with-bundix-normal =
+            if bundixBuild != null then
+              bundixBuild.devShell
+            else
+              pkgs.mkShell {
+                buildInputs = [ rubyPackage pkgs.bundix ];
+                shellHook = ''
+                  echo "❌ gemset.nix not available or has issues"
+                  echo "   Use: nix develop .#with-bundix (bootstrap mode)"
+                '';
+              };
         };
 
       apps = {
