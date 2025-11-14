@@ -209,7 +209,7 @@
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
           inherit rubyVersion gccVersion opensslVersion;
           src = ./.;
-          buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor framework;});
+          buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor framework;});
         };
         # Override the app name to be framework-specific
         frameworkApp = pkgs.stdenv.mkDerivation {
@@ -664,14 +664,10 @@
                 export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH"
                 export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
-                # Bootstrap Ruby environment with proper gem paths
-                # Include both Ruby stdlib and bundler derivation gems in library path
-                export RUBYLIB=${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0
-                export RUBYOPT=-I${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0
-
-                # Set GEM_PATH to include both bundler derivation and local bundle path
-                # This allows access to bundler gems + local project gems
-                export GEM_PATH="${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0:$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0"
+                # Bootstrap Ruby environment - prioritize local bundle over system
+                # Don't mix system Ruby libraries with bundled gems to avoid conflicts
+                export GEM_HOME="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0"
+                export GEM_PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0"
 
                 # Allow bundler to manage local gems in vendor/bundle
                 export BUNDLE_APP_CONFIG="$APP_ROOT/.bundle"
@@ -753,7 +749,14 @@
           # Normal bundix shell using bundlerEnv - direct gem access
           with-bundix =
             if bundixBuild != null then
-              bundixBuild.devShell
+              pkgs.mkShell {
+                buildInputs = [ bundixBuild.env rubyPackage pkgs.bundix ];
+                shellHook = defaultShellHook + ''
+                  echo "💎 Bundix Environment: Direct gem access (no bundle exec needed)"
+                  echo "   Ruby: ${rubyVersion}"
+                  echo "   Framework: ${framework} (auto-detected)"
+                '';
+              }
             else
               pkgs.mkShell {
                 buildInputs = [ rubyPackage pkgs.bundix ];
