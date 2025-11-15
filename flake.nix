@@ -247,5 +247,11 @@
         description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
     };
+
+    # NixOS modules for systemd service deployment
+    nixosModules = {
+      rails-app = import ./nixos-modules/rails-app.nix;
+      default = self.nixosModules.rails-app;
+    };
   };
 }

@@ -258,3 +258,169 @@ The templates now include automatic SHA fixing for bundix builds. If you encount
 1. **Automatic**: Most common gems (nokogiri, json, bootsnap, etc.) are fixed automatically during build
 2. **Manual**: For other gems, use `nix run .#fix-gemset-sha` in your project
 3. **Disable**: Set `autoFix = false` in bundlerEnv call if needed
+
+## NixOS Module Specifications
+
+Rails-builder will provide a NixOS module for systemd service deployment with the following features:
+
+### Core Service Configuration
+1. **Systemd service**: Automatic service definition for the application
+2. **Service dependencies**: Configure services that must start before this service
+3. **Service dependents**: Configure services that depend on this service (systemd wants)
+4. **Service description**: Configurable description for the systemd service
+
+### Command Execution (either/or)
+- **Option A**: Direct command specification via `command` variable
+- **Option B**: Procfile-based command extraction:
+  - `procfile_role`: Role name to extract from Procfile (e.g., "web", "worker")
+  - `procfile_filename`: Path to Procfile (defaults to "Procfile")
+
+### Service Lifecycle Management
+5. **Stop command**: Custom command for service termination (`stop_command`)
+6. **Restart command**: Custom command for service restart (`restart_command`)
+7. **Service ordering**: Additional systemd services to start after (`service_after`)
+
+### Environment Management
+8. **Environment setup command**: Command to populate shell with environment variables
+9. **Environment variable overrides**: List of environment variables that take precedence over setup command
+
+### Design Decisions (Clarified)
+
+**Service Dependencies**: Use both `systemd.services.<name>.after` (ordering) and `systemd.services.<name>.requires` (hard dependencies) for comprehensive dependency management.
+
+**Procfile Integration**: Manual specification initially - users specify `procfile_role` and `procfile_filename` explicitly. Auto-detection can be added later as enhancement.
+
+**Environment Management**: Environment setup command executes at service start to populate environment variables (e.g., from AWS Parameter Store). The service environment is then populated with these variables plus any configured overrides.
+
+**Service Architecture**: One service per application role. Multiple roles (web, worker, cron) are separate service configurations, each with their own module instance.
+
+**Working Directory**: Run from immutable Nix store path (e.g., `/nix/store/.../app`) with mutable directories (tmp, logs) symlinked to `/var/lib/<service>/tmp`, `/var/log/<service>/`, etc.
+
+### Implementation Architecture
+
+```nix
+# Example module usage
+services.rails-app = {
+  web = {
+    enable = true;
+    procfile_role = "web";
+    procfile_filename = "/nix/store/.../app/Procfile";
+    environment_command = "aws ssm get-parameters-by-path --path /myapp/prod";
+    environment_overrides = {
+      RAILS_ENV = "production";
+      PORT = "3000";
+    };
+    service_after = [ "postgresql.service" "redis.service" ];
+    service_description = "MyApp Web Server";
+  };
+  worker = {
+    enable = true;
+    procfile_role = "worker";
+    # ... similar configuration for background jobs
+  };
+};
+```
+
+### Mutable Directory Strategy
+- **Working Directory**: `/nix/store/.../app` (immutable)
+- **Tmp Directory**: Symlink `./tmp` → `/var/lib/<service>/tmp`
+- **Log Directory**: Symlink `./log` → `/var/log/<service>/`
+- **Uploads/Storage**: Symlink `./storage` → `/var/lib/<service>/storage`
+
+### Environment Variable Flow
+1. Service starts
+2. Environment command executes (e.g., fetch from Parameter Store)
+3. Environment overrides apply on top
+4. Application launches with combined environment
+
+## NixOS Module Usage
+
+The rails-builder provides a NixOS module for production deployment. Add it to your NixOS configuration:
+
+### Basic Usage
+
+```nix
+# /etc/nixos/configuration.nix or flake-based config
+{
+  inputs.rails-builder.url = "github:glenndavy/rails-builder";
+
+  outputs = { nixpkgs, rails-builder, ... }: {
+    nixosConfigurations.myserver = nixpkgs.lib.nixosSystem {
+      modules = [
+        rails-builder.nixosModules.rails-app
+        {
+          services.rails-app.web = {
+            enable = true;
+            package = myRailsAppPackage;
+
+            # Option A: Direct command
+            command = "bundle exec rails server -p 3000";
+
+            # Option B: Procfile-based (alternative)
+            # procfile_role = "web";
+            # procfile_filename = "${myRailsAppPackage}/app/Procfile";
+
+            environment_command = "aws ssm get-parameters-by-path --path /myapp/prod";
+            environment_overrides = {
+              RAILS_ENV = "production";
+              PORT = "3000";
+            };
+
+            service_after = [ "postgresql.service" ];
+            service_requires = [ "postgresql.service" ];
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+### Multi-Role Deployment
+
+```nix
+services.rails-app = {
+  web = {
+    enable = true;
+    package = myRailsApp;
+    procfile_role = "web";
+    procfile_filename = "${myRailsApp}/app/Procfile";
+    environment_overrides.PORT = "3000";
+  };
+
+  worker = {
+    enable = true;
+    package = myRailsApp;
+    procfile_role = "worker";
+    procfile_filename = "${myRailsApp}/app/Procfile";
+    environment_overrides.WORKER_THREADS = "10";
+  };
+
+  scheduler = {
+    enable = true;
+    package = myRailsApp;
+    command = "bundle exec clockwork config/schedule.rb";
+  };
+};
+```
+
+### Key Features
+
+- **Secure Environment Handling**: Environment variables fetched at runtime, never written to disk
+- **Procfile Support**: Automatically parse Procfile entries for different roles
+- **Mutable Directory Management**: Automatically links tmp, log, storage directories
+- **Service Dependencies**: Full systemd dependency management (after, requires, wantedBy)
+- **Multiple Instances**: Deploy multiple roles (web, worker, scheduler) from same app
+- **Security Hardening**: Runs with restricted systemd security settings
+
+### Available Options
+
+See `nixos-modules/rails-app.nix` for full option documentation. Key options:
+
+- `package`: Rails application derivation
+- `command` or `procfile_role`/`procfile_filename`: Command specification
+- `environment_command`: Script to fetch environment variables
+- `environment_overrides`: Static environment variables
+- `service_*`: Systemd service configuration
+- `mutable_dirs`: Custom mutable directory mappings
+- `user`/`group`: Service user configuration
