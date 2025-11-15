@@ -32,7 +32,7 @@
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.0.1-universal-template";
+    version = "3.1.0";
     gccVersion = "latest";
     opensslVersion = "3_2";
 
