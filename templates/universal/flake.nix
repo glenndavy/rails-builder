@@ -351,6 +351,8 @@
                 inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo;
                 src = ./.;
                 defaultShellHook = bundixShellHook;
+                nodeModules = null;
+                yarnOfflineCache = null;
                 buildRailsApp =
                   if framework == "rails" then
                     pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (ruby-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;})
