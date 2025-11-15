@@ -116,6 +116,17 @@ Comprehensive test suite in `flake.nix` checks:
 - Universal build inputs are shared between both build approaches for consistency
 - **Automatic SHA fixing**: The bundix approach now automatically fixes SHA mismatches for common problematic gems during build time, eliminating the need for manual `fix-gemset-sha` steps in most cases
 
+## Critical Development Workflow
+
+**IMPORTANT**: When debugging/fixing issues in a user's project, any working changes MUST be immediately propagated back to the rails-builder template source code. Common workflow:
+
+1. Test fixes in user's local `flake.nix`
+2. **IMMEDIATELY** apply working changes to `/templates/universal/flake.nix` in rails-builder
+3. Update this CLAUDE.md with any new patterns or fixes discovered
+4. Test template changes work from fresh init
+
+This prevents losing working solutions that are only fixed locally.
+
 ## Framework Support
 
 ### Automatic Framework Detection

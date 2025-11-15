@@ -748,13 +748,26 @@
 
           # Normal bundix shell using bundlerEnv - direct gem access
           with-bundix =
-            if bundixBuild != null then
-              pkgs.mkShell {
-                buildInputs = [ bundixBuild.env rubyPackage pkgs.bundix ];
+            if builtins.pathExists ./gemset.nix then
+              let
+                # Simple bundlerEnv without auto-fix for devshell
+                shellGems = pkgs.bundlerEnv {
+                  name = "${framework}-gems";
+                  ruby = rubyPackage;
+                  gemdir = ./.;
+                  gemset = ./gemset.nix;
+                };
+              in pkgs.mkShell {
+                buildInputs = [ rubyPackage pkgs.bundix ];
                 shellHook = defaultShellHook + ''
+                  # Set up bundlerEnv environment
+                  export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
+                  export GEM_PATH=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
+                  export PATH=${shellGems}/bin:$PATH
                   echo "💎 Bundix Environment: Direct gem access (no bundle exec needed)"
                   echo "   Ruby: ${rubyVersion}"
                   echo "   Framework: ${framework} (auto-detected)"
+                  echo "   GEM_HOME: $GEM_HOME"
                 '';
               }
             else
