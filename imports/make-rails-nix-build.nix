@@ -47,7 +47,7 @@
       export HOME=$PWD
       export source=$PWD
       if [ -f ./yarn.lock ]; then
-      yarn install ${toString ["--offline" "--frozen-lockfile"]}
+      yarn install --offline --frozen-lockfile
       fi
       mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
       # Copy gems from bundlerEnv to vendor for compatibility
