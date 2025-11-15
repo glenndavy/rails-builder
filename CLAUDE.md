@@ -127,6 +127,18 @@ Comprehensive test suite in `flake.nix` checks:
 
 This prevents losing working solutions that are only fixed locally.
 
+## Code Duplication Prevention
+
+**CRITICAL**: Development shells and package builds should share the same code wherever possible:
+
+- Both bundler and bundix approaches should use identical environment setups
+- Shell and package builds within each approach should share gem configurations
+- Extract common logic into shared functions to prevent drift between dev/build environments
+- When fixing one approach (shell or package), immediately apply similar fixes to the other
+- Use consistent parameter passing and error handling across all build paths
+
+This prevents inconsistencies where shells work but packages fail, or vice versa.
+
 ## Framework Support
 
 ### Automatic Framework Detection
