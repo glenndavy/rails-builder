@@ -250,8 +250,17 @@
 
     # NixOS modules for systemd service deployment
     nixosModules = {
-      rails-app = import ./nixos-modules/rails-app.nix;
-      default = self.nixosModules.rails-app;
+      # Core module (framework agnostic)
+      ruby-app = import ./nixos-modules/rails-app.nix;
+
+      # Framework-specific aliases for discoverability
+      rails-app = self.nixosModules.ruby-app;
+      hanami-app = self.nixosModules.ruby-app;
+      sinatra-app = self.nixosModules.ruby-app;
+      rack-app = self.nixosModules.ruby-app;
+
+      # Default points to generic name
+      default = self.nixosModules.ruby-app;
     };
   };
 }

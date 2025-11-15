@@ -335,30 +335,31 @@ services.rails-app = {
 
 ## NixOS Module Usage
 
-The rails-builder provides a NixOS module for production deployment. Add it to your NixOS configuration:
+Rails-builder provides a universal NixOS module that works with **any Ruby framework**. Choose the module name that matches your framework for clarity:
 
-### Basic Usage
+- `rails-builder.nixosModules.rails-app` - For Rails applications
+- `rails-builder.nixosModules.hanami-app` - For Hanami applications
+- `rails-builder.nixosModules.sinatra-app` - For Sinatra applications
+- `rails-builder.nixosModules.rack-app` - For Rack applications
+- `rails-builder.nixosModules.ruby-app` - Generic (works with all)
+
+All aliases point to the same universal module - use whichever feels most natural!
+
+### Rails Example
 
 ```nix
-# /etc/nixos/configuration.nix or flake-based config
 {
   inputs.rails-builder.url = "github:glenndavy/rails-builder";
 
   outputs = { nixpkgs, rails-builder, ... }: {
     nixosConfigurations.myserver = nixpkgs.lib.nixosSystem {
       modules = [
-        rails-builder.nixosModules.rails-app
+        rails-builder.nixosModules.rails-app  # Rails-specific alias
         {
           services.rails-app.web = {
             enable = true;
             package = myRailsAppPackage;
-
-            # Option A: Direct command
             command = "bundle exec rails server -p 3000";
-
-            # Option B: Procfile-based (alternative)
-            # procfile_role = "web";
-            # procfile_filename = "${myRailsAppPackage}/app/Procfile";
 
             environment_command = "aws ssm get-parameters-by-path --path /myapp/prod";
             environment_overrides = {
@@ -373,6 +374,49 @@ The rails-builder provides a NixOS module for production deployment. Add it to y
       ];
     };
   };
+}
+```
+
+### Hanami Example
+
+```nix
+{
+  modules = [
+    rails-builder.nixosModules.hanami-app  # Hanami-specific alias
+    {
+      services.rails-app.web = {
+        enable = true;
+        package = myHanamiAppPackage;
+        command = "bundle exec hanami server";
+
+        environment_overrides = {
+          HANAMI_ENV = "production";
+          DATABASE_URL = "postgres://localhost/myapp_production";
+        };
+      };
+    }
+  ];
+}
+```
+
+### Sinatra Example
+
+```nix
+{
+  modules = [
+    rails-builder.nixosModules.sinatra-app  # Sinatra-specific alias
+    {
+      services.rails-app.api = {
+        enable = true;
+        package = mySinatraAppPackage;
+        command = "bundle exec rackup -p 4567";
+
+        environment_overrides = {
+          RACK_ENV = "production";
+        };
+      };
+    }
+  ];
 }
 ```
 

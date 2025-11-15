@@ -1,8 +1,16 @@
-# Example usage of the rails-app NixOS module
+# Example usage of the universal Ruby NixOS module
+# Can be imported as any framework-specific alias for clarity
 {
   imports = [
-    ./rails-app.nix
+    ./rails-app.nix  # The actual module file
   ];
+
+  # Note: In a real flake, you'd import like:
+  # rails-builder.nixosModules.rails-app    # For Rails
+  # rails-builder.nixosModules.hanami-app   # For Hanami
+  # rails-builder.nixosModules.sinatra-app  # For Sinatra
+  # rails-builder.nixosModules.rack-app     # For Rack
+  # rails-builder.nixosModules.ruby-app     # Generic
 
   # Example: Multi-role Rails deployment
   services.rails-app = {
