@@ -366,8 +366,6 @@
                       echo "Building ${framework} application..."
                       echo "No specific build process for ${framework}"
                     '';
-                nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
-                yarnOfflineCache = pkgs.runCommand "empty-cache" {} "mkdir -p $out";
               };
           in bundixFrameworkBuild);
         in
