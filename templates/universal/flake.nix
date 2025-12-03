@@ -39,52 +39,11 @@
     # Import framework detection
     detectFramework = import (ruby-builder + "/imports/detect-framework.nix");
 
-    # Shared detection functions (same as Rails template)
-    detectRubyVersion = {src}: let
-      rubyVersionFile = src + "/.ruby-version";
-      gemfile = src + "/Gemfile";
-      parseVersion = version: let
-        trimmed = builtins.replaceStrings ["\n" "\r" " "] ["" "" ""] version;
-        cleaned = builtins.replaceStrings ["ruby-" "ruby"] ["" ""] trimmed;
-      in
-        builtins.match "^([0-9]+\\.[0-9]+\\.[0-9]+)$" cleaned;
-      fromRubyVersion =
-        if builtins.pathExists rubyVersionFile
-        then let
-          version = builtins.readFile rubyVersionFile;
-        in
-          if parseVersion version != null
-          then builtins.head (parseVersion version)
-          else throw "Error: Invalid Ruby version in .ruby-version: ${version}"
-        else throw "Error: No .ruby-version found in APP_ROOT";
-      fromGemfile =
-        if builtins.pathExists gemfile
-        then let
-          content = builtins.readFile gemfile;
-          match = builtins.match ".*ruby ['\"]([0-9]+\\.[0-9]+\\.[0-9]+)['\"].*" content;
-        in
-          if match != null
-          then builtins.head match
-          else fromRubyVersion
-        else fromRubyVersion;
-    in
-      fromGemfile;
-
-    detectBundlerVersion = {src}: let
-      gemfileLock = src + "/Gemfile.lock";
-      parseVersion = version: builtins.match "([0-9]+\\.[0-9]+\\.[0-9]+)" version;
-      fromGemfileLock =
-        if builtins.pathExists gemfileLock
-        then let
-          content = builtins.readFile gemfileLock;
-          match = builtins.match ".*BUNDLED WITH\n   ([0-9.]+).*" content;
-        in
-          if match != null && parseVersion (builtins.head match) != null
-          then builtins.head match
-          else throw "Error: Invalid or missing Bundler version in Gemfile.lock"
-        else throw "Error: No Gemfile.lock found";
-    in
-      fromGemfileLock;
+    # Import version detection functions
+    versionDetection = import (ruby-builder + "/imports/detect-versions.nix");
+    detectRubyVersion = versionDetection.detectRubyVersion;
+    detectBundlerVersion = versionDetection.detectBundlerVersion;
+    detectNodeVersion = versionDetection.detectNodeVersion;
 
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;

@@ -22,8 +22,10 @@
       pkgs = mkPkgsForSystem system;
       mkRailsBuild = import ./imports/make-rails-build.nix {inherit pkgs;};
       mkRailsNixBuild = import ./imports/make-rails-nix-build.nix {inherit pkgs;};
+      versionDetection = import ./imports/detect-versions.nix;
     in {
       inherit mkRailsBuild mkRailsNixBuild;
+      inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion;
       version = version;
     };
 
