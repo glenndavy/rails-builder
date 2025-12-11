@@ -388,8 +388,10 @@
                 export APP_ROOT=$(pwd)
 
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
+                # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
                 unset GEM_HOME
                 unset GEM_PATH
+                unset GEM_SPEC_CACHE
                 unset RUBYOPT
                 unset RUBYLIB
 
@@ -398,9 +400,11 @@
                 export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
                 export BUNDLE_APP_CONFIG=$APP_ROOT/.bundle
 
-                # Set GEM paths to project-local only - no system gems
+                # Set GEM paths to project-local only - no system gems or ~/.gem
+                # Include Ruby's built-in gems from the Nix store to avoid loading from ~/.gem
                 export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
-                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+                export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
                 # PATH: Project bins first, then Nix-provided Ruby/Bundler only
                 # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
@@ -541,9 +545,10 @@
                 export APP_ROOT=$(pwd)
 
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
-                # Unset any inherited Ruby environment variables that could cause conflicts
+                # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
                 unset GEM_HOME
                 unset GEM_PATH
+                unset GEM_SPEC_CACHE
                 unset RUBYOPT
                 unset RUBYLIB
 
@@ -552,9 +557,11 @@
                 export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
                 export BUNDLE_APP_CONFIG=$APP_ROOT/.bundle
 
-                # Set GEM paths to project-local only - no system gems
+                # Set GEM paths to project-local only - no system gems or ~/.gem
+                # Include Ruby's built-in gems from the Nix store to avoid loading from ~/.gem
                 export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
-                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+                export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
                 # PATH: Project bins first, then Nix-provided Ruby/Bundler only
                 # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
