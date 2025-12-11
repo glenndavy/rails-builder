@@ -306,6 +306,10 @@
 
       # Shared shell hook
       defaultShellHook = ''
+        # Save original PATH at the very start (includes buildInputs from Nix)
+        # This preserves access to gcc, make, pkg-config, etc. plus system tools
+        ORIGINAL_PATH="$PATH"
+
         export PS1="${framework}-shell:>"
         export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
           if frameworkInfo.needsPostgresql
@@ -386,9 +390,6 @@
               defaultShellHook
               + ''
                 export APP_ROOT=$(pwd)
-
-                # Save original PATH before isolation (for access to system tools like neovim, nix-shell)
-                ORIGINAL_PATH="$PATH"
 
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
                 # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
@@ -485,9 +486,6 @@
                 export APP_ROOT=$(pwd)
                 export PS1="$(pwd) bundlerenv-shell >"
 
-                # Save original PATH before isolation (for access to system tools like neovim, nix-shell)
-                ORIGINAL_PATH="$PATH"
-
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
                 unset GEM_HOME
                 unset GEM_PATH
@@ -557,9 +555,6 @@
               + ''
                 export PS1="$(pwd) bundler-shell >"
                 export APP_ROOT=$(pwd)
-
-                # Save original PATH before isolation (for access to system tools like neovim, nix-shell)
-                ORIGINAL_PATH="$PATH"
 
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
                 # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
