@@ -408,7 +408,11 @@
 
                 # PATH: Project bins first, then Nix-provided Ruby/Bundler only
                 # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin${
+                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                }${
+                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                }
 
                 echo "🔧 ${framework} application detected (Nix-isolated environment)"
                 echo "   Ruby: ${rubyVersion}"
@@ -491,7 +495,11 @@
 
                 # PATH: BundlerEnv bins first, then Nix-provided Ruby only
                 # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+                export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin${
+                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                }${
+                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                }
 
                 echo "🔧 BundlerEnv Environment for ${framework} (Nix-isolated, direct gem access)"
                 echo "   Ruby: ${rubyVersion}"
@@ -565,7 +573,11 @@
 
                 # PATH: Project bins first, then Nix-provided Ruby/Bundler only
                 # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin${
+                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                }${
+                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                }
 
                 echo "🔧 Traditional bundler environment for ${framework}:"
                 echo "   Ruby: ${rubyVersion} (Nix-isolated)"
