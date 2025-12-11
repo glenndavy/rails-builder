@@ -2,64 +2,37 @@
 
 A Nix-based Ruby application builder that provides cross-platform compatibility for building Ruby applications. Supports Rails, Hanami, Sinatra, Rack applications, and plain Ruby projects with automatic framework and dependency detection.
 
-## 🚀 Quick Start
+## Quick Start
 
-### Get the Latest Template (Recommended)
 ```bash
-# Always get the freshest template (bypasses Nix caching)
-nix flake init -t github:glenndavy/rails-builder#ruby --option tarball-ttl 0
-
-# Alternative: Use versioned releases (most reliable)
-nix flake init -t github:glenndavy/rails-builder/v2.2.6#ruby
-
-# Start developing immediately
-nix develop
-```
-
-### Standard Usage (may use cached version)
-```bash
-# In your Ruby project directory (may give cached template up to 1 hour old)
-nix flake init -t github:glenndavy/rails-builder#ruby
+# In your Ruby project directory
+nix flake init -t github:glenndavy/rails-builder#universal
 
 # Start developing
 nix develop
 ```
 
-### For Rails-Specific Projects
-```bash
-# Get latest Rails template
-nix flake init -t github:glenndavy/rails-builder#rails --option tarball-ttl 0
+### Get Fresh Templates
 
-# Choose your approach
-nix develop .#with-bundler    # Traditional bundler (works on macOS)
-nix develop .#with-bundix     # Pure Nix approach (Linux-optimized)
+```bash
+# Bypass Nix caching for latest template
+nix flake init -t github:glenndavy/rails-builder#universal --option tarball-ttl 0
+
+# Or use versioned releases
+nix flake init -t github:glenndavy/rails-builder/v3.2.0#universal
 ```
 
-### 🔄 Cache Troubleshooting
-If you suspect you have an old template or encounter issues:
-```bash
-# Method 1: Force fresh download (recommended)
-nix flake init -t github:glenndavy/rails-builder#ruby \
-  --option tarball-ttl 0 \
-  --option eval-cache false
-
-# Method 2: Clear Nix caches manually
-rm -rf ~/.cache/nix/
-
-# Method 3: Use specific version (always works)
-nix flake init -t github:glenndavy/rails-builder/v2.2.6#ruby
-```
-
-## 📋 Requirements
+## Requirements
 
 - Nix package manager with flakes enabled
 - Your Ruby project with:
   - `Gemfile` and `Gemfile.lock`
   - `.ruby-version` file (or Ruby version specified in Gemfile)
 
-## 🔧 What It Does
+## What It Does
 
 ### Automatic Detection
+
 Ruby Builder automatically detects your application setup:
 
 - **Framework**: Rails, Hanami, Sinatra, Rack, or plain Ruby
@@ -69,79 +42,14 @@ Ruby Builder automatically detects your application setup:
 - **Ruby Version**: From `.ruby-version` or `Gemfile`
 
 ### Smart Dependencies
+
 Only includes what your app actually uses:
 - Database libraries only if database gems are present
 - Redis/Memcached only if cache gems are detected
 - Node.js only if assets need compilation
 - Framework-specific tools and commands
 
-## 📚 Usage Examples
-
-### Rails Application
-
-```bash
-# Your Rails app with PostgreSQL and Redis
-cd my-rails-app
-nix flake init -t github:glenndavy/rails-builder#ruby
-nix develop
-
-# What you get:
-# ✅ Rails detected
-# ✅ PostgreSQL support (pg gem found)
-# ✅ Redis support (redis gem found)  
-# ✅ Asset compilation (sprockets detected)
-# ✅ Database management scripts
-# ✅ Package names: "rails-app", "rails-app-image"
-```
-
-### Hanami Application
-
-```bash
-# Your Hanami app
-cd my-hanami-app  
-nix flake init -t github:glenndavy/rails-builder#ruby
-nix develop
-
-# What you get:
-# ✅ Hanami detected
-# ✅ Framework-specific commands
-# ✅ Only dependencies your app uses
-# ✅ Package names: "hanami-app", "hanami-app-image"
-```
-
-### Sinatra API
-
-```bash
-# Your Sinatra API with just PostgreSQL
-cd my-api
-nix flake init -t github:glenndavy/rails-builder#ruby
-nix develop
-
-# What you get:
-# ✅ Sinatra/Rack detected
-# ✅ PostgreSQL support only
-# ❌ No Redis (not in Gemfile.lock)
-# ❌ No asset compilation (not needed)
-# ✅ Package names: "sinatra-app", "sinatra-app-image"
-```
-
-### Plain Ruby Project
-
-```bash
-# Your Ruby library or CLI tool
-cd my-ruby-lib
-nix flake init -t github:glenndavy/rails-builder#ruby  
-nix develop
-
-# What you get:
-# ✅ Ruby environment
-# ✅ Minimal dependencies
-# ❌ No databases (not needed)
-# ❌ No web server tools
-# ✅ Package names: "ruby-app", "ruby-app-image"
-```
-
-## 🛠 Development Commands
+## Development Shells
 
 ### Available Shells
 
@@ -153,12 +61,12 @@ nix develop
 nix develop .#with-bundler
 
 # Pure Nix approach (Linux optimized, requires gemset.nix)
-nix develop .#with-bundix    # Only available after generating gemset.nix
+nix develop .#with-bundix
 ```
 
 ### Enabling Bundix Support
 
-The bundix approach requires a `gemset.nix` file. To enable it:
+The bundix approach requires a `gemset.nix` file:
 
 ```bash
 # Generate gemset.nix from your Gemfile.lock
@@ -166,143 +74,123 @@ nix run .#generate-dependencies
 
 # Now bundix shells and packages become available
 nix develop .#with-bundix
-nix build .#package-with-bundix
-nix build .#docker-with-bundix
 ```
 
-### Inside the Shell
+## Database Services
+
+Rails Builder includes PostgreSQL and Redis management for local development.
+
+### PostgreSQL
 
 ```bash
-# Framework-specific commands shown based on detection
-# For Rails:
-rails server
-rails console
-
-# For Hanami:
-hanami server
-hanami console
-
-# For Sinatra/Rack:
-rackup
-bundle exec ruby app.rb
-
-# Universal commands:
-bundle install
-bundle exec <command>
+manage-postgres help              # Show connection info
+manage-postgres start             # Start server (port 5432)
+manage-postgres start --port 5433 # Custom port
+manage-postgres stop              # Stop server
 ```
 
-### Database Management (if detected)
+**Connection Info:**
+- Database: `rails_build`
+- User: Your Unix username (no password)
+- Host: Unix socket in `./tmp/`
+- DATABASE_URL: `postgresql://username@localhost:5432/rails_build?host=/path/to/project/tmp`
+
+### Redis
 
 ```bash
-# Available only if database gems are present
-manage-postgres     # Start/stop PostgreSQL
-manage-redis        # Start/stop Redis
-
-# Database will be auto-configured for your framework
+manage-redis help              # Show connection info
+manage-redis start             # Start server (port 6379)
+manage-redis start --port 6380 # Custom port
+manage-redis stop              # Stop server
 ```
 
-## 📦 Building and Deployment
+**Connection Info:**
+- Host: `localhost`
+- Port: `6379` (default)
+- REDIS_URL: `redis://localhost:6379/0`
 
-### Development Builds
+### Multiple Environments
+
+Run multiple database instances with custom ports:
 
 ```bash
-# Build your application (names reflect detected framework)
-nix build .#package-with-bundler   # Always available -> creates "framework-app"
-nix build .#package-with-bundix    # Requires gemset.nix -> creates "framework-app"
+# Terminal 1: Development
+manage-postgres start             # Port 5432
+manage-redis start                # Port 6379
+rails s                           # Port 3000
 
-# Examples of framework-specific naming:
-# Rails app:    "rails-app"
-# Sinatra app:  "sinatra-app" 
-# Hanami app:   "hanami-app"
-# Plain Ruby:   "ruby-app"
-# Rack app:     "rack-app"
+# Terminal 2: Test environment
+manage-postgres start --port 5433
+manage-redis start --port 6380
+export DATABASE_URL="postgresql://$(whoami)@localhost:5433/rails_build?host=$PWD/tmp"
+export REDIS_URL="redis://localhost:6380/0"
+rails s -p 3001
+```
+
+## Building and Deployment
+
+### Application Packages
+
+```bash
+nix build .#package-with-bundler   # Traditional bundler build
+nix build .#package-with-bundix    # Pure Nix build (requires gemset.nix)
 ```
 
 ### Docker Images
 
 ```bash
-# Create production Docker images (framework-specific names)
-nix build .#docker-with-bundler    # Always available -> "framework-app-image.tar.gz"
-nix build .#docker-with-bundix     # Requires gemset.nix -> "framework-app-image.tar.gz"
+nix build .#docker-with-bundler    # Docker with bundler
+nix build .#docker-with-bundix     # Docker with bundlerEnv
 
 # Load and run
 docker load < result
-docker run framework-app:latest    # Name matches your detected framework
+docker run -p 3000:3000 your-app:latest
 ```
 
-## 🎯 Framework-Specific Features
+## Bundix Workflow
 
-### Rails Applications
-- Asset precompilation (`rake assets:precompile`)
-- Database migrations and seeds
-- Rails-specific environment variables
-- Binstubs and Rails commands
-
-### Hanami Applications  
-- Asset compilation (`hanami assets compile`)
-- Hanami-specific commands and console
-- Framework environment setup
-
-### Sinatra/Rack Applications
-- Automatic `rackup` configuration
-- Minimal overhead
-- Optional asset compilation if detected
-
-### Plain Ruby Projects
-- Clean Ruby environment
-- Rake tasks if `Rakefile` present
-- Gem building if gemspec detected
-
-## 🔍 Inspection Commands
+For pure Nix gem management:
 
 ```bash
-# See what was detected
-nix run .#detectFramework
-
-# Output example for a Rails app:
-# Framework: rails
-# Database gems detected:
-#   PostgreSQL (pg): yes  
-#   Redis: yes
-# Has assets: yes (sprockets)
-
-# Output example for a Sinatra app:
-# Framework: sinatra
-# Database gems detected:
-#   PostgreSQL (pg): yes
-#   Redis: no
-# Has assets: no
-```
-
-## 🛠 Advanced Configuration
-
-### Bundix Approach (SHA Auto-fixing)
-
-The bundix approach automatically fixes SHA mismatches for common gems:
-
-```bash
-# Generate gemset.nix
+# 1. Generate gemset.nix
 bundix
 
-# Use with auto-fixing (default)
-nix develop .#with-bundix
-
-# Manual SHA fixing if needed
+# 2. If SHA mismatches occur, fix automatically
 nix run .#fix-gemset-sha
+
+# 3. Use bundix environment
+nix develop .#with-bundix
 ```
 
-### Custom Overrides
+Benefits:
+- Reproducible builds with exact gem versions
+- No bundler needed at runtime
+- Better Nix caching
+- Native dependencies handled by Nix
 
-You can customize the generated `flake.nix`:
+## Template Aliases
 
-```nix
-# Add custom gems or modify detection
-frameworkInfo = detectFramework {src = ./.;} // {
-  needsCustomService = true;  # Force include custom service
-};
+All templates point to the same universal template:
+
+| Template | Description |
+|----------|-------------|
+| `universal` | Universal Ruby template with smart detection |
+| `rails` | Rails application template |
+| `hanami` | Hanami application template |
+| `sinatra` | Sinatra application template |
+| `rack` | Rack application template |
+| `ruby` | Generic Ruby template |
+
+## Inspection Commands
+
+```bash
+nix run .#detectFramework      # Show detected framework and dependencies
+nix run .#detectRubyVersion    # Show Ruby version
+nix run .#detectBundlerVersion # Show Bundler version
+nix run .#flakeVersion         # Show flake version
 ```
 
-## 🏗 Build Approaches
+## Build Approaches
 
 ### Traditional Bundler (`with-bundler`)
 - Uses `bundle exec` for all commands
@@ -310,71 +198,85 @@ frameworkInfo = detectFramework {src = ./.;} // {
 - Builds gems during container runtime
 - Familiar workflow for Ruby developers
 
-### Pure Nix (`with-bundix`) 
+### Pure Nix (`with-bundix`)
 - Uses Nix's `bundlerEnv` for dependency management
 - Direct gem access without `bundle exec`
 - Automatic SHA fixing for common problematic gems
 - Better caching and reproducibility
 - Linux-optimized
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### SHA Mismatch Errors
 ```bash
-# Automatic fixing (included by default)
-nix develop .#with-bundix
-
-# Manual fixing
 nix run .#fix-gemset-sha
 ```
 
 ### Missing Dependencies
-The flake only includes dependencies for gems found in your `Gemfile.lock`. If you need additional services:
-
-1. Add the gem to your `Gemfile`
-2. Run `bundle install`  
-3. Reinitialize: `nix develop`
+The flake only includes dependencies for gems in `Gemfile.lock`. Add gems and reinstall:
+```bash
+bundle install
+nix develop  # Re-enter to pick up new dependencies
+```
 
 ### Platform Issues
 - **macOS**: Use `with-bundler` for best compatibility
 - **Linux**: Use `with-bundix` for optimal performance
 - **Both**: The default shell auto-detects the best approach
 
-## 🎯 Use Cases
+### Port Conflicts
+```bash
+lsof -i :5432  # Check PostgreSQL
+lsof -i :6379  # Check Redis
 
-### Development
-- Instant Ruby environment setup
-- All dependencies automatically included
-- Framework-specific tooling ready
-- Database services if needed
+# Use custom ports
+manage-postgres start --port 5433
+manage-redis start --port 6380
+```
 
-### CI/CD
-- Reproducible builds across environments
-- Minimal Docker images
-- Framework-agnostic approach
-- Automatic dependency detection
+## NixOS Module
 
-### Production Deployment  
-- Self-contained applications
-- Multiple deployment formats (Docker, NixOS, etc.)
-- Optimal resource usage
-- Security through isolation
+For systemd service deployment:
 
-## 🤝 Contributing
+```nix
+{
+  inputs.rails-builder.url = "github:glenndavy/rails-builder";
 
-This project supports the entire Ruby ecosystem. Contributions welcome for:
+  outputs = { nixpkgs, rails-builder, ... }: {
+    nixosConfigurations.server = nixpkgs.lib.nixosSystem {
+      modules = [
+        rails-builder.nixosModules.rails-app
+        {
+          services.rails-app.web = {
+            enable = true;
+            package = myRailsApp;
+            command = "bundle exec rails server -p 3000";
+            environment_overrides.RAILS_ENV = "production";
+            service_after = [ "postgresql.service" ];
+          };
+        }
+      ];
+    };
+  };
+}
+```
 
-- Additional framework detection
-- New gem-based dependency detection
-- Platform-specific optimizations
-- Documentation improvements
+See `nixos-modules/rails-app.nix` for full options.
 
-## 📄 License
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for security policy and OpenSSL compatibility notes.
+
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔗 Related Projects
+## Related Projects
 
-- [nixpkgs-ruby](https://github.com/bobvanderlinden/nixpkgs-ruby) - Ruby versions
+- [nixpkgs-ruby](https://github.com/bobvanderlinden/nixpkgs-ruby) - Ruby versions for Nix
 - [bundix](https://github.com/nix-community/bundix) - Gemfile.lock to Nix conversion
 - [Nix](https://nixos.org/) - The package manager
