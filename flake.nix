@@ -13,7 +13,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "2.4.0";
+    version = "3.2.0";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -89,17 +89,10 @@
         buildPhase = ''
           echo "Testing template validity..."
 
-          if [ -f templates/rails/flake.nix ]; then
-            echo "✓ rails template exists"
+          if [ -f templates/universal/flake.nix ]; then
+            echo "✓ universal template exists"
           else
-            echo "✗ rails template missing"
-            exit 1
-          fi
-
-          if [ -f templates/ruby/flake.nix ]; then
-            echo "✓ ruby template exists"
-          else
-            echo "✗ ruby template missing"
+            echo "✗ universal template missing"
             exit 1
           fi
         '';

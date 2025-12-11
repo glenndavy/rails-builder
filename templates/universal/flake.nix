@@ -29,11 +29,18 @@
     mkPkgsForSystem = system:
       import nixpkgs {
         inherit system overlays;
+        # OpenSSL 1.1.1w is permitted as a fallback for older Ruby versions,
+        # legacy gems with native extensions, or transitive dependencies that
+        # haven't been updated for OpenSSL 3.x. The build uses opensslVersion
+        # (below) by default, but this prevents Nix from failing when a
+        # dependency pulls in the older version.
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.1.0";
+    version = "3.2.0";
     gccVersion = "latest";
+    # Default OpenSSL version for builds. Change to "1_1" if you encounter
+    # compatibility issues with older gems or Ruby versions.
     opensslVersion = "3_2";
 
     # Import framework detection
@@ -67,11 +74,24 @@
         then pkgs.openssl_3
         else pkgs."openssl_${opensslVersion}";
 
-      # Bundler package with correct version from Gemfile.lock
-      # Use system bundler to avoid network access during build
-      bundlerPackage = pkgs.bundler.override {
-        ruby = rubyPackage;
-      };
+      # Bundler package with exact version from Gemfile.lock
+      # Uses precomputed hashes from bundler-hashes.nix for reproducible builds
+      bundlerHashes = import (ruby-builder + "/bundler-hashes.nix");
+      bundlerPackage = let
+        hashInfo = bundlerHashes.${bundlerVersion} or null;
+      in
+        if hashInfo != null
+        then
+          pkgs.buildRubyGem {
+            inherit (hashInfo) sha256;
+            ruby = rubyPackage;
+            gemName = "bundler";
+            version = bundlerVersion;
+            source.sha256 = hashInfo.sha256;
+          }
+        else
+          # Fallback to nixpkgs bundler if version not in hashes
+          pkgs.bundler.override { ruby = rubyPackage; };
 
       # Shared build inputs for all Ruby apps
       universalBuildInputs =
