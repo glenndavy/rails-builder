@@ -385,11 +385,32 @@
             shellHook =
               defaultShellHook
               + ''
-                export PATH=${bundlerPackage}/bin:$PATH  # Ensure correct bundler version comes first
+                export APP_ROOT=$(pwd)
 
-                echo "🔧 ${framework} application detected"
+                # Complete Ruby environment isolation - prevent external Ruby artifacts
+                unset GEM_HOME
+                unset GEM_PATH
+                unset RUBYOPT
+                unset RUBYLIB
+
+                # Bundle isolation - gems go to project-local vendor/bundle
+                export BUNDLE_PATH=$APP_ROOT/vendor/bundle
+                export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
+                export BUNDLE_APP_CONFIG=$APP_ROOT/.bundle
+
+                # Set GEM paths to project-local only - no system gems
+                export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+
+                # PATH: Project bins first, then Nix-provided Ruby/Bundler only
+                # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+
+                echo "🔧 ${framework} application detected (Nix-isolated environment)"
+                echo "   Ruby: ${rubyVersion}"
+                echo "   Bundler: ${bundlerVersion} (matches Gemfile.lock)"
                 echo "   Framework: ${framework}"
-                echo "   Entry point: ${frameworkInfo.entryPoint or "auto-detected"}"
+                echo "   Entry point: ${if frameworkInfo.entryPoint != null then frameworkInfo.entryPoint else "auto-detected"}"
                 echo "   Web app: ${
                   if frameworkInfo.isWebApp
                   then "yes"
@@ -397,7 +418,7 @@
                 }"
                 echo "   Has assets: ${
                   if frameworkInfo.hasAssets
-                  then "yes (${frameworkInfo.assetPipeline or "unknown"})"
+                  then "yes (${if frameworkInfo.assetPipeline != null then frameworkInfo.assetPipeline else "unknown"})"
                   else "no"
                 }"
                 echo "   Database: ${
@@ -433,7 +454,6 @@
                   then "enabled"
                   else "none detected"
                 }"
-                echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
               '';
           };
 
@@ -454,16 +474,24 @@
                 export APP_ROOT=$(pwd)
                 export PS1="$(pwd) bundlerenv-shell >"
 
-                # Add gem executables to PATH - bundlerEnv provides direct access
-                export PATH=${bundlerEnvPackage}/bin:$PATH
+                # Complete Ruby environment isolation - prevent external Ruby artifacts
+                unset GEM_HOME
+                unset GEM_PATH
+                unset RUBYOPT
+                unset RUBYLIB
 
-                # BundlerEnv environment
+                # BundlerEnv environment - gems from Nix store
                 export GEM_HOME=${bundlerEnvPackage}
-                export BUNDLE_GEMFILE=${bundlerEnvPackage}/Gemfile
+                export GEM_PATH=${bundlerEnvPackage}
+                export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
 
-                echo "🔧 BundlerEnv Environment for ${framework} (Direct gem access)"
+                # PATH: BundlerEnv bins first, then Nix-provided Ruby only
+                # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
+                export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+
+                echo "🔧 BundlerEnv Environment for ${framework} (Nix-isolated, direct gem access)"
+                echo "   Ruby: ${rubyVersion}"
                 echo "   Framework: ${framework} (auto-detected)"
-                echo "   Ruby: ${rubyPackage.version}"
                 if [ -f ./gemset.nix ]; then
                   echo "   Mode: gemset.nix + Gemfile.lock"
                 else
@@ -512,12 +540,29 @@
                 export PS1="$(pwd) bundler-shell >"
                 export APP_ROOT=$(pwd)
 
-                # Bundle isolation - same as build scripts
+                # Complete Ruby environment isolation - prevent external Ruby artifacts
+                # Unset any inherited Ruby environment variables that could cause conflicts
+                unset GEM_HOME
+                unset GEM_PATH
+                unset RUBYOPT
+                unset RUBYLIB
+
+                # Bundle isolation - gems go to project-local vendor/bundle
                 export BUNDLE_PATH=$APP_ROOT/vendor/bundle
-                export BUNDLE_GEMFILE=$PWD/Gemfile
-                export PATH=$BUNDLE_PATH/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
+                export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
+                export BUNDLE_APP_CONFIG=$APP_ROOT/.bundle
+
+                # Set GEM paths to project-local only - no system gems
+                export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+
+                # PATH: Project bins first, then Nix-provided Ruby/Bundler only
+                # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
 
                 echo "🔧 Traditional bundler environment for ${framework}:"
+                echo "   Ruby: ${rubyVersion} (Nix-isolated)"
+                echo "   Bundler: ${bundlerVersion} (matches Gemfile.lock)"
                 echo "   bundle install  - Install gems to ./vendor/bundle"
                 echo "   bundle exec     - Run commands with bundler"
                 ${
@@ -536,7 +581,6 @@
                   ''
                 }
                 echo "   Gems isolated in: ./vendor/bundle"
-                echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
               '';
           };
         }
@@ -670,11 +714,21 @@
               in pkgs.mkShell {
                 buildInputs = [ rubyPackage pkgs.bundix ];
                 shellHook = defaultShellHook + ''
-                  # Set up bundlerEnv environment
+                  # Complete Ruby environment isolation - prevent external Ruby artifacts
+                  unset GEM_HOME
+                  unset GEM_PATH
+                  unset RUBYOPT
+                  unset RUBYLIB
+
+                  # Set up bundlerEnv environment - gems from Nix store only
                   export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
                   export GEM_PATH=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
-                  export PATH=${shellGems}/bin:$PATH
-                  echo "💎 Bundix Environment: Direct gem access (no bundle exec needed)"
+
+                  # PATH: Nix-provided gems and Ruby only - no inherited PATH
+                  # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
+                  export PATH=${shellGems}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+
+                  echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                   echo "   Ruby: ${rubyVersion}"
                   echo "   Framework: ${framework} (auto-detected)"
                   echo "   GEM_HOME: $GEM_HOME"
