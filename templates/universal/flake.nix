@@ -136,7 +136,8 @@
           else []
         )
         ++ (
-          if frameworkInfo.needsBrowserDrivers
+          # Browser drivers only on Linux - Darwin doesn't support driverLink
+          if frameworkInfo.needsBrowserDrivers && pkgs.stdenv.isLinux
           then [
             pkgs.chromium # Browser for testing (headless mode)
             pkgs.chromedriver # WebDriver for Selenium
