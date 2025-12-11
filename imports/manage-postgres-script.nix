@@ -1,4 +1,3 @@
-#      manage-postgres = pkgs.writeShellScriptBin "manage-postgres" ''
 {pkgs}: ''
   #!${pkgs.runtimeShell}
   set -e
@@ -31,37 +30,29 @@
     COMMAND="help"
   fi
 
-  echo "DEBUG: Starting manage-postgres $COMMAND --port $PGPORT" >&2
   export source=$PWD
   export PGDATA=$source/tmp/pgdata
   export PGHOST=$source/tmp
   export PGDATABASE=rails_build
   export PGPORT=$PGPORT
-  echo "DEBUG: source=$source" >&2
-  echo "DEBUG: PGDATA=$PGDATA" >&2
-  echo "DEBUG: PGHOST=$PGHOST" >&2
-  echo "DEBUG: PGPORT=$PGPORT" >&2
-  echo "DEBUG: Checking write permissions for $source/tmp" >&2
+
   mkdir -p "$source/tmp"
   chmod u+w "$source/tmp"
-  ls -ld "$source/tmp" >&2
   mkdir -p "$PGDATA"
   chmod u+w "$PGDATA"
+
   case "$COMMAND" in
   	start)
-  		echo "DEBUG: Checking PGDATA validity" >&2
   		if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then
-  			echo "DEBUG: Valid cluster found, checking status" >&2
   			if ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
   				echo "PostgreSQL is already running."
   				exit 0
   			fi
   		else
-  			echo "DEBUG: No valid cluster, initializing" >&2
   			rm -rf "$PGDATA"
   			mkdir -p "$PGDATA"
   			chmod u+w "$PGDATA"
-  			echo "Running initdb..." >&2
+  			echo "Initializing PostgreSQL cluster..."
   			if ! ${pkgs.postgresql}/bin/initdb -D "$PGDATA" --no-locale --encoding=UTF8 > "$source/tmp/initdb.log" 2>&1; then
   				echo "initdb failed. Log:" >&2
   				cat "$source/tmp/initdb.log" >&2
@@ -70,7 +61,7 @@
   			echo "unix_socket_directories = '$PGHOST'" >> "$PGDATA/postgresql.conf"
   			echo "port = $PGPORT" >> "$PGDATA/postgresql.conf"
   		fi
-  		echo "Starting PostgreSQL..." >&2
+  		echo "Starting PostgreSQL..."
   		if ! ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" -l "$source/tmp/pg.log" -o "-k $PGHOST -p $PGPORT" start > "$source/tmp/pg_ctl.log" 2>&1; then
   			echo "pg_ctl start failed. Log:" >&2
   			cat "$source/tmp/pg_ctl.log" >&2
@@ -85,10 +76,10 @@
   		if ! ${pkgs.postgresql}/bin/psql -h "$PGHOST" -p "$PGPORT" -lqt | cut -d \| -f 1 | grep -qw "$PGDATABASE"; then
   			${pkgs.postgresql}/bin/createdb -h "$PGHOST" -p "$PGPORT" "$PGDATABASE"
   		fi
-  		echo "PostgreSQL started successfully. DATABASE_URL: postgresql://$(whoami)@localhost:$PGPORT/$PGDATABASE?host=$PGHOST" >&2
+  		echo "PostgreSQL started successfully."
+  		echo "DATABASE_URL: postgresql://$(whoami)@localhost:$PGPORT/$PGDATABASE?host=$PGHOST"
   		;;
   	stop)
-  		echo "DEBUG: Stopping PostgreSQL" >&2
   		if [ -d "$PGDATA" ] && ${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" status; then
   			${pkgs.postgresql}/bin/pg_ctl -D "$PGDATA" stop
   			echo "PostgreSQL stopped."
@@ -134,5 +125,4 @@
   		exit 1
   		;;
   esac
-  echo "DEBUG: manage-postgres completed" >&2
 ''

@@ -21,11 +21,8 @@
     buildInputs = [pkgs.coreutils];
     dontUnpack = true;
     installPhase = ''
-      echo "DEBUG: usrBinDerviation install phase" >&2
-      echo "DEBUG: Creating usr/bin/env symlink" >&2
       mkdir -p $out/usr/bin
       ln -sf ${pkgs.coreutils}/bin/env $out/usr/bin/env
-      echo "DEBUG: usrBinDerivation completed" >&2
     '';
   };
   tzinfo = pkgs.stdenv.mkDerivation {
@@ -61,18 +58,13 @@
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
     buildInputs = universalBuildInputs;
     buildPhase = ''
-      echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
-      echo "DEBUG: rails-app build phase done" >&2
     '';
 
     installPhase = ''
-      echo "DEBUG: rails-app install phase start" >&2
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
-      echo "DEBUG: Filesystem setup completed" >&2
-      echo "DEBUG: rails-app install phase done" >&2
     '';
   };
 
@@ -88,11 +80,9 @@
       ];
 
     shellHook = ''
-      echo "DEBUG: Shell hook for shell " >&2
       export PS1="shell:>"
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
       export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
-      echo "DEBUG: shell hook done" >&2
     '';
   };
 in {
@@ -131,15 +121,9 @@ in {
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/usr/share/zoneinfo"
         ];
-        #User = "app_user:app_user";
         WorkingDir = "/app";
-        #runAsRoot = ''
-        #  chown -R 1000:1000 /app
-        #'';
         enableFakechroot = !pkgs.stdenv.isDarwin;
         fakeRootCommands = ''
-              set -x
-              echo "DEBUG: Execuiting dockerImage fakeroot commands"
           mkdir -p /etc
           cat > /etc/passwd <<-EOF
           root:x:0:0::/root:/bin/bash
@@ -149,38 +133,13 @@ in {
           root:x:0:
           app_user:x:1000:
           EOF
-          # Optional shadow
           cat > /etc/shadow <<-EOF
           root:*:18000:0:99999:7:::
           app_user:*:18000:0:99999:7:::
           EOF
           chown -R 1000:1000 /app
           chmod -R u+w /app
-              echo "DEBUG: Done execuiting dockerImage fakeroot commands"
         '';
-
-        #extraCommands = ''
-        #  echo "DEBUG: Starting extraCommands" >&2
-        #  mkdir -p etc
-        #  cat > etc/passwd <<-EOF
-        #  root:x:0:0::/root:/bin/bash
-        #  app_user:x:1000:1000:App User:/app:/bin/bash
-        #  EOF
-        #  cat > etc/group <<-EOF
-        #  root:x:0:
-        #  app_user:x:1000:
-        #  EOF
-        #  # Optional shadow (for no password)
-        #  cat > etc/shadow <<-EOF
-        #  root:*:18000:0:99999:7:::
-        #  app_user:*:18000:0:99999:7:::
-        #  EOF
-        #  # Ownership (app dir from contents)
-        #  chown -R 1000:1000 app
-        #  chmod -R u+w app
-        #  echo "DEBUG: Contents of etc:" >&2
-        #  ls -l etc >&2
-        #'';
       };
     };
 }

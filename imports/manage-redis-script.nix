@@ -30,26 +30,25 @@
   fi
 
   export source=$PWD
-  echo "DEBUG: Starting manage-redis $COMMAND --port $REDIS_PORT" >&2
-  echo "DEBUG: Source = $source" >&2
   export REDIS_PID=$source/tmp/redis.pid
+
   case "$COMMAND" in
     start)
       if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
         echo "Redis is already running."
         exit 0
       fi
-      mkdir -p $source
+      mkdir -p $source/tmp
       ${pkgs.redis}/bin/redis-server --pidfile $REDIS_PID --daemonize yes --port $REDIS_PORT
       sleep 2
       if ! ${pkgs.redis}/bin/redis-cli -p $REDIS_PORT ping | grep -q PONG; then
         echo "Failed to start Redis."
         exit 1
       fi
-      echo "Redis started successfully. REDIS_URL: redis://localhost:$REDIS_PORT/0"
+      echo "Redis started successfully."
+      echo "REDIS_URL: redis://localhost:$REDIS_PORT/0"
       ;;
     stop)
-      echo "DEBUG: Stopping Redis" >&2
       if [ -f "$REDIS_PID" ] && kill -0 $(cat $REDIS_PID) 2>/dev/null; then
         kill $(cat $REDIS_PID)
         rm -f $REDIS_PID
@@ -93,5 +92,4 @@
       exit 1
       ;;
   esac
-  echo "DEBUG: manage-redis completed" >&2
 ''
