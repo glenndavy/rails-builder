@@ -387,6 +387,9 @@
               + ''
                 export APP_ROOT=$(pwd)
 
+                # Save original PATH before isolation (for access to system tools like neovim, nix-shell)
+                ORIGINAL_PATH="$PATH"
+
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
                 # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
                 unset GEM_HOME
@@ -406,13 +409,13 @@
                 export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
                 export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
-                # PATH: Project bins first, then Nix-provided Ruby/Bundler only
-                # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin${
+                # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
+                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
                   if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
                 }${
                   if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
-                }
+                }:$ORIGINAL_PATH
 
                 echo "🔧 ${framework} application detected (Nix-isolated environment)"
                 echo "   Ruby: ${rubyVersion}"
@@ -482,6 +485,9 @@
                 export APP_ROOT=$(pwd)
                 export PS1="$(pwd) bundlerenv-shell >"
 
+                # Save original PATH before isolation (for access to system tools like neovim, nix-shell)
+                ORIGINAL_PATH="$PATH"
+
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
                 unset GEM_HOME
                 unset GEM_PATH
@@ -493,13 +499,13 @@
                 export GEM_PATH=${bundlerEnvPackage}
                 export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
 
-                # PATH: BundlerEnv bins first, then Nix-provided Ruby only
-                # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin${
+                # PATH: BundlerEnv/Ruby first (for isolation), then original PATH (for system tools)
+                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
+                export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin${
                   if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
                 }${
                   if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
-                }
+                }:$ORIGINAL_PATH
 
                 echo "🔧 BundlerEnv Environment for ${framework} (Nix-isolated, direct gem access)"
                 echo "   Ruby: ${rubyVersion}"
@@ -552,6 +558,9 @@
                 export PS1="$(pwd) bundler-shell >"
                 export APP_ROOT=$(pwd)
 
+                # Save original PATH before isolation (for access to system tools like neovim, nix-shell)
+                ORIGINAL_PATH="$PATH"
+
                 # Complete Ruby environment isolation - prevent external Ruby artifacts
                 # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
                 unset GEM_HOME
@@ -571,13 +580,13 @@
                 export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
                 export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
-                # PATH: Project bins first, then Nix-provided Ruby/Bundler only
-                # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin${
+                # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
+                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
                   if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
                 }${
                   if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
-                }
+                }:$ORIGINAL_PATH
 
                 echo "🔧 Traditional bundler environment for ${framework}:"
                 echo "   Ruby: ${rubyVersion} (Nix-isolated)"
