@@ -5,6 +5,9 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
+    # Custom bundix fork with fixes
+    bundix-src.url = "github:glenndavy/bundix";
+    bundix-src.flake = false;
     # Optional: override with --override-input src path:/path/to/your/project
     src.url = "path:.";
     src.flake = false;
@@ -13,6 +16,7 @@
     self,
     nixpkgs,
     nixpkgs-ruby,
+    bundix-src,
     src,
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
@@ -22,6 +26,11 @@
     overlays = [nixpkgs-ruby.overlays.default];
 
     mkPkgsForSystem = system: import nixpkgs {inherit system overlays;};
+
+    # Build custom bundix from glenndavy/bundix
+    mkBundixForSystem = system: let
+      pkgs = mkPkgsForSystem system;
+    in pkgs.callPackage bundix-src {};
     mkLibForSystem = system: let
       pkgs = mkPkgsForSystem system;
       mkRailsBuild = import ./imports/make-rails-build.nix {inherit pkgs;};
@@ -37,6 +46,7 @@
     mkTestsForSystem = system: let
       pkgs = mkPkgsForSystem system;
       lib = mkLibForSystem system;
+      customBundix = mkBundixForSystem system;
 
       # Mock Rails app source for testing
       mockRailsApp = pkgs.stdenv.mkDerivation {
@@ -73,7 +83,7 @@
       testBasicBuild = pkgs.stdenv.mkDerivation {
         name = "test-basic-rails-build";
         dontUnpack = true;
-        buildInputs = [pkgs.ruby pkgs.bundix];
+        buildInputs = [pkgs.ruby customBundix];
         buildPhase = ''
           echo "Testing basic Rails build creation..."
           echo "✓ mkRailsBuild function available"
@@ -261,6 +271,7 @@
     devShells = forAllSystems (system: let
       pkgs = mkPkgsForSystem system;
       versionDetection = import ./imports/detect-versions.nix;
+      customBundix = mkBundixForSystem system;
 
       # Detect Ruby version from src input
       rubyVersion = versionDetection.detectRubyVersion { inherit src; };
@@ -271,7 +282,7 @@
         name = "rails-builder-bootstrap";
         buildInputs = [
           rubyPackage
-          pkgs.bundix
+          customBundix
           pkgs.bundler
           pkgs.git
           pkgs.gnumake

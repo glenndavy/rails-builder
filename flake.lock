@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "bundix-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1765916069,
+        "narHash": "sha256-ZARbEJmUA/keTsVmAc45xWoVV0fAW9wVuDluGZV2R68=",
+        "owner": "glenndavy",
+        "repo": "bundix",
+        "rev": "7c7995bcb07fd82b15b8fab5507bade4fae1c79b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "glenndavy",
+        "repo": "bundix",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -74,6 +90,7 @@
     },
     "root": {
       "inputs": {
+        "bundix-src": "bundix-src",
         "nixpkgs": "nixpkgs",
         "nixpkgs-ruby": "nixpkgs-ruby",
         "src": "src"
