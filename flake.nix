@@ -5,11 +5,15 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
+    # Optional: override with --override-input src path:/path/to/your/project
+    src.url = "path:.";
+    src.flake = false;
   };
   outputs = {
     self,
     nixpkgs,
     nixpkgs-ruby,
+    src,
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
@@ -161,15 +165,23 @@
     # Add test outputs
     checks = forAllSystems mkTestsForSystem;
 
-    # Version app
+    # Apps
     apps = forAllSystems (system: let
       pkgs = mkPkgsForSystem system;
+      fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import ./imports/fix-gemset-sha.nix {inherit pkgs;});
     in {
       flakeVersion = {
         type = "app";
         program = "${pkgs.writeShellScript "show-version" ''
           echo 'Flake Version: ${version}'
         ''}";
+      };
+
+      # Fix SHA mismatches in gemset.nix
+      # Usage: nix run github:glenndavy/rails-builder#fix-gemset-sha
+      fix-gemset-sha = {
+        type = "app";
+        program = "${fix-gemset-sha-script}/bin/fix-gemset-sha";
       };
     });
 
@@ -242,6 +254,70 @@
         description = "[DEPRECATED] Use 'universal-v3-0-0' instead - same functionality with improvements";
       };
     };
+
+    # DevShells for direct access (useful for CI/CD and quick bootstrapping)
+    # Usage: nix develop github:glenndavy/rails-builder#with-bundix-bootstrap \
+    #          --override-input src path:.
+    devShells = forAllSystems (system: let
+      pkgs = mkPkgsForSystem system;
+      versionDetection = import ./imports/detect-versions.nix;
+
+      # Detect Ruby version from src input
+      rubyVersion = versionDetection.detectRubyVersion { inherit src; };
+      rubyPackage = pkgs."ruby-${rubyVersion}";
+    in {
+      # Bootstrap shell with bundix for generating gemset.nix
+      with-bundix-bootstrap = pkgs.mkShell {
+        name = "rails-builder-bootstrap";
+        buildInputs = [
+          rubyPackage
+          pkgs.bundix
+          pkgs.bundler
+          pkgs.git
+          pkgs.gnumake
+          pkgs.gcc
+          pkgs.pkg-config
+          pkgs.openssl
+          pkgs.libyaml
+          pkgs.zlib
+          pkgs.libffi
+          pkgs.readline
+          pkgs.ncurses
+        ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+          pkgs.libxml2
+          pkgs.libxslt
+          pkgs.postgresql
+        ];
+
+        shellHook = ''
+          echo "Rails Builder Bootstrap Shell (${system})"
+          echo "Ruby: $(ruby --version)"
+          echo "Bundix: $(bundix --version 2>/dev/null || echo 'available')"
+          echo ""
+          echo "This shell is for bootstrapping new projects."
+          echo "For full development, initialize a project with:"
+          echo "  nix flake init -t github:glenndavy/rails-builder#universal"
+          echo "  nix develop .#with-bundler"
+        '';
+      };
+
+      # Alias for convenience
+      default = pkgs.mkShell {
+        name = "rails-builder-default";
+        buildInputs = [
+          rubyPackage
+          pkgs.bundler
+          pkgs.git
+        ];
+        shellHook = ''
+          echo "Rails Builder Default Shell (${system})"
+          echo "Ruby: $(ruby --version)"
+          echo ""
+          echo "For full development, initialize a project with:"
+          echo "  nix flake init -t github:glenndavy/rails-builder#universal"
+        '';
+      };
+    });
 
     # NixOS modules for systemd service deployment
     nixosModules = {
