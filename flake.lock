@@ -75,8 +75,21 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
-        "nixpkgs-ruby": "nixpkgs-ruby"
+        "nixpkgs-ruby": "nixpkgs-ruby",
+        "src": "src"
       }
+    },
+    "src": {
+      "flake": false,
+      "locked": {
+        "path": ".",
+        "type": "path"
+      },
+      "original": {
+        "path": ".",
+        "type": "path"
+      },
+      "parent": []
     },
     "systems": {
       "locked": {
