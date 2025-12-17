@@ -54,11 +54,17 @@
       export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
 
       # Set up LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
-      # This allows FFI to find native libraries from buildInputs
-      for input in $buildInputs; do
-        if [ -d "$input/lib" ]; then
-          export LD_LIBRARY_PATH="$input/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-        fi
+      # NIX_LDFLAGS contains -L/path/to/lib for all buildInputs
+      # Extract those paths for LD_LIBRARY_PATH
+      for flag in $NIX_LDFLAGS; do
+        case "$flag" in
+          -L*)
+            libpath="''${flag#-L}"
+            if [ -d "$libpath" ]; then
+              export LD_LIBRARY_PATH="$libpath''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            fi
+            ;;
+        esac
       done
       echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 
