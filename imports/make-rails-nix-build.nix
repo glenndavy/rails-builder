@@ -20,15 +20,10 @@
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
-  # This ensures FFI-based gems can find native libraries
+  # Simply append /lib to each input path - the directory may not exist but that's OK
+  # FFI will just skip non-existent paths
   buildInputLibPaths = builtins.concatStringsSep ":" (
-    builtins.filter (p: p != "") (
-      map (input:
-        if builtins.pathExists (input + "/lib")
-        then "${input}/lib"
-        else ""
-      ) universalBuildInputs
-    )
+    map (input: "${input}/lib") universalBuildInputs
   );
 
   app = pkgs.stdenv.mkDerivation {
