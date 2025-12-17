@@ -53,6 +53,15 @@
       export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
 
+      # Set up LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
+      # This allows FFI to find native libraries from buildInputs
+      for input in $buildInputs; do
+        if [ -d "$input/lib" ]; then
+          export LD_LIBRARY_PATH="$input/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        fi
+      done
+      echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
     '';
