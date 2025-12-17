@@ -31,6 +31,7 @@
     inherit src;
     nativeBuildInputs =
       [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage]
+      ++ universalBuildInputs  # Include all buildInputs in nativeBuildInputs for library access
       ++ (
         if builtins.pathExists (src + "/yarn.lock")
         then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
