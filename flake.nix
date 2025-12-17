@@ -278,8 +278,12 @@
       versionDetection = import ./imports/detect-versions.nix;
       customBundix = mkBundixForSystem system;
 
-      # Detect Ruby version from src input
-      rubyVersion = versionDetection.detectRubyVersion { inherit src; };
+      # Detect Ruby version from src input, with fallback for CI/when no .ruby-version exists
+      rubyVersionFile = src + "/.ruby-version";
+      hasRubyVersion = builtins.pathExists rubyVersionFile;
+      rubyVersion = if hasRubyVersion
+        then versionDetection.detectRubyVersion { inherit src; }
+        else "3.3.0";  # Fallback version for CI and when no .ruby-version
       rubyPackage = pkgs."ruby-${rubyVersion}";
     in {
       # Bootstrap shell with bundix for generating gemset.nix
