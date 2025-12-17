@@ -19,6 +19,18 @@
   defaultShellHook,
   ...
 }: let
+  # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
+  # This ensures FFI-based gems can find native libraries
+  buildInputLibPaths = builtins.concatStringsSep ":" (
+    builtins.filter (p: p != "") (
+      map (input:
+        if builtins.pathExists (input + "/lib")
+        then "${input}/lib"
+        else ""
+      ) universalBuildInputs
+    )
+  );
+
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
@@ -30,6 +42,9 @@
         else []
       );
     buildInputs = universalBuildInputs;
+
+    # Set LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
+    LD_LIBRARY_PATH = buildInputLibPaths;
 
     preConfigure = ''
       export HOME=$PWD
@@ -53,19 +68,7 @@
       export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
 
-      # Set up LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
-      # NIX_LDFLAGS contains -L/path/to/lib for all buildInputs
-      # Extract those paths for LD_LIBRARY_PATH
-      for flag in $NIX_LDFLAGS; do
-        case "$flag" in
-          -L*)
-            libpath="''${flag#-L}"
-            if [ -d "$libpath" ]; then
-              export LD_LIBRARY_PATH="$libpath''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-            fi
-            ;;
-        esac
-      done
+      # LD_LIBRARY_PATH is set as a derivation attribute for FFI-based gems
       echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
