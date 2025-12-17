@@ -51,6 +51,10 @@
     detectRubyVersion = versionDetection.detectRubyVersion;
     detectBundlerVersion = versionDetection.detectBundlerVersion;
     detectNodeVersion = versionDetection.detectNodeVersion;
+    detectTailwindVersion = versionDetection.detectTailwindVersion;
+
+    # Import tailwindcss hashes for exact version matching
+    tailwindcssHashes = import (ruby-builder + "/tailwindcss-hashes.nix");
 
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
@@ -94,6 +98,17 @@
         else
           # Fallback to nixpkgs bundler if version not in hashes
           pkgs.bundler.override { ruby = rubyPackage; };
+
+      # Tailwindcss package - exact version from Gemfile.lock
+      # This is needed because bundlerEnv uses generic ruby platform gem
+      # which doesn't include the platform-specific binary
+      tailwindVersion = detectTailwindVersion {src = ./.;};
+      tailwindcssPackage = if tailwindVersion != null && frameworkInfo.needsTailwindcss
+        then import (ruby-builder + "/imports/make-tailwindcss.nix") {
+          inherit pkgs tailwindcssHashes;
+          version = tailwindVersion;
+        }
+        else null;
 
       # Shared build inputs for all Ruby apps
       universalBuildInputs =
@@ -163,6 +178,16 @@
           then [
             pkgs.chromium # Browser for testing (headless mode)
             pkgs.chromedriver # WebDriver for Selenium
+          ]
+          else []
+        )
+        ++ (
+          # Tailwindcss CLI - exact version from Gemfile.lock
+          # Needed because bundlerEnv uses generic ruby platform gem
+          # which doesn't include the platform-specific binary
+          if tailwindcssPackage != null
+          then [
+            tailwindcssPackage # Tailwind CSS CLI (version-matched to gem)
           ]
           else []
         );
@@ -265,7 +290,7 @@
         in
           # Use Rails build script for all frameworks - it's generic enough
           import (ruby-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo;
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage;
             src = ./.;
             defaultShellHook = bundixShellHook;
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
@@ -331,6 +356,10 @@
           then ":${pkgs.mysql80}/lib"
           else ""
         }:${opensslPackage}/lib"
+        ${if tailwindcssPackage != null then ''
+        # Point tailwindcss-ruby gem to Nix-provided binary (version ${tailwindVersion})
+        export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+        '' else ""}
         unset RUBYLIB
       '';
 
