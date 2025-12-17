@@ -641,7 +641,10 @@
                 # Always start in bootstrap mode - this guarantees shell startup success
                 # PATH priority: 1) Local gem bins, 2) Bundler derivation, 3) Ruby, 4) Bundix, 5) System
                 export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${customBundix}/bin:$PATH"
-                export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
+                # Note: We do NOT set BUNDLE_FORCE_RUBY_PLATFORM=true
+                # This allows bundix to select platform-specific gems (e.g., tailwindcss-ruby-arm64-darwin)
+                # which include pre-compiled binaries needed at runtime.
+                # Use fix-gemset-sha if you encounter SHA mismatches after running bundix.
 
                 # Bootstrap Ruby environment - prioritize local bundle over system
                 # Don't mix system Ruby libraries with bundled gems to avoid conflicts
