@@ -54,6 +54,8 @@
 
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
+      # Use custom bundix from ruby-builder (glenndavy/bundix fork with fixes)
+      customBundix = ruby-builder.packages.${system}.bundix;
       rubyVersion = detectRubyVersion {src = ./.;};
       bundlerVersion = detectBundlerVersion {src = ./.;};
       rubyPackage = pkgs."ruby-${rubyVersion}";
@@ -169,7 +171,7 @@
         gccPackage
         pkgs.pkg-config
         pkgs.rsync
-        pkgs.bundix # For generating gemset.nix
+        customBundix # For generating gemset.nix (glenndavy/bundix fork)
       ];
 
       # Shared scripts (only if gems are actually present)
@@ -614,7 +616,7 @@
             buildInputs = [
               rubyPackage
               bundlerPackage
-              pkgs.bundix
+              customBundix # glenndavy/bundix fork with fixes
               pkgs.git
               pkgs.rsync
               # Core build dependencies only - minimal set
@@ -638,7 +640,7 @@
 
                 # Always start in bootstrap mode - this guarantees shell startup success
                 # PATH priority: 1) Local gem bins, 2) Bundler derivation, 3) Ruby, 4) Bundix, 5) System
-                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH"
+                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${customBundix}/bin:$PATH"
                 export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
                 # Bootstrap Ruby environment - prioritize local bundle over system
@@ -735,7 +737,7 @@
                   gemset = ./gemset.nix;
                 };
               in pkgs.mkShell {
-                buildInputs = [ rubyPackage pkgs.bundix ];
+                buildInputs = [ rubyPackage customBundix ];
                 shellHook = defaultShellHook + ''
                   # Complete Ruby environment isolation - prevent external Ruby artifacts
                   unset GEM_HOME
@@ -749,7 +751,7 @@
 
                   # PATH: Nix-provided gems and Ruby only - no inherited PATH
                   # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                  export PATH=${shellGems}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+                  export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
 
                   echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                   echo "   Ruby: ${rubyVersion}"
@@ -759,7 +761,7 @@
               }
             else
               pkgs.mkShell {
-                buildInputs = [ rubyPackage pkgs.bundix ];
+                buildInputs = [ rubyPackage customBundix ];
                 shellHook = ''
                   echo "❌ gemset.nix not available or has issues"
                   echo "   Use: nix develop .#with-bundix-bootstrap (bootstrap mode)"

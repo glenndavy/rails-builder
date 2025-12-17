@@ -172,6 +172,11 @@
   in {
     lib = forAllSystems mkLibForSystem;
 
+    # Export custom bundix package for use by template
+    packages = forAllSystems (system: {
+      bundix = mkBundixForSystem system;
+    });
+
     # Add test outputs
     checks = forAllSystems mkTestsForSystem;
 
