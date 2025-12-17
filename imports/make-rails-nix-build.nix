@@ -53,29 +53,65 @@
     buildPhase = ''
       export HOME=$PWD
       export source=$PWD
+
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════════╗"
+      echo "║  BUNDIX BUILD: Rails application (bundlerEnv)                    ║"
+      echo "╚══════════════════════════════════════════════════════════════════╝"
+      echo ""
+
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 1: Environment Setup                                       │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
+      echo "  HOME: $HOME"
+      echo "  Ruby: ${rubyPackage}/bin/ruby"
+      echo "  Gems: ${gems}"
+      echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
+      ${if tailwindcssPackage != null then ''
+      # Point tailwindcss-ruby gem to Nix-provided binary
+      export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+      echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+      '' else ""}
+
+      echo ""
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 2: Yarn Install (if yarn.lock exists)                      │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
       if [ -f ./yarn.lock ]; then
+        echo "  Found yarn.lock, running yarn install..."
         yarn install --offline --frozen-lockfile
+      else
+        echo "  No yarn.lock found, skipping yarn install"
       fi
+
+      echo ""
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 3: Copy Gems to vendor/bundle                              │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
       mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
-      # Copy gems from bundlerEnv to vendor for compatibility
+      echo "  Copying gems from ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/..."
       cp -r ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
+      echo "  Done copying gems"
 
       # Set up environment for direct gem access (no bundle exec needed)
       export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
 
-      # LD_LIBRARY_PATH is set as a derivation attribute for FFI-based gems
-      echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
-
-      ${if tailwindcssPackage != null then ''
-      # Point tailwindcss-ruby gem to Nix-provided binary
-      export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
-      echo "TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
-      '' else ""}
-
+      echo ""
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 4: Asset Precompilation                                    │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
+      echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
+
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════════╗"
+      echo "║  BUNDIX BUILD COMPLETE                                           ║"
+      echo "╚══════════════════════════════════════════════════════════════════╝"
+      echo ""
     '';
 
     installPhase = ''
