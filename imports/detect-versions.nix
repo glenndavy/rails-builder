@@ -102,4 +102,23 @@
     if fromNvmrc != null then fromNvmrc
     else if fromNodeVersion != null then fromNodeVersion
     else fromPackageJson;
+
+  # Detect Tailwind CSS version from Gemfile.lock (via tailwindcss-ruby gem)
+  # Usage: detectTailwindVersion { src = ./.; }
+  # Returns: String like "4.1.16" or null if not found
+  detectTailwindVersion = {src}: let
+    gemfileLock = src + "/Gemfile.lock";
+    fromGemfileLock =
+      if builtins.pathExists gemfileLock
+      then let
+        content = builtins.readFile gemfileLock;
+        # Match tailwindcss-ruby (version) - the generic ruby platform entry
+        match = builtins.match ".*tailwindcss-ruby \\(([0-9]+\\.[0-9]+\\.[0-9]+)\\).*" content;
+      in
+        if match != null
+        then builtins.head match
+        else null
+      else null;
+  in
+    fromGemfileLock;
 }

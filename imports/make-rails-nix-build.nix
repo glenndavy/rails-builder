@@ -17,6 +17,7 @@
   usrBinDerivation,
   tzinfo,
   defaultShellHook,
+  tailwindcssPackage ? null,  # Optional: Nix-provided tailwindcss binary
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -66,6 +67,12 @@
 
       # LD_LIBRARY_PATH is set as a derivation attribute for FFI-based gems
       echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
+      ${if tailwindcssPackage != null then ''
+      # Point tailwindcss-ruby gem to Nix-provided binary
+      export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+      echo "TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+      '' else ""}
 
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
