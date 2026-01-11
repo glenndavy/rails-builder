@@ -72,6 +72,7 @@
     esbuild = hasGem "esbuild-rails";
     vite = hasGem "vite_rails";
     propshaft = hasGem "propshaft";
+    tailwindcss = hasGem "tailwindcss-rails" || hasGem "tailwindcss-ruby";
   };
 
 in {
@@ -118,7 +119,10 @@ in {
 
   # Browser testing requirements
   needsBrowserDrivers = testingGems.selenium || testingGems.capybara || testingGems.playwright;
-  
+
+  # Tailwindcss requirement (needs external binary for bundlerEnv builds)
+  needsTailwindcss = assetGems.tailwindcss;
+
   # Combined database support needed
   needsDatabase = databaseGems.postgresql || databaseGems.mysql || databaseGems.sqlite;
   

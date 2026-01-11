@@ -17,57 +17,106 @@
   usrBinDerivation,
   tzinfo,
   defaultShellHook,
+  tailwindcssPackage ? null,  # Optional: Nix-provided tailwindcss binary
   ...
 }: let
+  # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
+  # Simply append /lib to each input path - the directory may not exist but that's OK
+  # FFI will just skip non-existent paths
+  buildInputLibPaths = builtins.concatStringsSep ":" (
+    map (input: "${input}/lib") universalBuildInputs
+  );
+
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
     nativeBuildInputs =
       [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage]
+      ++ universalBuildInputs  # Include all buildInputs in nativeBuildInputs for library access
       ++ (
         if builtins.pathExists (src + "/yarn.lock")
         then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
         else []
       );
-    #nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs pkgs.yarnConfigHook pkgs.yarnInstallHook gems rubyPackage];
     buildInputs = universalBuildInputs;
-    #yarnFlags = ["--offline" "--frozen-lockfile"];
+
+    # Set LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
+    LD_LIBRARY_PATH = buildInputLibPaths;
 
     preConfigure = ''
       export HOME=$PWD
-      echo "DEBUG: configurePhase start" >&2
       if [ -f ./yarn.lock ]; then
        yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
       fi
     '';
 
     buildPhase = ''
-      set -x
-      echo "DEBUG: rails-app build phase start" >&2
       export HOME=$PWD
       export source=$PWD
+
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════════╗"
+      echo "║  BUNDIX BUILD: Rails application (bundlerEnv)                    ║"
+      echo "╚══════════════════════════════════════════════════════════════════╝"
+      echo ""
+
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 1: Environment Setup                                       │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
+      echo "  HOME: $HOME"
+      echo "  Ruby: ${rubyPackage}/bin/ruby"
+      echo "  Gems: ${gems}"
+      echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+
+      ${if tailwindcssPackage != null then ''
+      # Point tailwindcss-ruby gem to Nix-provided binary
+      export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+      echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+      '' else ""}
+
+      echo ""
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 2: Yarn Install (if yarn.lock exists)                      │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
       if [ -f ./yarn.lock ]; then
-      yarn install --offline --frozen-lockfile
+        echo "  Found yarn.lock, running yarn install..."
+        yarn install --offline --frozen-lockfile
+      else
+        echo "  No yarn.lock found, skipping yarn install"
       fi
+
+      echo ""
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 3: Copy Gems to vendor/bundle                              │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
       mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0
-      # Copy gems from bundlerEnv to vendor for compatibility
+      echo "  Copying gems from ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/..."
       cp -r ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
+      echo "  Done copying gems"
 
       # Set up environment for direct gem access (no bundle exec needed)
       export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
 
+      echo ""
+      echo "┌──────────────────────────────────────────────────────────────────┐"
+      echo "│ STAGE 4: Asset Precompilation                                    │"
+      echo "└──────────────────────────────────────────────────────────────────┘"
+      echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
-      echo "DEBUG: rails-app build phase done" >&2
+
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════════╗"
+      echo "║  BUNDIX BUILD COMPLETE                                           ║"
+      echo "╚══════════════════════════════════════════════════════════════════╝"
+      echo ""
     '';
+
     installPhase = ''
-      echo "DEBUG: rails-app install phase start" >&2
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
-      echo "DEBUG: Filesystem setup completed" >&2
-      echo "DEBUG: rails-app install phase done" >&2
     '';
   };
 
@@ -112,8 +161,6 @@ in {
         ] ++ (if pkgs.stdenv.isLinux then [pkgs.gosu] else []);
       enableFakechroot = !pkgs.stdenv.isDarwin;
       fakeRootCommands = ''
-            set -x
-            echo "DEBUG: Execuiting dockerImage fakeroot commands"
         mkdir -p /etc
         cat > /etc/passwd <<-EOF
         root:x:0:0::/root:/bin/bash
@@ -123,17 +170,15 @@ in {
         root:x:0:
         app_user:x:1000:
         EOF
-        # Optional shadow
         cat > /etc/shadow <<-EOF
         root:*:18000:0:99999:7:::
         app_user:*:18000:0:99999:7:::
         EOF
         chown -R 1000:1000 /app
         chmod -R u+w /app
-            echo "DEBUG: Done execuiting dockerImage fakeroot commands"
       '';
       config = {
-        Cmd = if pkgs.stdenv.isLinux 
+        Cmd = if pkgs.stdenv.isLinux
           then ["${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web"]
           else ["${pkgs.bash}/bin/bash" "-c" "${pkgs.goreman}/bin/goreman start web"];
         Env = [
@@ -148,32 +193,6 @@ in {
         ];
         User = "app_user:app_user";
         WorkingDir = "/app";
-        #runAsRoot = ''
-        #  chown -R 1000:1000 /app
-        #'';
-
-        #extraCommands = ''
-        #  echo "DEBUG: Starting extraCommands" >&2
-        #  mkdir -p etc
-        #  cat > etc/passwd <<-EOF
-        #  root:x:0:0::/root:/bin/bash
-        #  app_user:x:1000:1000:App User:/app:/bin/bash
-        #  EOF
-        #  cat > etc/group <<-EOF
-        #  root:x:0:
-        #  app_user:x:1000:
-        #  EOF
-        #  # Optional shadow (for no password)
-        #  cat > etc/shadow <<-EOF
-        #  root:*:18000:0:99999:7:::
-        #  app_user:*:18000:0:99999:7:::
-        #  EOF
-        #  # Ownership (app dir from contents)
-        #  chown -R 1000:1000 app
-        #  chmod -R u+w app
-        #  echo "DEBUG: Contents of etc:" >&2
-        #  ls -l etc >&2
-        #'';
       };
     };
 }

@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  check:
+    name: Nix Flake Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: ruby-builder
+          skipPush: true
+        continue-on-error: true
+
+      - name: Check flake
+        run: nix flake check --no-build
+
+  test-linux:
+    name: Tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: ruby-builder
+          skipPush: true
+        continue-on-error: true
+
+      - name: Run basic tests
+        run: nix build .#checks.x86_64-linux.testBasicBuild --print-build-logs
+
+      - name: Run template tests
+        run: nix build .#checks.x86_64-linux.testTemplates --print-build-logs
+
+      - name: Run cross-platform tests
+        run: nix build .#checks.x86_64-linux.testCrossPlatform --print-build-logs
+
+  test-darwin:
+    name: Tests (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Run basic tests
+        run: nix build .#checks.aarch64-darwin.testBasicBuild --print-build-logs
+
+      - name: Run template tests
+        run: nix build .#checks.aarch64-darwin.testTemplates --print-build-logs
+
+      - name: Run cross-platform tests
+        run: nix build .#checks.aarch64-darwin.testCrossPlatform --print-build-logs
+
+  template-init:
+    name: Template Initialization Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Test universal template init
+        run: |
+          mkdir -p /tmp/test-app
+          cd /tmp/test-app
+
+          # Create minimal Ruby project
+          echo "source 'https://rubygems.org'" > Gemfile
+          echo "gem 'rack'" >> Gemfile
+          echo "3.2.0" > .ruby-version
+          cat > Gemfile.lock << 'EOF'
+          GEM
+            remote: https://rubygems.org/
+            specs:
+              rack (3.0.0)
+
+          PLATFORMS
+            ruby
+
+          DEPENDENCIES
+            rack
+
+          BUNDLED WITH
+             2.4.0
+          EOF
+
+          # Initialize from local flake
+          nix flake init -t path:$GITHUB_WORKSPACE#universal
+
+          # Verify flake.nix was created
+          test -f flake.nix
+          echo "Template initialization successful"

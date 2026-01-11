@@ -8,10 +8,6 @@
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
-    bundix-fork = {
-      url = "github:glenndavy/bundix";
-      flake = false;
-    };
     ruby-builder = {
       url = "github:glenndavy/rails-builder"; # Will be renamed
       flake = true;
@@ -23,7 +19,6 @@
     nixpkgs,
     nixpkgs-ruby,
     flake-compat,
-    bundix-fork,
     ruby-builder,
     ...
   }: let
@@ -34,11 +29,18 @@
     mkPkgsForSystem = system:
       import nixpkgs {
         inherit system overlays;
+        # OpenSSL 1.1.1w is permitted as a fallback for older Ruby versions,
+        # legacy gems with native extensions, or transitive dependencies that
+        # haven't been updated for OpenSSL 3.x. The build uses opensslVersion
+        # (below) by default, but this prevents Nix from failing when a
+        # dependency pulls in the older version.
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.1.0";
+    version = "3.5.0";
     gccVersion = "latest";
+    # Default OpenSSL version for builds. Change to "1_1" if you encounter
+    # compatibility issues with older gems or Ruby versions.
     opensslVersion = "3_2";
 
     # Import framework detection
@@ -49,9 +51,15 @@
     detectRubyVersion = versionDetection.detectRubyVersion;
     detectBundlerVersion = versionDetection.detectBundlerVersion;
     detectNodeVersion = versionDetection.detectNodeVersion;
+    detectTailwindVersion = versionDetection.detectTailwindVersion;
+
+    # Import tailwindcss hashes for exact version matching
+    tailwindcssHashes = import (ruby-builder + "/tailwindcss-hashes.nix");
 
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
+      # Use custom bundix from ruby-builder (glenndavy/bundix fork with fixes)
+      customBundix = ruby-builder.packages.${system}.bundix;
       rubyVersion = detectRubyVersion {src = ./.;};
       bundlerVersion = detectBundlerVersion {src = ./.;};
       rubyPackage = pkgs."ruby-${rubyVersion}";
@@ -72,18 +80,35 @@
         then pkgs.openssl_3
         else pkgs."openssl_${opensslVersion}";
 
-      # Bundler package with correct version from Gemfile.lock
-      # Use system bundler to avoid network access during build
-      bundlerPackage = pkgs.bundler.override {
-        ruby = rubyPackage;
-      };
+      # Bundler package with exact version from Gemfile.lock
+      # Uses precomputed hashes from bundler-hashes.nix for reproducible builds
+      bundlerHashes = import (ruby-builder + "/bundler-hashes.nix");
+      bundlerPackage = let
+        hashInfo = bundlerHashes.${bundlerVersion} or null;
+      in
+        if hashInfo != null
+        then
+          pkgs.buildRubyGem {
+            inherit (hashInfo) sha256;
+            ruby = rubyPackage;
+            gemName = "bundler";
+            version = bundlerVersion;
+            source.sha256 = hashInfo.sha256;
+          }
+        else
+          # Fallback to nixpkgs bundler if version not in hashes
+          pkgs.bundler.override { ruby = rubyPackage; };
 
-      # Bundix fork with nil serialization fixes
-      bundixPackage = pkgs.bundix.override rec {
-        ruby = rubyPackage;
-        bundler = bundlerPackage;
-        src = bundix-fork;
-      };
+      # Tailwindcss package - exact version from Gemfile.lock
+      # This is needed because bundlerEnv uses generic ruby platform gem
+      # which doesn't include the platform-specific binary
+      tailwindVersion = detectTailwindVersion {src = ./.;};
+      tailwindcssPackage = if tailwindVersion != null && frameworkInfo.needsTailwindcss
+        then import (ruby-builder + "/imports/make-tailwindcss.nix") {
+          inherit pkgs tailwindcssHashes;
+          version = tailwindVersion;
+        }
+        else null;
 
       # Shared build inputs for all Ruby apps
       universalBuildInputs =
@@ -148,10 +173,21 @@
           else []
         )
         ++ (
-          if frameworkInfo.needsBrowserDrivers
+          # Browser drivers only on Linux - Darwin doesn't support driverLink
+          if frameworkInfo.needsBrowserDrivers && pkgs.stdenv.isLinux
           then [
             pkgs.chromium # Browser for testing (headless mode)
             pkgs.chromedriver # WebDriver for Selenium
+          ]
+          else []
+        )
+        ++ (
+          # Tailwindcss CLI - exact version from Gemfile.lock
+          # Needed because bundlerEnv uses generic ruby platform gem
+          # which doesn't include the platform-specific binary
+          if tailwindcssPackage != null
+          then [
+            tailwindcssPackage # Tailwind CSS CLI (version-matched to gem)
           ]
           else []
         );
@@ -160,7 +196,7 @@
         gccPackage
         pkgs.pkg-config
         pkgs.rsync
-        bundixPackage # For generating gemset.nix (using fork with nil fixes)
+        customBundix # For generating gemset.nix (glenndavy/bundix fork)
       ];
 
       # Shared scripts (only if gems are actually present)
@@ -254,7 +290,7 @@
         in
           # Use Rails build script for all frameworks - it's generic enough
           import (ruby-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo;
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage;
             src = ./.;
             defaultShellHook = bundixShellHook;
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
@@ -297,6 +333,10 @@
 
       # Shared shell hook
       defaultShellHook = ''
+        # Save original PATH at the very start (includes buildInputs from Nix)
+        # This preserves access to gcc, make, pkg-config, etc. plus system tools
+        ORIGINAL_PATH="$PATH"
+
         export PS1="${framework}-shell:>"
         export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
           if frameworkInfo.needsPostgresql
@@ -316,6 +356,10 @@
           then ":${pkgs.mysql80}/lib"
           else ""
         }:${opensslPackage}/lib"
+        ${if tailwindcssPackage != null then ''
+        # Point tailwindcss-ruby gem to Nix-provided binary (version ${tailwindVersion})
+        export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+        '' else ""}
         unset RUBYLIB
       '';
 
@@ -376,11 +420,40 @@
             shellHook =
               defaultShellHook
               + ''
-                export PATH=${bundlerPackage}/bin:$PATH  # Ensure correct bundler version comes first
+                export APP_ROOT=$(pwd)
 
-                echo "🔧 ${framework} application detected"
+                # Complete Ruby environment isolation - prevent external Ruby artifacts
+                # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
+                unset GEM_HOME
+                unset GEM_PATH
+                unset GEM_SPEC_CACHE
+                unset RUBYOPT
+                unset RUBYLIB
+
+                # Bundle isolation - gems go to project-local vendor/bundle
+                export BUNDLE_PATH=$APP_ROOT/vendor/bundle
+                export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
+                export BUNDLE_APP_CONFIG=$APP_ROOT/.bundle
+
+                # Set GEM paths to project-local only - no system gems or ~/.gem
+                # Include Ruby's built-in gems from the Nix store to avoid loading from ~/.gem
+                export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+                export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
+
+                # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
+                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
+                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                }${
+                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                }:$ORIGINAL_PATH
+
+                echo "🔧 ${framework} application detected (Nix-isolated environment)"
+                echo "   Ruby: ${rubyVersion}"
+                echo "   Bundler: ${bundlerVersion} (matches Gemfile.lock)"
                 echo "   Framework: ${framework}"
-                echo "   Entry point: ${frameworkInfo.entryPoint or "auto-detected"}"
+                echo "   Entry point: ${if frameworkInfo.entryPoint != null then frameworkInfo.entryPoint else "auto-detected"}"
                 echo "   Web app: ${
                   if frameworkInfo.isWebApp
                   then "yes"
@@ -388,7 +461,7 @@
                 }"
                 echo "   Has assets: ${
                   if frameworkInfo.hasAssets
-                  then "yes (${frameworkInfo.assetPipeline or "unknown"})"
+                  then "yes (${if frameworkInfo.assetPipeline != null then frameworkInfo.assetPipeline else "unknown"})"
                   else "no"
                 }"
                 echo "   Database: ${
@@ -424,7 +497,6 @@
                   then "enabled"
                   else "none detected"
                 }"
-                echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
               '';
           };
 
@@ -445,16 +517,28 @@
                 export APP_ROOT=$(pwd)
                 export PS1="$(pwd) bundlerenv-shell >"
 
-                # Add gem executables to PATH - bundlerEnv provides direct access
-                export PATH=${bundlerEnvPackage}/bin:$PATH
+                # Complete Ruby environment isolation - prevent external Ruby artifacts
+                unset GEM_HOME
+                unset GEM_PATH
+                unset RUBYOPT
+                unset RUBYLIB
 
-                # BundlerEnv environment
+                # BundlerEnv environment - gems from Nix store
                 export GEM_HOME=${bundlerEnvPackage}
-                export BUNDLE_GEMFILE=${bundlerEnvPackage}/Gemfile
+                export GEM_PATH=${bundlerEnvPackage}
+                export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
 
-                echo "🔧 BundlerEnv Environment for ${framework} (Direct gem access)"
+                # PATH: BundlerEnv/Ruby first (for isolation), then original PATH (for system tools)
+                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
+                export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin${
+                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                }${
+                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                }:$ORIGINAL_PATH
+
+                echo "🔧 BundlerEnv Environment for ${framework} (Nix-isolated, direct gem access)"
+                echo "   Ruby: ${rubyVersion}"
                 echo "   Framework: ${framework} (auto-detected)"
-                echo "   Ruby: ${rubyPackage.version}"
                 if [ -f ./gemset.nix ]; then
                   echo "   Mode: gemset.nix + Gemfile.lock"
                 else
@@ -503,12 +587,36 @@
                 export PS1="$(pwd) bundler-shell >"
                 export APP_ROOT=$(pwd)
 
-                # Bundle isolation - same as build scripts
+                # Complete Ruby environment isolation - prevent external Ruby artifacts
+                # This prevents loading gems compiled for different Ruby versions (e.g., ~/.gem)
+                unset GEM_HOME
+                unset GEM_PATH
+                unset GEM_SPEC_CACHE
+                unset RUBYOPT
+                unset RUBYLIB
+
+                # Bundle isolation - gems go to project-local vendor/bundle
                 export BUNDLE_PATH=$APP_ROOT/vendor/bundle
-                export BUNDLE_GEMFILE=$PWD/Gemfile
-                export PATH=$BUNDLE_PATH/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin:$PATH
+                export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
+                export BUNDLE_APP_CONFIG=$APP_ROOT/.bundle
+
+                # Set GEM paths to project-local only - no system gems or ~/.gem
+                # Include Ruby's built-in gems from the Nix store to avoid loading from ~/.gem
+                export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+                export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
+
+                # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
+                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
+                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                }${
+                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                }:$ORIGINAL_PATH
 
                 echo "🔧 Traditional bundler environment for ${framework}:"
+                echo "   Ruby: ${rubyVersion} (Nix-isolated)"
+                echo "   Bundler: ${bundlerVersion} (matches Gemfile.lock)"
                 echo "   bundle install  - Install gems to ./vendor/bundle"
                 echo "   bundle exec     - Run commands with bundler"
                 ${
@@ -527,7 +635,6 @@
                   ''
                 }
                 echo "   Gems isolated in: ./vendor/bundle"
-                echo "   Bundler version: ${bundlerVersion} (matches Gemfile.lock)"
               '';
           };
         }
@@ -538,7 +645,7 @@
             buildInputs = [
               rubyPackage
               bundlerPackage
-              bundixPackage
+              customBundix # glenndavy/bundix fork with fixes
               pkgs.git
               pkgs.rsync
               # Core build dependencies only - minimal set
@@ -562,8 +669,11 @@
 
                 # Always start in bootstrap mode - this guarantees shell startup success
                 # PATH priority: 1) Local gem bins, 2) Bundler derivation, 3) Ruby, 4) Bundix, 5) System
-                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${bundixPackage}/bin:$PATH"
-                export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
+                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${customBundix}/bin:$PATH"
+                # Note: We do NOT set BUNDLE_FORCE_RUBY_PLATFORM=true
+                # This allows bundix to select platform-specific gems (e.g., tailwindcss-ruby-arm64-darwin)
+                # which include pre-compiled binaries needed at runtime.
+                # Use fix-gemset-sha if you encounter SHA mismatches after running bundix.
 
                 # Bootstrap Ruby environment - prioritize local bundle over system
                 # Don't mix system Ruby libraries with bundled gems to avoid conflicts
@@ -659,13 +769,23 @@
                   gemset = ./gemset.nix;
                 };
               in pkgs.mkShell {
-                buildInputs = [ rubyPackage bundixPackage ];
+                buildInputs = [ rubyPackage customBundix ];
                 shellHook = defaultShellHook + ''
-                  # Set up bundlerEnv environment
+                  # Complete Ruby environment isolation - prevent external Ruby artifacts
+                  unset GEM_HOME
+                  unset GEM_PATH
+                  unset RUBYOPT
+                  unset RUBYLIB
+
+                  # Set up bundlerEnv environment - gems from Nix store only
                   export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
                   export GEM_PATH=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
-                  export PATH=${shellGems}/bin:$PATH
-                  echo "💎 Bundix Environment: Direct gem access (no bundle exec needed)"
+
+                  # PATH: Nix-provided gems and Ruby only - no inherited PATH
+                  # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
+                  export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+
+                  echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                   echo "   Ruby: ${rubyVersion}"
                   echo "   Framework: ${framework} (auto-detected)"
                   echo "   GEM_HOME: $GEM_HOME"
@@ -673,7 +793,7 @@
               }
             else
               pkgs.mkShell {
-                buildInputs = [ rubyPackage bundixPackage ];
+                buildInputs = [ rubyPackage customBundix ];
                 shellHook = ''
                   echo "❌ gemset.nix not available or has issues"
                   echo "   Use: nix develop .#with-bundix-bootstrap (bootstrap mode)"
