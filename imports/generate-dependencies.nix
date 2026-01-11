@@ -11,7 +11,7 @@
   export GEM_HOME=$(mktemp -d)
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
   export PATH=$GEM_HOME/bin:$PATH
-  bundix -l
+  bundix --magic -l
   ## Remove invalid entries if errors persist
   #awk '
   #  BEGIN { RS = "}"; ORS = "}"; printing = 1 }
