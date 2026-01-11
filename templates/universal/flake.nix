@@ -8,6 +8,10 @@
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
+    bundix-fork = {
+      url = "github:glenndavy/bundix";
+      flake = false;
+    };
     ruby-builder = {
       url = "github:glenndavy/rails-builder"; # Will be renamed
       flake = true;
@@ -19,6 +23,7 @@
     nixpkgs,
     nixpkgs-ruby,
     flake-compat,
+    bundix-fork,
     ruby-builder,
     ...
   }: let
@@ -71,6 +76,13 @@
       # Use system bundler to avoid network access during build
       bundlerPackage = pkgs.bundler.override {
         ruby = rubyPackage;
+      };
+
+      # Bundix fork with nil serialization fixes
+      bundixPackage = pkgs.bundix.override rec {
+        ruby = rubyPackage;
+        bundler = bundlerPackage;
+        src = bundix-fork;
       };
 
       # Shared build inputs for all Ruby apps
@@ -148,7 +160,7 @@
         gccPackage
         pkgs.pkg-config
         pkgs.rsync
-        pkgs.bundix # For generating gemset.nix
+        bundixPackage # For generating gemset.nix (using fork with nil fixes)
       ];
 
       # Shared scripts (only if gems are actually present)
@@ -526,7 +538,7 @@
             buildInputs = [
               rubyPackage
               bundlerPackage
-              pkgs.bundix
+              bundixPackage
               pkgs.git
               pkgs.rsync
               # Core build dependencies only - minimal set
@@ -550,7 +562,7 @@
 
                 # Always start in bootstrap mode - this guarantees shell startup success
                 # PATH priority: 1) Local gem bins, 2) Bundler derivation, 3) Ruby, 4) Bundix, 5) System
-                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${pkgs.bundix}/bin:$PATH"
+                export PATH="$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:${rubyPackage}/bin:${bundixPackage}/bin:$PATH"
                 export BUNDLE_FORCE_RUBY_PLATFORM=true  # Generate ruby platform gems, not native
 
                 # Bootstrap Ruby environment - prioritize local bundle over system
@@ -647,7 +659,7 @@
                   gemset = ./gemset.nix;
                 };
               in pkgs.mkShell {
-                buildInputs = [ rubyPackage pkgs.bundix ];
+                buildInputs = [ rubyPackage bundixPackage ];
                 shellHook = defaultShellHook + ''
                   # Set up bundlerEnv environment
                   export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
@@ -661,7 +673,7 @@
               }
             else
               pkgs.mkShell {
-                buildInputs = [ rubyPackage pkgs.bundix ];
+                buildInputs = [ rubyPackage bundixPackage ];
                 shellHook = ''
                   echo "❌ gemset.nix not available or has issues"
                   echo "   Use: nix develop .#with-bundix-bootstrap (bootstrap mode)"
