@@ -208,7 +208,7 @@
         if frameworkInfo.needsRedis
         then pkgs.writeShellScriptBin "manage-redis" (import (ruby-builder + /imports/manage-redis-script.nix) {inherit pkgs;})
         else null;
-      generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (ruby-builder + /imports/generate-dependencies.nix) {inherit pkgs bundlerVersion rubyPackage;});
+      generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (ruby-builder + /imports/generate-dependencies.nix) {inherit pkgs bundlerVersion rubyPackage; bundixPackage = customBundix;});
       fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import (ruby-builder + /imports/fix-gemset-sha.nix) {inherit pkgs;});
 
       # Bundler approach (traditional) - using Rails builder with framework override

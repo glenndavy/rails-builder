@@ -2,11 +2,12 @@
   pkgs,
   rubyPackage,
   bundlerVersion,
+  bundixPackage,
 }: ''
   #!${pkgs.runtimeShell}
   set -e
   echo "Generating gemset.nix from Gemfile.lock..."
-  export PATH=${rubyPackage}/bin:${pkgs.nix-prefetch-scripts}/bin:${pkgs.bundix}/bin:$PATH
+  export PATH=${rubyPackage}/bin:${pkgs.nix-prefetch-scripts}/bin:${bundixPackage}/bin:$PATH
   echo "Verifying Ruby version: $(${rubyPackage}/bin/ruby -v)"
   export GEM_HOME=$(mktemp -d)
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
