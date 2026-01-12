@@ -21,7 +21,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.5.2";
+    version = "3.5.3";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -30,7 +30,8 @@
     # Build custom bundix from glenndavy/bundix
     mkBundixForSystem = system: let
       pkgs = mkPkgsForSystem system;
-    in pkgs.callPackage bundix-src {};
+    in
+      pkgs.callPackage bundix-src {};
     mkLibForSystem = system: let
       pkgs = mkPkgsForSystem system;
       mkRailsBuild = import ./imports/make-rails-build.nix {inherit pkgs;};
@@ -165,7 +166,6 @@
           echo "All tests passed for ${system}" > $out/result
         '';
       };
-
     in {
       inherit testBasicBuild testTemplates testCrossPlatform runAllTests;
     };
@@ -281,33 +281,36 @@
       # Detect Ruby version from src input, with fallback for CI/when no .ruby-version exists
       rubyVersionFile = src + "/.ruby-version";
       hasRubyVersion = builtins.pathExists rubyVersionFile;
-      rubyVersion = if hasRubyVersion
-        then versionDetection.detectRubyVersion { inherit src; }
-        else "3.3.0";  # Fallback version for CI and when no .ruby-version
+      rubyVersion =
+        if hasRubyVersion
+        then versionDetection.detectRubyVersion {inherit src;}
+        else "3.3.0"; # Fallback version for CI and when no .ruby-version
       rubyPackage = pkgs."ruby-${rubyVersion}";
     in {
       # Bootstrap shell with bundix for generating gemset.nix
       with-bundix-bootstrap = pkgs.mkShell {
         name = "rails-builder-bootstrap";
-        buildInputs = [
-          rubyPackage
-          customBundix
-          pkgs.bundler
-          pkgs.git
-          pkgs.gnumake
-          pkgs.gcc
-          pkgs.pkg-config
-          pkgs.openssl
-          pkgs.libyaml
-          pkgs.zlib
-          pkgs.libffi
-          pkgs.readline
-          pkgs.ncurses
-        ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-          pkgs.libxml2
-          pkgs.libxslt
-          pkgs.postgresql
-        ];
+        buildInputs =
+          [
+            rubyPackage
+            customBundix
+            pkgs.bundler
+            pkgs.git
+            pkgs.gnumake
+            pkgs.gcc
+            pkgs.pkg-config
+            pkgs.openssl
+            pkgs.libyaml
+            pkgs.zlib
+            pkgs.libffi
+            pkgs.readline
+            pkgs.ncurses
+          ]
+          ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.libxml2
+            pkgs.libxslt
+            pkgs.postgresql
+          ];
 
         shellHook = ''
           echo "Rails Builder Bootstrap Shell (${system})"
