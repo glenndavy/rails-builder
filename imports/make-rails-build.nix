@@ -50,6 +50,8 @@
     pkgs.libyaml
     pkgs.curl
     tzinfo
+    pkgs.libvips
+    pkgs.pkg-config
   ];
 
   app = pkgs.stdenv.mkDerivation {
@@ -109,9 +111,22 @@ in {
           pkgs.nodejs
           pkgs.bash
           pkgs.coreutils
-        ] ++ (if pkgs.stdenv.isLinux then [pkgs.gosu] else []);
+        ]
+        ++ (
+          if pkgs.stdenv.isLinux
+          then [pkgs.gosu]
+          else []
+        );
       config = {
-        Cmd = ["${pkgs.bash}/bin/bash" "-c" "${if pkgs.stdenv.isLinux then "${pkgs.gosu}/bin/gosu app_user " else ""}${pkgs.goreman}/bin/goreman start web"];
+        Cmd = [
+          "${pkgs.bash}/bin/bash"
+          "-c"
+          "${
+            if pkgs.stdenv.isLinux
+            then "${pkgs.gosu}/bin/gosu app_user "
+            else ""
+          }${pkgs.goreman}/bin/goreman start web"
+        ];
         Env = [
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"

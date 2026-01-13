@@ -17,7 +17,7 @@
   usrBinDerivation,
   tzinfo,
   defaultShellHook,
-  tailwindcssPackage ? null,  # Optional: Nix-provided tailwindcss binary
+  tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -32,7 +32,7 @@
     inherit src;
     nativeBuildInputs =
       [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage]
-      ++ universalBuildInputs  # Include all buildInputs in nativeBuildInputs for library access
+      ++ universalBuildInputs # Include all buildInputs in nativeBuildInputs for library access
       ++ (
         if builtins.pathExists (src + "/yarn.lock")
         then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
@@ -48,6 +48,10 @@
       if [ -f ./yarn.lock ]; then
        yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
       fi
+    '';
+    preBuild = ''
+      export LD_LIBRARY_PATH="${pkgs.libvips}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+      export PKG_CONFIG_PATH="${pkgs.libvips.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
     '';
 
     buildPhase = ''
@@ -68,11 +72,15 @@
       echo "  Gems: ${gems}"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 
-      ${if tailwindcssPackage != null then ''
-      # Point tailwindcss-ruby gem to Nix-provided binary
-      export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
-      echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
-      '' else ""}
+      ${
+        if tailwindcssPackage != null
+        then ''
+          # Point tailwindcss-ruby gem to Nix-provided binary
+          export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+          echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+        ''
+        else ""
+      }
 
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
@@ -158,7 +166,12 @@ in {
           pkgs.nodejs
           pkgs.bash
           pkgs.coreutils
-        ] ++ (if pkgs.stdenv.isLinux then [pkgs.gosu] else []);
+        ]
+        ++ (
+          if pkgs.stdenv.isLinux
+          then [pkgs.gosu]
+          else []
+        );
       enableFakechroot = !pkgs.stdenv.isDarwin;
       fakeRootCommands = ''
         mkdir -p /etc
@@ -178,7 +191,8 @@ in {
         chmod -R u+w /app
       '';
       config = {
-        Cmd = if pkgs.stdenv.isLinux
+        Cmd =
+          if pkgs.stdenv.isLinux
           then ["${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web"]
           else ["${pkgs.bash}/bin/bash" "-c" "${pkgs.goreman}/bin/goreman start web"];
         Env = [

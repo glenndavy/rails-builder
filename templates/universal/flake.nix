@@ -97,17 +97,19 @@
           }
         else
           # Fallback to nixpkgs bundler if version not in hashes
-          pkgs.bundler.override { ruby = rubyPackage; };
+          pkgs.bundler.override {ruby = rubyPackage;};
 
       # Tailwindcss package - exact version from Gemfile.lock
       # This is needed because bundlerEnv uses generic ruby platform gem
       # which doesn't include the platform-specific binary
       tailwindVersion = detectTailwindVersion {src = ./.;};
-      tailwindcssPackage = if tailwindVersion != null && frameworkInfo.needsTailwindcss
-        then import (ruby-builder + "/imports/make-tailwindcss.nix") {
-          inherit pkgs tailwindcssHashes;
-          version = tailwindVersion;
-        }
+      tailwindcssPackage =
+        if tailwindVersion != null && frameworkInfo.needsTailwindcss
+        then
+          import (ruby-builder + "/imports/make-tailwindcss.nix") {
+            inherit pkgs tailwindcssHashes;
+            version = tailwindVersion;
+          }
         else null;
 
       # Shared build inputs for all Ruby apps
@@ -120,6 +122,8 @@
           pkgs.zlib
           pkgs.libyaml
           pkgs.curl
+          pkgs.libvips
+          pkgs.pkg-config
         ]
         ++ (
           if frameworkInfo.needsPostgresql
@@ -208,7 +212,10 @@
         if frameworkInfo.needsRedis
         then pkgs.writeShellScriptBin "manage-redis" (import (ruby-builder + /imports/manage-redis-script.nix) {inherit pkgs;})
         else null;
-      generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (ruby-builder + /imports/generate-dependencies.nix) {inherit pkgs bundlerVersion rubyPackage; bundixPackage = customBundix;});
+      generate-dependencies-script = pkgs.writeShellScriptBin "generate-dependencies" (import (ruby-builder + /imports/generate-dependencies.nix) {
+        inherit pkgs bundlerVersion rubyPackage;
+        bundixPackage = customBundix;
+      });
       fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import (ruby-builder + /imports/fix-gemset-sha.nix) {inherit pkgs;});
 
       # Bundler approach (traditional) - using Rails builder with framework override
@@ -296,9 +303,10 @@
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
             yarnOfflineCache = pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
             buildRailsApp =
-              if framework == "rails" then
-                pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (ruby-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;})
-              else if frameworkInfo.hasRakefile then
+              if framework == "rails"
+              then pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (ruby-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;})
+              else if frameworkInfo.hasRakefile
+              then
                 pkgs.writeShellScriptBin "make-${framework}-app-with-nix" ''
                   echo "Building ${framework} application..."
                   rake build 2>/dev/null || echo "No build task found, continuing..."
@@ -356,10 +364,14 @@
           then ":${pkgs.mysql80}/lib"
           else ""
         }:${opensslPackage}/lib"
-        ${if tailwindcssPackage != null then ''
-        # Point tailwindcss-ruby gem to Nix-provided binary (version ${tailwindVersion})
-        export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
-        '' else ""}
+        ${
+          if tailwindcssPackage != null
+          then ''
+            # Point tailwindcss-ruby gem to Nix-provided binary (version ${tailwindVersion})
+            export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+          ''
+          else ""
+        }
         unset RUBYLIB
       '';
 
@@ -378,11 +390,13 @@
           package-with-bundlerenv = bundlerEnvPackage;
         }
         // (
-          if bundixBuild != null then {
+          if bundixBuild != null
+          then {
             # Bundix approach packages - direct gem access
             package-with-bundix = bundixBuild.app;
             docker-with-bundix = bundixBuild.dockerImage;
-          } else {}
+          }
+          else {}
         )
         // (
           if frameworkInfo.needsPostgresql
@@ -444,16 +458,24 @@
                 # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
                 # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
                 export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
-                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                  if manage-postgres-script != null
+                  then ":${manage-postgres-script}/bin"
+                  else ""
                 }${
-                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                  if manage-redis-script != null
+                  then ":${manage-redis-script}/bin"
+                  else ""
                 }:$ORIGINAL_PATH
 
                 echo "🔧 ${framework} application detected (Nix-isolated environment)"
                 echo "   Ruby: ${rubyVersion}"
                 echo "   Bundler: ${bundlerVersion} (matches Gemfile.lock)"
                 echo "   Framework: ${framework}"
-                echo "   Entry point: ${if frameworkInfo.entryPoint != null then frameworkInfo.entryPoint else "auto-detected"}"
+                echo "   Entry point: ${
+                  if frameworkInfo.entryPoint != null
+                  then frameworkInfo.entryPoint
+                  else "auto-detected"
+                }"
                 echo "   Web app: ${
                   if frameworkInfo.isWebApp
                   then "yes"
@@ -461,7 +483,11 @@
                 }"
                 echo "   Has assets: ${
                   if frameworkInfo.hasAssets
-                  then "yes (${if frameworkInfo.assetPipeline != null then frameworkInfo.assetPipeline else "unknown"})"
+                  then "yes (${
+                    if frameworkInfo.assetPipeline != null
+                    then frameworkInfo.assetPipeline
+                    else "unknown"
+                  })"
                   else "no"
                 }"
                 echo "   Database: ${
@@ -531,9 +557,13 @@
                 # PATH: BundlerEnv/Ruby first (for isolation), then original PATH (for system tools)
                 # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
                 export PATH=${bundlerEnvPackage}/bin:${rubyPackage}/bin${
-                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                  if manage-postgres-script != null
+                  then ":${manage-postgres-script}/bin"
+                  else ""
                 }${
-                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                  if manage-redis-script != null
+                  then ":${manage-redis-script}/bin"
+                  else ""
                 }:$ORIGINAL_PATH
 
                 echo "🔧 BundlerEnv Environment for ${framework} (Nix-isolated, direct gem access)"
@@ -609,9 +639,13 @@
                 # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
                 # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
                 export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
-                  if manage-postgres-script != null then ":${manage-postgres-script}/bin" else ""
+                  if manage-postgres-script != null
+                  then ":${manage-postgres-script}/bin"
+                  else ""
                 }${
-                  if manage-redis-script != null then ":${manage-redis-script}/bin" else ""
+                  if manage-redis-script != null
+                  then ":${manage-redis-script}/bin"
+                  else ""
                 }:$ORIGINAL_PATH
 
                 echo "🔧 Traditional bundler environment for ${framework}:"
@@ -759,41 +793,44 @@
 
           # Normal bundix shell using bundlerEnv - direct gem access
           with-bundix =
-            if builtins.pathExists ./gemset.nix then
-              let
-                # Simple bundlerEnv without auto-fix for devshell
-                shellGems = pkgs.bundlerEnv {
-                  name = "${framework}-gems";
-                  ruby = rubyPackage;
-                  gemdir = ./.;
-                  gemset = ./gemset.nix;
-                };
-              in pkgs.mkShell {
-                buildInputs = [ rubyPackage customBundix ];
-                shellHook = defaultShellHook + ''
-                  # Complete Ruby environment isolation - prevent external Ruby artifacts
-                  unset GEM_HOME
-                  unset GEM_PATH
-                  unset RUBYOPT
-                  unset RUBYLIB
+            if builtins.pathExists ./gemset.nix
+            then let
+              # Simple bundlerEnv without auto-fix for devshell
+              shellGems = pkgs.bundlerEnv {
+                name = "${framework}-gems";
+                ruby = rubyPackage;
+                gemdir = ./.;
+                gemset = ./gemset.nix;
+              };
+            in
+              pkgs.mkShell {
+                buildInputs = [rubyPackage customBundix];
+                shellHook =
+                  defaultShellHook
+                  + ''
+                    # Complete Ruby environment isolation - prevent external Ruby artifacts
+                    unset GEM_HOME
+                    unset GEM_PATH
+                    unset RUBYOPT
+                    unset RUBYLIB
 
-                  # Set up bundlerEnv environment - gems from Nix store only
-                  export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
-                  export GEM_PATH=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
+                    # Set up bundlerEnv environment - gems from Nix store only
+                    export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
+                    export GEM_PATH=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
 
-                  # PATH: Nix-provided gems and Ruby only - no inherited PATH
-                  # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                  export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+                    # PATH: Nix-provided gems and Ruby only - no inherited PATH
+                    # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
+                    export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
 
-                  echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
-                  echo "   Ruby: ${rubyVersion}"
-                  echo "   Framework: ${framework} (auto-detected)"
-                  echo "   GEM_HOME: $GEM_HOME"
-                '';
+                    echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
+                    echo "   Ruby: ${rubyVersion}"
+                    echo "   Framework: ${framework} (auto-detected)"
+                    echo "   GEM_HOME: $GEM_HOME"
+                  '';
               }
             else
               pkgs.mkShell {
-                buildInputs = [ rubyPackage customBundix ];
+                buildInputs = [rubyPackage customBundix];
                 shellHook = ''
                   echo "❌ gemset.nix not available or has issues"
                   echo "   Use: nix develop .#with-bundix-bootstrap (bootstrap mode)"
