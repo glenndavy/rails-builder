@@ -58,6 +58,12 @@
     LD_LIBRARY_PATH = buildInputLibPaths;
 
     preConfigure = ''
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════════╗"
+      echo "║  bundix build: preconfigure for bundlerEnv                       ║"
+      echo "╚══════════════════════════════════════════════════════════════════╝"
+      echo ""
+
       export LD_LIBRARY_PATH="${buildInputLibPaths}''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
       export PKG_CONFIG_PATH="${fullPkgConfigPath}''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
       export HOME=$PWD
@@ -76,7 +82,7 @@
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
-      echo "║  BUNDIX BUILD: Rails application (bundlerEnv)                    ║"
+      echo "║  bundix build: rails application (bundlerenv)                    ║"
       echo "╚══════════════════════════════════════════════════════════════════╝"
       echo ""
 
