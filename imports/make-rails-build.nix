@@ -50,7 +50,6 @@
     pkgs.libyaml
     pkgs.curl
     tzinfo
-    pkgs.vips
     pkgs.pkg-config
   ];
 

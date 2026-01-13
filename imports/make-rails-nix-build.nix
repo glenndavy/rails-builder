@@ -27,6 +27,20 @@
     map (input: "${input}/lib") universalBuildInputs
   );
 
+  # 1. Collect all /lib/pkgconfig directories (most common location)
+  pkgConfigPaths = builtins.concatStringsSep ":" (
+    map (input: "${input}/lib/pkgconfig") universalBuildInputs
+  );
+
+  # 2. Optional: also include /share/pkgconfig if any of your inputs use it
+  #    (safe to always include — pkg-config will simply ignore non-existent paths)
+  pkgConfigPathsExtra = builtins.concatStringsSep ":" (
+    map (input: "${input}/share/pkgconfig") universalBuildInputs
+  );
+
+  # 3. Combine both (use : separator again)
+  fullPkgConfigPath = "${pkgConfigPaths}:${pkgConfigPathsExtra}";
+
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
@@ -44,15 +58,17 @@
     LD_LIBRARY_PATH = buildInputLibPaths;
 
     preConfigure = ''
+      export LD_LIBRARY_PATH="${buildInputLibPaths}''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+      export PKG_CONFIG_PATH="${fullPkgConfigPath}''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
       export HOME=$PWD
       if [ -f ./yarn.lock ]; then
        yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
       fi
     '';
-    preBuild = ''
-      export LD_LIBRARY_PATH="${pkgs.vips}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
-      export PKG_CONFIG_PATH="${pkgs.vips.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-    '';
+    #preBuild = ''
+    #  #export LD_LIBRARY_PATH="${pkgs.vips}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+    #  export PKG_CONFIG_PATH="${pkgs.vips.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+    #'';
 
     buildPhase = ''
       export HOME=$PWD
