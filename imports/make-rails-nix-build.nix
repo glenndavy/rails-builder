@@ -50,8 +50,8 @@
       fi
     '';
     preBuild = ''
-      export LD_LIBRARY_PATH="${pkgs.libvips}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
-      export PKG_CONFIG_PATH="${pkgs.libvips.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+      export LD_LIBRARY_PATH="${pkgs.vips}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+      export PKG_CONFIG_PATH="${pkgs.vips.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
     '';
 
     buildPhase = ''

@@ -122,7 +122,7 @@
           pkgs.zlib
           pkgs.libyaml
           pkgs.curl
-          pkgs.libvips
+          pkgs.vips
           pkgs.pkg-config
         ]
         ++ (
