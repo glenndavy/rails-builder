@@ -37,7 +37,7 @@
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.5.6";
+    version = "3.5.7";
     gccVersion = "latest";
     # Default OpenSSL version for builds. Change to "1_1" if you encounter
     # compatibility issues with older gems or Ruby versions.
@@ -334,6 +334,11 @@
             lockfile = ./Gemfile.lock;
             gemdir = ./.;
             gemset = pkgs.writeText "empty-gemset.nix" "{ }";
+            gemConfig =
+              pkgs.defaultGemConfig
+              // {
+                ruby-vips = pkgs.rubyPackages.ruby-vips; # or pkgs.ruby.vips if using older style
+              };
           };
       in
         pkgs.bundlerEnv (baseConfig // modeConfig);
