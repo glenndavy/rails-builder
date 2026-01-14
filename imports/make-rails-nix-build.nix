@@ -117,7 +117,9 @@
         then ''
           # Point tailwindcss-ruby gem to Nix-provided binary
           export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+          export PATH="${tailwindcssPackage}/bin:$PATH"
           echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+          echo "  Tailwindcss binary: ${tailwindcssPackage}/bin/tailwindcss"
         ''
         else ""
       }
