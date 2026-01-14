@@ -37,7 +37,8 @@
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.5.13";
+    # Version inherited from rails-builder (single source of truth)
+    version = ruby-builder.version or "unknown";
     gccVersion = "latest";
     # Default OpenSSL version for builds. Change to "1_1" if you encounter
     # compatibility issues with older gems or Ruby versions.

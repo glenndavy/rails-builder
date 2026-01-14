@@ -21,7 +21,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.5.11";
+    version = "3.6.0";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -170,6 +170,9 @@
       inherit testBasicBuild testTemplates testCrossPlatform runAllTests;
     };
   in {
+    # Export version at top level for easy access from templates
+    inherit version;
+
     lib = forAllSystems mkLibForSystem;
 
     # Export custom bundix package for use by template
