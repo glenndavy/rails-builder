@@ -59,11 +59,13 @@
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
     buildInputs = universalBuildInputs;
     buildPhase = ''
+      echo "BUILD PHASE"
       export HOME=$PWD
       export source=$PWD
     '';
 
     installPhase = ''
+      echo "INSTALL PHASE"
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
     '';

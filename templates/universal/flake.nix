@@ -37,7 +37,7 @@
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.5.8";
+    version = "3.5.9";
     gccVersion = "latest";
     # Default OpenSSL version for builds. Change to "1_1" if you encounter
     # compatibility issues with older gems or Ruby versions.
@@ -274,6 +274,7 @@
           };
 
           bundixShellHook = ''
+            echo "Bundix Shell Hook"
             export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
               if frameworkInfo.needsPostgresql
               then ":${pkgs.postgresql}/lib/pkgconfig"

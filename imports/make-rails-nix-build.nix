@@ -44,6 +44,17 @@
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
+
+    phases = [
+      "unpackPhase" # optional, but harmless
+      "patchPhase" # optional
+      "preConfigure" # ← now this will run!
+      "configurePhase" # usually empty/no-op in Ruby apps
+      "preBuild" # optional
+      "buildPhase" # your full script
+      "installPhase"
+    ];
+
     nativeBuildInputs =
       [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage]
       ++ universalBuildInputs # Include all buildInputs in nativeBuildInputs for library access
