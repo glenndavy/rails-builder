@@ -62,6 +62,11 @@
         if builtins.pathExists (src + "/yarn.lock")
         then [pkgs.yarnConfigHook pkgs.yarnInstallHook]
         else []
+      )
+      ++ (
+        if tailwindcssPackage != null
+        then [tailwindcssPackage]
+        else []
       );
     buildInputs = universalBuildInputs;
 
