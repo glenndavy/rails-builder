@@ -37,7 +37,7 @@
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.5.12";
+    version = "3.5.13";
     gccVersion = "latest";
     # Default OpenSSL version for builds. Change to "1_1" if you encounter
     # compatibility issues with older gems or Ruby versions.
@@ -252,11 +252,14 @@
             ruby = rubyPackage;
             gemdir = ./.;
             gemset = ./gemset.nix;
-            gemConfig =
-              pkgs.defaultGemConfig
-              // {
-                ruby-vips = pkgs.rubyPackages.ruby-vips;
-              };
+            gemReplace = {
+              ruby-vips = pkgs.rubyPackages.ruby-vips; # or ruby_3_4Packages if needed
+            };
+            #gemConfig =
+            #  pkgs.defaultGemConfig
+            #  // {
+            #    ruby-vips = pkgs.rubyPackages.ruby-vips;
+            #  };
           };
 
           usrBinDerivation = pkgs.stdenv.mkDerivation {
@@ -340,11 +343,14 @@
             lockfile = ./Gemfile.lock;
             gemdir = ./.;
             gemset = pkgs.writeText "empty-gemset.nix" "{ }";
-            gemConfig =
-              pkgs.defaultGemConfig
-              // {
-                ruby-vips = pkgs.rubyPackages.ruby-vips; # or pkgs.ruby.vips if using older style
-              };
+            gemReplace = {
+              ruby-vips = pkgs.rubyPackages.ruby-vips; # or ruby_3_4Packages if needed
+            };
+            #gemConfig =
+            #  pkgs.defaultGemConfig
+            #  // {
+            #    ruby-vips = pkgs.rubyPackages.ruby-vips; # or pkgs.ruby.vips if using older style
+            #  };
           };
       in
         pkgs.bundlerEnv (baseConfig // modeConfig);
