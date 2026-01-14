@@ -252,14 +252,11 @@
             ruby = rubyPackage;
             gemdir = ./.;
             gemset = ./gemset.nix;
-            gemReplace = {
-              ruby-vips = pkgs.rubyPackages.ruby-vips; # or ruby_3_4Packages if needed
+            gemConfig = pkgs.defaultGemConfig // {
+              ruby-vips = attrs: {
+                buildInputs = [ pkgs.vips ];
+              };
             };
-            #gemConfig =
-            #  pkgs.defaultGemConfig
-            #  // {
-            #    ruby-vips = pkgs.rubyPackages.ruby-vips;
-            #  };
           };
 
           usrBinDerivation = pkgs.stdenv.mkDerivation {
@@ -343,14 +340,11 @@
             lockfile = ./Gemfile.lock;
             gemdir = ./.;
             gemset = pkgs.writeText "empty-gemset.nix" "{ }";
-            gemReplace = {
-              ruby-vips = pkgs.rubyPackages.ruby-vips; # or ruby_3_4Packages if needed
+            gemConfig = pkgs.defaultGemConfig // {
+              ruby-vips = attrs: {
+                buildInputs = [ pkgs.vips ];
+              };
             };
-            #gemConfig =
-            #  pkgs.defaultGemConfig
-            #  // {
-            #    ruby-vips = pkgs.rubyPackages.ruby-vips; # or pkgs.ruby.vips if using older style
-            #  };
           };
       in
         pkgs.bundlerEnv (baseConfig // modeConfig);
