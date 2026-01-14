@@ -46,11 +46,11 @@
     inherit src;
 
     phases = [
-      "unpackPhase" # optional, but harmless
+      #"unpackPhase" # optional, but harmless
       "patchPhase" # optional
       "preConfigure" # ← now this will run!
-      "configurePhase" # usually empty/no-op in Ruby apps
-      "preBuild" # optional
+      #"configurePhase" # usually empty/no-op in Ruby apps
+      #"preBuild" # optional
       "buildPhase" # your full script
       "installPhase"
     ];
