@@ -37,7 +37,7 @@
         config.permittedInsecurePackages = ["openssl-1.1.1w"];
       };
 
-    version = "3.5.10";
+    version = "3.5.11";
     gccVersion = "latest";
     # Default OpenSSL version for builds. Change to "1_1" if you encounter
     # compatibility issues with older gems or Ruby versions.

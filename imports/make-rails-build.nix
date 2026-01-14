@@ -58,6 +58,21 @@
     inherit src;
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
     buildInputs = universalBuildInputs;
+    phases = [
+      "unpackPhase" # optional, but harmless
+      "patchPhase" # optional
+      "preConfigure" # ← now this will run!
+      #"configurePhase" # usually empty/no-op in Ruby apps
+      "preBuild" # optional
+      "buildPhase" # your full script
+      "installPhase"
+    ];
+
+    preBuild = ''
+      echo "PRE-BUILD PHASE"
+      # Pre-build hook - intentionally empty
+      # (reserved for future environment setup, validation, or logging)
+    '';
     buildPhase = ''
       echo "BUILD PHASE"
       export HOME=$PWD

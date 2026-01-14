@@ -46,11 +46,11 @@
     inherit src;
 
     phases = [
-      #"unpackPhase" # optional, but harmless
+      "unpackPhase" # optional, but harmless
       "patchPhase" # optional
       "preConfigure" # ← now this will run!
       #"configurePhase" # usually empty/no-op in Ruby apps
-      #"preBuild" # optional
+      "preBuild" # optional
       "buildPhase" # your full script
       "installPhase"
     ];
@@ -82,10 +82,12 @@
        yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
       fi
     '';
-    #preBuild = ''
-    #  #export LD_LIBRARY_PATH="${pkgs.vips}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
-    #  export PKG_CONFIG_PATH="${pkgs.vips.dev}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-    #'';
+
+    preBuild = ''
+      echo "PRE-BUILD PHASE"
+      # Pre-build hook - intentionally empty
+      # (reserved for future environment setup, validation, or logging)
+    '';
 
     buildPhase = ''
       export HOME=$PWD
