@@ -68,6 +68,22 @@
       "installPhase"
     ];
 
+    preConfigure = ''
+      echo ""
+      echo "╔══════════════════════════════════════════════════════════════════╗"
+      echo "║  bundler build: preconfigure                                     ║"
+      echo "╚══════════════════════════════════════════════════════════════════╝"
+      echo ""
+
+      export HOME=$PWD
+      export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+      export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+
+      echo "  HOME: $HOME"
+      echo "  PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+      echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+    '';
+
     preBuild = ''
       echo "PRE-BUILD PHASE"
       # Pre-build hook - intentionally empty
@@ -75,7 +91,6 @@
     '';
     buildPhase = ''
       echo "BUILD PHASE"
-      export HOME=$PWD
       export source=$PWD
     '';
 
