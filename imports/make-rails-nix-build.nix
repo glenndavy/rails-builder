@@ -143,6 +143,22 @@
       cp -r ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
       echo "  Done copying gems"
 
+      ${
+        if tailwindcssPackage != null
+        then ''
+          # Copy tailwindcss binary into gem directory so gem can find it
+          echo "  Installing tailwindcss binary into tailwindcss-ruby gem..."
+          TAILWIND_GEM_DIR=$(find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -name "tailwindcss-ruby-*" -type d | head -1)
+          if [ -n "$TAILWIND_GEM_DIR" ]; then
+            mkdir -p "$TAILWIND_GEM_DIR/exe"
+            cp ${tailwindcssPackage}/bin/tailwindcss "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
+            chmod +x "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
+            echo "  Installed tailwindcss binary at $TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
+          fi
+        ''
+        else ""
+      }
+
       # Set up environment for direct gem access (no bundle exec needed)
       export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
