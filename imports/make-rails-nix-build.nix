@@ -117,7 +117,6 @@
         then ''
           # Point tailwindcss-ruby gem to Nix-provided binary
           export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
-          export PATH="${tailwindcssPackage}/bin:$PATH"
           echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
           echo "  Tailwindcss binary: ${tailwindcssPackage}/bin/tailwindcss"
         ''
@@ -147,12 +146,17 @@
       # Set up environment for direct gem access (no bundle exec needed)
       export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
       export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
-      export PATH=${gems}/bin:${rubyPackage}/bin:$PATH
+      export PATH=${gems}/bin:${rubyPackage}/bin${
+        if tailwindcssPackage != null
+        then ":${tailwindcssPackage}/bin"
+        else ""
+      }:$PATH
 
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
       echo "│ STAGE 4: Asset Precompilation                                    │"
       echo "└──────────────────────────────────────────────────────────────────┘"
+      echo "  PATH: $PATH"
       echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
