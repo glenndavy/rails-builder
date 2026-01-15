@@ -148,12 +148,19 @@
         then ''
           # Copy tailwindcss binary into gem directory so gem can find it
           echo "  Installing tailwindcss binary into tailwindcss-ruby gem..."
-          TAILWIND_GEM_DIR=$(find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -name "tailwindcss-ruby-*" -type d | head -1)
+          echo "  DEBUG: Looking in vendor/bundle/ruby/${rubyMajorMinor}.0/gems"
+          echo "  DEBUG: Directory contents:"
+          ls -la vendor/bundle/ruby/${rubyMajorMinor}.0/ || echo "Directory doesn't exist!"
+          echo "  DEBUG: Searching for tailwindcss-ruby gem..."
+          TAILWIND_GEM_DIR=$(find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -name "tailwindcss-ruby-*" -type d 2>/dev/null | head -1)
+          echo "  DEBUG: Found gem directory: '$TAILWIND_GEM_DIR'"
           if [ -n "$TAILWIND_GEM_DIR" ]; then
             mkdir -p "$TAILWIND_GEM_DIR/exe"
             cp ${tailwindcssPackage}/bin/tailwindcss "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
             chmod +x "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
             echo "  Installed tailwindcss binary at $TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
+          else
+            echo "  ERROR: Could not find tailwindcss-ruby gem directory!"
           fi
         ''
         else ""
