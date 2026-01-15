@@ -165,6 +165,39 @@
       echo "  GEM_PATH: $GEM_PATH"
       echo "  DEBUG: Checking tailwindcss-ruby location..."
       ruby -e "require 'rubygems'; spec = Gem::Specification.find_by_name('tailwindcss-ruby'); puts \"Gem loaded from: #{spec.gem_dir}\"; puts \"Exe directory: #{File.join(spec.gem_dir, 'exe')}\"; Dir[File.join(spec.gem_dir, 'exe', '*')].each { |f| puts \"  - #{File.basename(f)}\" }"
+
+      ${
+        if tailwindcssPackage != null
+        then ''
+          echo ""
+          echo "  DEBUG: Checking TAILWINDCSS_INSTALL_DIR accessibility..."
+          echo "  TAILWINDCSS_INSTALL_DIR is set to: $TAILWINDCSS_INSTALL_DIR"
+
+          if [ -d "$TAILWINDCSS_INSTALL_DIR" ]; then
+            echo "  ✓ Directory exists"
+            echo "  Directory contents:"
+            ls -la "$TAILWINDCSS_INSTALL_DIR" || echo "  ✗ Failed to list directory"
+          else
+            echo "  ✗ Directory does not exist"
+          fi
+
+          if [ -f "$TAILWINDCSS_INSTALL_DIR/tailwindcss" ]; then
+            echo "  ✓ Binary file exists at $TAILWINDCSS_INSTALL_DIR/tailwindcss"
+            echo "  File info:"
+            ls -l "$TAILWINDCSS_INSTALL_DIR/tailwindcss" || echo "  ✗ Failed to stat file"
+            echo "  File type:"
+            file "$TAILWINDCSS_INSTALL_DIR/tailwindcss" || echo "  ✗ Failed to check file type"
+          else
+            echo "  ✗ Binary file does not exist at $TAILWINDCSS_INSTALL_DIR/tailwindcss"
+          fi
+
+          echo "  Attempting direct execution..."
+          "$TAILWINDCSS_INSTALL_DIR/tailwindcss" --version || echo "  ✗ Direct execution failed with exit code $?"
+          echo ""
+        ''
+        else ""
+      }
+
       echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
