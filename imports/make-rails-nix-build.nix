@@ -161,6 +161,10 @@
             echo "  DEBUG: Copying tailwindcss binary..."
             cp ${tailwindcssPackage}/bin/tailwindcss "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux" || echo "cp failed"
             chmod +x "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux" || echo "chmod +x failed"
+            echo "  DEBUG: Verifying binary exists and is executable..."
+            ls -la "$TAILWIND_GEM_DIR/exe/" || echo "Can't list exe dir"
+            test -f "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux" && echo "  Binary file exists" || echo "  ERROR: Binary file does not exist!"
+            test -x "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux" && echo "  Binary is executable" || echo "  ERROR: Binary is not executable!"
             echo "  Installed tailwindcss binary at $TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
           else
             echo "  WARNING: Could not find tailwindcss-ruby gem directory, skipping binary installation"
