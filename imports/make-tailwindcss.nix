@@ -39,11 +39,24 @@ in pkgs.stdenv.mkDerivation {
 
   dontUnpack = true;
 
+  # For Linux: patch the binary to work with Nix's dynamic linker
+  nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+    pkgs.autoPatchelfHook
+  ];
+
+  # Provide standard C library for autoPatchelfHook
+  buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+    pkgs.stdenv.cc.cc.lib
+  ];
+
   installPhase = ''
     mkdir -p $out/bin
     cp $src $out/bin/tailwindcss
     chmod +x $out/bin/tailwindcss
   '';
+
+  # autoPatchelfHook runs automatically in fixupPhase after installPhase
+  # It will patch the binary's interpreter and RPATH for Linux
 
   meta = with pkgs.lib; {
     description = "A utility-first CSS framework";
