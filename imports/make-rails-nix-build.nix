@@ -134,6 +134,8 @@
       echo "  Copying gems from ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/..."
       echo "  (Following symlinks to create writable copies)"
       cp -rL ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
+      echo "  Making copied gems writable..."
+      chmod -R u+w vendor/bundle/ruby/${rubyMajorMinor}.0/
       echo "  Done copying gems"
 
       ${
