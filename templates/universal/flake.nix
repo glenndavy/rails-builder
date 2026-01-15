@@ -299,6 +299,7 @@
               then ":${pkgs.mysql80}/lib"
               else ""
             }:${opensslPackage}/lib"
+            export DATABASE_URL="postgresql://localhost/dummy_build_db"
           '';
         in
           # Use Rails build script for all frameworks - it's generic enough
@@ -375,6 +376,7 @@
           then ":${pkgs.mysql80}/lib"
           else ""
         }:${opensslPackage}/lib"
+        export DATABASE_URL="postgresql://localhost/dummy_build_db"
         ${
           if tailwindcssPackage != null
           then ''

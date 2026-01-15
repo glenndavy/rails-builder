@@ -97,6 +97,7 @@
     buildPhase = ''
       export HOME=$PWD
       export source=$PWD
+      export DATABASE_URL="postgresql://localhost/dummy_build_db"
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
@@ -111,6 +112,7 @@
       echo "  Ruby: ${rubyPackage}/bin/ruby"
       echo "  Gems: ${gems}"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+      echo "  DATABASE_URL: $DATABASE_URL"
 
       ${
         if tailwindcssPackage != null
