@@ -168,8 +168,9 @@
       }
 
       # Set up environment for direct gem access (no bundle exec needed)
-      export GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
-      export GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0
+      # Point to our writable vendor/bundle copy, not the read-only Nix store
+      export GEM_HOME=$PWD/vendor/bundle/ruby/${rubyMajorMinor}.0
+      export GEM_PATH=$PWD/vendor/bundle/ruby/${rubyMajorMinor}.0
       export PATH=${gems}/bin:${rubyPackage}/bin${
         if tailwindcssPackage != null
         then ":${tailwindcssPackage}/bin"
