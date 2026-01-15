@@ -149,8 +149,10 @@
           # Copy tailwindcss binary into gem directory so gem can find it
           echo "  Installing tailwindcss binary into tailwindcss-ruby gem..."
           echo "  DEBUG: Looking in vendor/bundle/ruby/${rubyMajorMinor}.0/gems"
-          echo "  DEBUG: Directory contents:"
-          ls -la vendor/bundle/ruby/${rubyMajorMinor}.0/ || echo "Directory doesn't exist!"
+          echo "  DEBUG: Gems directory listing:"
+          ls -1 vendor/bundle/ruby/${rubyMajorMinor}.0/gems/ | grep -i tailwind || echo "No tailwind gems found!"
+          echo "  DEBUG: All gems (first 20):"
+          ls -1 vendor/bundle/ruby/${rubyMajorMinor}.0/gems/ | head -20
           echo "  DEBUG: Searching for tailwindcss-ruby gem..."
           TAILWIND_GEM_DIR=$(find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -name "tailwindcss-ruby-*" -type d 2>/dev/null | head -1)
           echo "  DEBUG: Found gem directory: '$TAILWIND_GEM_DIR'"
