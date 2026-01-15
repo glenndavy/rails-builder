@@ -3,11 +3,11 @@
     "bundix-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1768155773,
-        "narHash": "sha256-cuRbqnQ2qf9m6NC1Jo4VQE7aQ/c9dkod2ecGBUHK+8k=",
+        "lastModified": 1768440225,
+        "narHash": "sha256-9k5jtT9ncV1ikSkVjoKglufuj0iR1qvvAU2JDdI6f8U=",
         "owner": "glenndavy",
         "repo": "bundix",
-        "rev": "99764b7117c69259948b04c830ba2ea7023881a0",
+        "rev": "ca7bec70415f5fe8ef34b5cca15631bc8ce36624",
         "type": "github"
       },
       "original": {
