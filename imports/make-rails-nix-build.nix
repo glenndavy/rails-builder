@@ -188,6 +188,10 @@
       echo "│ STAGE 4: Asset Precompilation                                    │"
       echo "└──────────────────────────────────────────────────────────────────┘"
       echo "  PATH: $PATH"
+      echo "  GEM_HOME: $GEM_HOME"
+      echo "  GEM_PATH: $GEM_PATH"
+      echo "  DEBUG: Checking tailwindcss-ruby location..."
+      ruby -e "require 'rubygems'; spec = Gem::Specification.find_by_name('tailwindcss-ruby'); puts \"Gem loaded from: #{spec.gem_dir}\"; puts \"Exe directory: #{File.join(spec.gem_dir, 'exe')}\"; Dir[File.join(spec.gem_dir, 'exe', '*')].each { |f| puts \"  - #{File.basename(f)}\" }"
       echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
