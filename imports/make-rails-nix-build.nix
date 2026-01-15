@@ -112,8 +112,16 @@
       echo "  Gems: ${gems}"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 
-      # Note: We don't set TAILWINDCSS_INSTALL_DIR here because we copy the binary
-      # directly into the gem's exe directory. The gem will find it automatically.
+      ${
+        if tailwindcssPackage != null
+        then ''
+          # Point tailwindcss-ruby gem to Nix-provided binary via TAILWINDCSS_INSTALL_DIR
+          # The gem will look for $TAILWINDCSS_INSTALL_DIR/tailwindcss
+          export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+          echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+        ''
+        else ""
+      }
 
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
@@ -137,43 +145,6 @@
       echo "  Making copied gems writable..."
       chmod -R u+w vendor/bundle/ruby/${rubyMajorMinor}.0/
       echo "  Done copying gems"
-
-      ${
-        if tailwindcssPackage != null
-        then ''
-          # Copy tailwindcss binary into gem directory so gem can find it
-          echo "  Installing tailwindcss binary into tailwindcss-ruby gem..."
-          TAILWIND_GEM_DIR=$(find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -maxdepth 1 -name "tailwindcss-ruby-*" -type d 2>/dev/null | head -1)
-          if [ -n "$TAILWIND_GEM_DIR" ]; then
-            echo "  DEBUG: Found gem at $TAILWIND_GEM_DIR"
-            ls -ld "$TAILWIND_GEM_DIR" || echo "Can't ls gem dir"
-            echo "  DEBUG: Checking if it's a symlink..."
-            if [ -L "$TAILWIND_GEM_DIR" ]; then
-              echo "  ERROR: Gem directory is still a symlink! cp -rL didn't work."
-              echo "  Symlink target: $(readlink -f "$TAILWIND_GEM_DIR")"
-            else
-              echo "  OK: Gem directory is a real directory (not a symlink)"
-            fi
-            echo "  DEBUG: Making gem directory writable..."
-            chmod -R u+w "$TAILWIND_GEM_DIR" || echo "chmod failed"
-            echo "  DEBUG: Creating exe/x86_64-linux directory..."
-            mkdir -p "$TAILWIND_GEM_DIR/exe/x86_64-linux" || echo "mkdir failed"
-            echo "  DEBUG: Copying tailwindcss binary..."
-            cp ${tailwindcssPackage}/bin/tailwindcss "$TAILWIND_GEM_DIR/exe/x86_64-linux/tailwindcss" || echo "cp failed"
-            chmod u+wx "$TAILWIND_GEM_DIR/exe/x86_64-linux/tailwindcss" || echo "chmod failed"
-            echo "  DEBUG: Verifying binary exists and is executable..."
-            ls -la "$TAILWIND_GEM_DIR/exe/x86_64-linux/" || echo "Can't list exe dir"
-            test -f "$TAILWIND_GEM_DIR/exe/x86_64-linux/tailwindcss" && echo "  Binary file exists" || echo "  ERROR: Binary file does not exist!"
-            test -x "$TAILWIND_GEM_DIR/exe/x86_64-linux/tailwindcss" && echo "  Binary is executable" || echo "  ERROR: Binary is not executable!"
-            echo "  DEBUG: Checking with Ruby..."
-            ruby -e "path = '$TAILWIND_GEM_DIR/exe/x86_64-linux/tailwindcss'; puts \"File.exist?: #{File.exist?(path)}\"; puts \"File.executable?: #{File.executable?(path)}\"; puts \"File.readable?: #{File.readable?(path)}\""
-            echo "  Installed tailwindcss binary at $TAILWIND_GEM_DIR/exe/x86_64-linux/tailwindcss"
-          else
-            echo "  WARNING: Could not find tailwindcss-ruby gem directory, skipping binary installation"
-          fi
-        ''
-        else ""
-      }
 
       # Set up environment for direct gem access (no bundle exec needed)
       # Point to our writable vendor/bundle copy, not the read-only Nix store
