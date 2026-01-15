@@ -112,16 +112,8 @@
       echo "  Gems: ${gems}"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
 
-      ${
-        if tailwindcssPackage != null
-        then ''
-          # Point tailwindcss-ruby gem to Nix-provided binary
-          export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
-          echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
-          echo "  Tailwindcss binary: ${tailwindcssPackage}/bin/tailwindcss"
-        ''
-        else ""
-      }
+      # Note: We don't set TAILWINDCSS_INSTALL_DIR here because we copy the binary
+      # directly into the gem's exe directory. The gem will find it automatically.
 
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
