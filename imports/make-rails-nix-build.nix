@@ -148,21 +148,30 @@
         then ''
           # Copy tailwindcss binary into gem directory so gem can find it
           echo "  Installing tailwindcss binary into tailwindcss-ruby gem..."
-          echo "  DEBUG: Looking in vendor/bundle/ruby/${rubyMajorMinor}.0/gems"
-          echo "  DEBUG: Gems directory listing:"
-          ls -1 vendor/bundle/ruby/${rubyMajorMinor}.0/gems/ | grep -i tailwind || echo "No tailwind gems found!"
-          echo "  DEBUG: All gems (first 20):"
-          ls -1 vendor/bundle/ruby/${rubyMajorMinor}.0/gems/ | head -20
-          echo "  DEBUG: Searching for tailwindcss-ruby gem..."
-          TAILWIND_GEM_DIR=$(find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -name "tailwindcss-ruby-*" -type d 2>/dev/null | head -1)
-          echo "  DEBUG: Found gem directory: '$TAILWIND_GEM_DIR'"
-          if [ -n "$TAILWIND_GEM_DIR" ]; then
+          echo "  DEBUG: Checking if gems are directories or symlinks..."
+          ls -ld vendor/bundle/ruby/${rubyMajorMinor}.0/gems/tailwindcss-ruby-* || echo "Pattern didn't match!"
+          echo "  DEBUG: Testing find command..."
+          find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -maxdepth 1 -name "tailwindcss-ruby-*" 2>&1 || echo "Find failed!"
+          echo "  DEBUG: Testing find with -type d..."
+          find vendor/bundle/ruby/${rubyMajorMinor}.0/gems -maxdepth 1 -name "tailwindcss-ruby-*" -type d 2>&1 || echo "Find with -type d failed!"
+          echo "  DEBUG: Using direct path..."
+          TAILWIND_GEM_DIR="vendor/bundle/ruby/${rubyMajorMinor}.0/gems/tailwindcss-ruby-4.1.18"
+          if [ -d "$TAILWIND_GEM_DIR" ]; then
+            echo "  DEBUG: Directory exists at $TAILWIND_GEM_DIR"
             mkdir -p "$TAILWIND_GEM_DIR/exe"
             cp ${tailwindcssPackage}/bin/tailwindcss "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
             chmod +x "$TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
             echo "  Installed tailwindcss binary at $TAILWIND_GEM_DIR/exe/tailwindcss-x86_64-linux"
+          elif [ -L "$TAILWIND_GEM_DIR" ]; then
+            echo "  DEBUG: $TAILWIND_GEM_DIR is a symlink, following it..."
+            TAILWIND_GEM_REAL=$(readlink -f "$TAILWIND_GEM_DIR")
+            echo "  DEBUG: Real path: $TAILWIND_GEM_REAL"
+            mkdir -p "$TAILWIND_GEM_REAL/exe"
+            cp ${tailwindcssPackage}/bin/tailwindcss "$TAILWIND_GEM_REAL/exe/tailwindcss-x86_64-linux"
+            chmod +x "$TAILWIND_GEM_REAL/exe/tailwindcss-x86_64-linux"
+            echo "  Installed tailwindcss binary at $TAILWIND_GEM_REAL/exe/tailwindcss-x86_64-linux"
           else
-            echo "  ERROR: Could not find tailwindcss-ruby gem directory!"
+            echo "  ERROR: $TAILWIND_GEM_DIR doesn't exist or isn't accessible!"
           fi
         ''
         else ""
