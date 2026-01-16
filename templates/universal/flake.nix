@@ -744,33 +744,22 @@
                 echo "   Framework: ${framework} (auto-detected)"
                 echo ""
 
-                # Check if we can upgrade to normal mode (gemset.nix works)
+                # Show gemset.nix status (no build test - can hang on new projects)
                 if [ -f ./gemset.nix ]; then
-                  echo "📦 Testing if gemset.nix works with bundlerEnv..."
-                  echo "   Running: nix build .#package-with-bundix --no-link"
+                  echo "📦 gemset.nix found - you can try upgrading to normal mode:"
+                  echo "   nix develop .#with-bundix  - Use bundlerEnv (no bundle exec needed)"
                   echo ""
-
-                  # Test bundlerEnv in the background and show result
-                  if timeout 10 nix build .#package-with-bundix --no-link >/dev/null 2>&1; then
-                    echo "✅ SUCCESS: gemset.nix works! You can upgrade to normal mode:"
-                    echo "   exit                    - Exit this shell"
-                    echo "   nix develop .#with-bundix  - Use bundlerEnv (no bundle exec needed)"
-                    echo ""
-                    echo "   Or continue in bootstrap mode below ⬇️"
-                  else
-                    echo "❌ FAILED: gemset.nix has hash mismatches (expected with nokogiri)"
-                    echo "   This is normal for fresh projects or after gem updates"
-                  fi
-                  echo ""
+                  echo "   If that fails with hash mismatches, regenerate with 'bundix' below"
                 else
                   echo "📦 No gemset.nix found - this is expected for new projects"
-                  echo ""
+                  echo "   Run 'bundix' below to generate it from Gemfile.lock"
                 fi
+                echo ""
 
                 echo "🔧 Fix gemset.nix workflow:"
                 echo "   bundix          - Regenerate gemset.nix from Gemfile.lock"
                 echo "   exit            - Exit this shell"
-                echo "   nix develop .#with-bundix-bootstrap  - Re-enter (will test new gemset.nix)"
+                echo "   nix develop .#with-bundix  - Use bundlerEnv mode with new gemset.nix"
                 echo ""
                 echo "📦 Dependency Management:"
                 echo "   bundle lock     - Update Gemfile.lock"
