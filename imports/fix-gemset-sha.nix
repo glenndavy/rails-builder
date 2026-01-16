@@ -97,6 +97,32 @@
 
     echo "🔍 Trying platforms for $gem_name-$gem_version: ''${unique_platforms[*]}"
 
+    # FIRST: Check vendor/cache for vendored gems (from bundle package)
+    if [ -d "vendor/cache" ]; then
+      echo "📦 Checking vendor/cache for vendored gems..."
+      for try_platform in "''${unique_platforms[@]}"; do
+        local gem_filename
+        if [ "$try_platform" = "ruby" ]; then
+          gem_filename="$gem_name-$gem_version.gem"
+        else
+          gem_filename="$gem_name-$gem_version-$try_platform.gem"
+        fi
+
+        local vendored_gem="vendor/cache/$gem_filename"
+        if [ -f "$vendored_gem" ]; then
+          echo "  ✅ Found vendored gem: $vendored_gem"
+          local correct_sha
+          if correct_sha=$(${pkgs.nix}/bin/nix hash file "$vendored_gem" 2>/dev/null); then
+            echo "  ✅ SUCCESS with vendored gem (platform '$try_platform'): $correct_sha"
+            echo "$correct_sha"
+            return 0
+          fi
+        fi
+      done
+      echo "  ⚠️  No matching vendored gem found, falling back to rubygems.org..."
+    fi
+
+    # FALLBACK: Fetch from rubygems.org
     for try_platform in "''${unique_platforms[@]}"; do
       local gem_filename
       if [ "$try_platform" = "ruby" ]; then

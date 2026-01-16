@@ -59,6 +59,8 @@
     }
 
     # Function to try fetching gem SHA with platform variants
+    # NOTE: This runs in Nix sandbox, so it can only fetch from rubygems.org
+    # (vendor/cache is not available during Nix evaluation)
     fetch_gem_sha_with_platform() {
       local gem_name="$1"
       local gem_version="$2"
@@ -97,6 +99,7 @@
         fi
       done
 
+      # Fetch from rubygems.org (only option in Nix sandbox)
       for try_platform in "''${unique_platforms[@]}"; do
         local gem_filename
         if [ "$try_platform" = "ruby" ]; then
