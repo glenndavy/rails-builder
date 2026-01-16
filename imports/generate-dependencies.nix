@@ -12,15 +12,44 @@
   export GEM_HOME=$(mktemp -d)
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
   export PATH=$GEM_HOME/bin:$PATH
-  bundix -l --prefer-vendor-path vendor/cache
-  ## Remove invalid entries if errors persist
-  #awk '
-  #  BEGIN { RS = "}"; ORS = "}"; printing = 1 }
-  #  /sha256 = ""/ || /sha256 = nil/ { printing = 0; next }
-  #  printing { print $0 }
-  #  { printing = 1 }
-  #' gemset.nix > gemset-clean.nix
-  #mv gemset-clean.nix gemset.nix
+  bundix -l
+
+  # If vendor/cache exists, fix SHAs from vendored gems automatically
+  if [ -d "vendor/cache" ]; then
+    echo "📦 Found vendor/cache - fixing SHAs from vendored gems..."
+
+    # Common gems that often have SHA mismatches
+    PROBLEM_GEMS="nokogiri json bootsnap msgpack bcrypt nio4r websocket-driver ffi racc sassc pg mysql2"
+
+    for gem in $PROBLEM_GEMS; do
+      if grep -q "\"$gem\"" gemset.nix; then
+        VERSION=$(grep -A 10 "^  $gem = {" gemset.nix | grep "version =" | head -1 | sed 's/.*version = "\([^"]*\)".*/\1/')
+
+        if [ -n "$VERSION" ]; then
+          # Try to find vendored gem (platform-specific or generic)
+          VENDORED_GEM=""
+          for gem_file in vendor/cache/$gem-$VERSION*.gem; do
+            if [ -f "$gem_file" ]; then
+              VENDORED_GEM="$gem_file"
+              break
+            fi
+          done
+
+          if [ -n "$VENDORED_GEM" ]; then
+            CORRECT_SHA=$(${pkgs.nix}/bin/nix hash file "$VENDORED_GEM" 2>/dev/null || echo "")
+            if [ -n "$CORRECT_SHA" ]; then
+              echo "  ✅ Fixing $gem-$VERSION from vendored gem"
+              ${pkgs.gnused}/bin/sed -i "/\"$gem\" = {/,/};/{
+                s/sha256 = \"[^\"]*\"/sha256 = \"$CORRECT_SHA\"/
+              }" gemset.nix
+            fi
+          fi
+        fi
+      fi
+    done
+
+    echo "✅ SHAs fixed from vendored gems"
+  fi
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
