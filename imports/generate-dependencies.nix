@@ -39,7 +39,8 @@
             CORRECT_SHA=$(${pkgs.nix}/bin/nix hash file "$VENDORED_GEM" 2>/dev/null || echo "")
             if [ -n "$CORRECT_SHA" ]; then
               echo "  ✅ Fixing $gem-$VERSION from vendored gem"
-              ${pkgs.gnused}/bin/sed -i "/\"$gem\" = {/,/};/s/sha256 = \"[^\"]*\"/sha256 = \"$CORRECT_SHA\"/" gemset.nix
+              # Use | as delimiter instead of / to avoid conflicts with base64 chars
+              ${pkgs.gnused}/bin/sed -i "/\"$gem\" = {/,/};/s|sha256 = \"[^\"]*\"|sha256 = \"$CORRECT_SHA\"|" gemset.nix
             fi
           fi
         fi
