@@ -236,7 +236,7 @@ manage-redis start --port 6380
 
 ## NixOS Module
 
-For systemd service deployment:
+Deploy your Ruby application as a systemd service on NixOS:
 
 ```nix
 {
@@ -261,7 +261,15 @@ For systemd service deployment:
 }
 ```
 
-See `nixos-modules/rails-app.nix` for full options.
+**📖 [Complete NixOS Module Documentation](NIXOS-MODULE.md)** - Full guide with examples, configuration options, deployment workflows, and troubleshooting.
+
+Features:
+- **Automatic systemd service creation** with proper dependency management
+- **Multi-role support** - Run web, worker, and scheduler processes
+- **Procfile integration** - Extract commands from your Procfile
+- **Secure environment management** - Fetch secrets from AWS Parameter Store
+- **Mutable directory handling** - Automatic setup of tmp, log, and storage
+- **Framework agnostic** - Works with Rails, Hanami, Sinatra, Rack, or any Ruby app
 
 ## Contributing
 
