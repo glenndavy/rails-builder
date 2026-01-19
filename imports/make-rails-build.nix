@@ -56,7 +56,7 @@
   app = pkgs.stdenv.mkDerivation {
     name = "rails-app";
     inherit src;
-    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp];
+    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nix-ld];
     buildInputs = universalBuildInputs;
     phases = [
       "unpackPhase" # optional, but harmless

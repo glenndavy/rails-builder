@@ -124,6 +124,7 @@
           pkgs.libyaml
           pkgs.curl
           pkgs.pkg-config
+          pkgs.nix-ld
         ]
         ++ (
           if frameworkInfo.needsPostgresql
