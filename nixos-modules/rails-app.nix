@@ -53,6 +53,10 @@ let
       # Change to application directory
       cd ${workingDir}
 
+      # Set up PATH to include Ruby, gems, and bundler
+      # This ensures 'bundle', 'rails', and other gem executables are available
+      export PATH="${appPackage}/app/bin:${workingDir}/bin:$PATH"
+
       # Execute environment setup command if specified
       ${optionalString (instanceCfg.environment_command != null) ''
         echo "Setting up environment variables..."
@@ -184,6 +188,14 @@ let
         };
         description = "Mapping of application directories to mutable system locations";
       };
+
+      # Additional packages to include in PATH
+      path_packages = mkOption {
+        type = types.listOf types.package;
+        default = [];
+        description = "Additional packages to include in PATH (e.g., for bundle, rails)";
+        example = literalExpression "[ pkgs.ruby pkgs.bundler ]";
+      };
     };
   });
 
@@ -220,7 +232,17 @@ in {
           '') instanceCfg.mutable_dirs)}
         '';
 
-        serviceConfig = {
+        serviceConfig =
+          let
+            # Build PATH from package bin dirs plus any additional path_packages
+            pathDirs = [
+              "${instanceCfg.package}/app/bin"
+              "${pkgs.coreutils}/bin"
+              "${pkgs.bash}/bin"
+            ] ++ map (pkg: "${pkg}/bin") instanceCfg.path_packages
+              ++ [ "/run/current-system/sw/bin" ];
+            pathEnv = concatStringsSep ":" pathDirs;
+          in {
           Type = "exec";
           User = instanceCfg.user;
           Group = instanceCfg.group;
@@ -228,6 +250,11 @@ in {
           WorkingDirectory = "${instanceCfg.package}/app";
           Restart = "always";
           RestartSec = "10s";
+
+          # Ensure package dependencies are in PATH
+          Environment = [
+            "PATH=${pathEnv}"
+          ];
 
           # Security hardening
           NoNewPrivileges = true;

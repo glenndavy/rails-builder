@@ -178,6 +178,19 @@ services.rails-app.<name> = {
   # Service user/group
   user = "rails-app-<name>";   # Default: auto-generated
   group = "rails-app-<name>";  # Default: auto-generated
+
+  # Additional packages to include in PATH (for bundle, rails, etc.)
+  path_packages = [ pkgs.ruby_3_2 pkgs.bundler ];  # Default: []
+};
+```
+
+**Note on `path_packages`:** If your app was built with bundix, you may need to add Ruby and Bundler to `path_packages` so that `bundle exec` commands work. For example:
+
+```nix
+services.rails-app.my-app-web = {
+  package = my-rails-app.packages.x86_64-linux.package-with-bundix;
+  command = "bundle exec rails server -p 3000";
+  path_packages = [ pkgs.ruby_3_2 pkgs.bundler ];
 };
 ```
 
