@@ -12,6 +12,25 @@ Rails-builder provides a NixOS module for deploying Ruby applications as systemd
 - **Service dependencies** - Proper systemd dependency management (after, requires, wantedBy)
 - **Framework agnostic** - Works with Rails, Hanami, Sinatra, Rack, or any Ruby app
 
+## How It Works
+
+### Runtime Directory Architecture
+
+Since the Nix store is read-only, the module uses a runtime directory approach:
+
+1. **Source Package**: Your app is built immutably in `/nix/store/.../<hash>-rails-app/app/`
+2. **Runtime Copy**: On service start, the app is synced to `/var/lib/rails-app-<name>/runtime/`
+3. **Mutable Directories**: Directories like `tmp/`, `log/`, `storage/` are symlinked to persistent locations:
+   - Default: `/var/lib/rails-app-<name>/tmp`, `/var/log/rails-app-<name>`, etc.
+   - Symlinked within the runtime directory so Rails can find them
+4. **Service Execution**: The app runs from the mutable runtime directory, not the Nix store
+
+**Benefits:**
+- ✅ Nix store remains immutable and protected
+- ✅ Rails can write to tmp/, log/, storage/ as needed
+- ✅ Efficient sync - only changed files are copied (rsync)
+- ✅ Deployments are fast - Nix handles package rebuilds efficiently
+
 ## Quick Start
 
 ### 1. Prepare Your Application

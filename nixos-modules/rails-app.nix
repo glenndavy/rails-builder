@@ -32,7 +32,7 @@ let
   makeWrapperScript = name: instanceCfg:
     let
       appPackage = instanceCfg.package;
-      workingDir = "${appPackage}/app";
+      runtimeDir = "/var/lib/rails-app-${name}/runtime";
 
       # Extract command from either direct specification or Procfile
       appCommand =
@@ -50,12 +50,12 @@ let
     in pkgs.writeShellScript "rails-app-${name}-wrapper" ''
       set -euo pipefail
 
-      # Change to application directory
-      cd ${workingDir}
+      # Change to runtime application directory (not Nix store)
+      cd ${runtimeDir}
 
       # Set up PATH to include Ruby, gems, and bundler
       # This ensures 'bundle', 'rails', and other gem executables are available
-      export PATH="${appPackage}/app/bin:${workingDir}/bin:$PATH"
+      export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
 
       # Execute environment setup command if specified
       ${optionalString (instanceCfg.environment_command != null) ''
@@ -67,8 +67,8 @@ let
       ${envOverrides}
 
       # Set up Rails-specific environment
-      export RAILS_ROOT=${workingDir}
-      export BUNDLE_GEMFILE=${workingDir}/Gemfile
+      export RAILS_ROOT=${runtimeDir}
+      export BUNDLE_GEMFILE=${runtimeDir}/Gemfile
 
       # Execute the application command
       echo "Starting: ${appCommand}"
@@ -218,25 +218,37 @@ in {
         # Ensure the package is built and in the service's runtime environment
         path = [ instanceCfg.package ] ++ instanceCfg.path_packages;
 
-        # Pre-start script to set up mutable directories
+        # Pre-start script to set up runtime directory and mutable directories
         preStart = ''
-          # Create mutable directories
+          RUNTIME_DIR="/var/lib/rails-app-${name}/runtime"
+          SOURCE_APP="${instanceCfg.package}/app"
+
+          # Create runtime directory
+          mkdir -p "$RUNTIME_DIR"
+
+          # Sync app from Nix store to runtime directory (if changed)
+          # Use rsync to efficiently copy only changed files
+          ${pkgs.rsync}/bin/rsync -a --delete \
+            --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r \
+            "$SOURCE_APP/" "$RUNTIME_DIR/"
+
+          # Create mutable directories within runtime app
           ${concatStringsSep "\n" (mapAttrsToList (dirName: dirPath: ''
+            # Create external mutable directory
             mkdir -p ${dirPath}
             chown ${instanceCfg.user}:${instanceCfg.group} ${dirPath}
+
+            # Create or update symlink in runtime app to external mutable dir
+            ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
           '') instanceCfg.mutable_dirs)}
 
-          # Create symlinks in application directory
-          APP_DIR=${instanceCfg.package}/app
-          ${concatStringsSep "\n" (mapAttrsToList (dirName: dirPath: ''
-            if [ ! -L "$APP_DIR/${dirName}" ]; then
-              ln -sf ${dirPath} $APP_DIR/${dirName}
-            fi
-          '') instanceCfg.mutable_dirs)}
+          # Set ownership of runtime directory
+          chown -R ${instanceCfg.user}:${instanceCfg.group} "$RUNTIME_DIR"
         '';
 
         serviceConfig =
           let
+            runtimeDir = "/var/lib/rails-app-${name}/runtime";
             # Build PATH from package bin dirs plus any additional path_packages
             pathDirs = [
               "${instanceCfg.package}/app/bin"
@@ -250,7 +262,7 @@ in {
           User = instanceCfg.user;
           Group = instanceCfg.group;
           ExecStart = makeWrapperScript name instanceCfg;
-          WorkingDirectory = "${instanceCfg.package}/app";
+          WorkingDirectory = runtimeDir;
           Restart = "always";
           RestartSec = "10s";
 
@@ -264,7 +276,8 @@ in {
           PrivateTmp = true;
           ProtectHome = true;
           ProtectSystem = "strict";
-          ReadWritePaths = builtins.attrValues instanceCfg.mutable_dirs;
+          # Allow writes to runtime directory and mutable directories
+          ReadWritePaths = [ runtimeDir ] ++ builtins.attrValues instanceCfg.mutable_dirs;
         } // optionalAttrs (instanceCfg.stop_command != null) {
           ExecStop = instanceCfg.stop_command;
         } // optionalAttrs (instanceCfg.restart_command != null) {
