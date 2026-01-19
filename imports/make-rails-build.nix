@@ -57,7 +57,10 @@
     name = "rails-app";
     inherit src;
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nix-ld];
-    buildInputs = universalBuildInputs;
+    buildInputs = universalBuildInputs
+      ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+        pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
+      ];
     phases = [
       "unpackPhase" # optional, but harmless
       "patchPhase" # optional
@@ -80,10 +83,20 @@
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
       export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
 
+      # Configure nix-ld for running unpatched binaries (Linux only)
+      ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
+        export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
+      ''}
+
       echo "  HOME: $HOME"
       echo "  DATABASE_URL: $DATABASE_URL"
       echo "  PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+      ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        echo "  NIX_LD: $NIX_LD"
+        echo "  NIX_LD_LIBRARY_PATH: $NIX_LD_LIBRARY_PATH"
+      ''}
     '';
 
     preBuild = ''

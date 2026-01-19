@@ -195,7 +195,10 @@
             tailwindcssPackage # Tailwind CSS CLI (version-matched to gem)
           ]
           else []
-        );
+        )
+        ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+          pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
+        ];
 
       builderExtraInputs = [
         gccPackage
@@ -378,6 +381,13 @@
           else ""
         }:${opensslPackage}/lib"
         export DATABASE_URL="postgresql://localhost/dummy_build_db"
+
+        # Configure nix-ld for running unpatched binaries (Linux only)
+        ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+          export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
+          export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
+        ''}
+
         ${
           if tailwindcssPackage != null
           then ''

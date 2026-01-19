@@ -68,7 +68,10 @@
         then [tailwindcssPackage]
         else []
       );
-    buildInputs = universalBuildInputs;
+    buildInputs = universalBuildInputs
+      ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+        pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
+      ];
 
     # Set LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
     LD_LIBRARY_PATH = buildInputLibPaths;
@@ -99,6 +102,12 @@
       export source=$PWD
       export DATABASE_URL="postgresql://localhost/dummy_build_db"
 
+      # Configure nix-ld for running unpatched binaries (Linux only)
+      ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
+        export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
+      ''}
+
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
       echo "║  bundix build: rails application (bundlerenv)                    ║"
@@ -113,6 +122,10 @@
       echo "  Gems: ${gems}"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
       echo "  DATABASE_URL: $DATABASE_URL"
+      ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        echo "  NIX_LD: $NIX_LD"
+        echo "  NIX_LD_LIBRARY_PATH: $NIX_LD_LIBRARY_PATH"
+      ''}
 
       ${
         if tailwindcssPackage != null
