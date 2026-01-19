@@ -215,6 +215,9 @@ in {
         after = [ "network.target" ] ++ instanceCfg.service_after;
         requires = instanceCfg.service_requires;
 
+        # Ensure the package is built and in the service's runtime environment
+        path = [ instanceCfg.package ] ++ instanceCfg.path_packages;
+
         # Pre-start script to set up mutable directories
         preStart = ''
           # Create mutable directories
