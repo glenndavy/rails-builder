@@ -219,7 +219,10 @@ in {
         path = [ instanceCfg.package ] ++ instanceCfg.path_packages;
 
         # Pre-start script to set up runtime directory and mutable directories
-        preStart = ''
+        preStart = let
+          # Build rsync exclude list for mutable directories
+          excludeArgs = concatStringsSep " " (mapAttrsToList (dirName: _: "--exclude='${dirName}'") instanceCfg.mutable_dirs);
+        in ''
           RUNTIME_DIR="/var/lib/rails-app-${name}/runtime"
           SOURCE_APP="${instanceCfg.package}/app"
 
@@ -227,22 +230,22 @@ in {
           mkdir -p "$RUNTIME_DIR"
 
           # Sync app from Nix store to runtime directory (if changed)
+          # Exclude mutable directories since we'll replace them with symlinks
           # Use rsync to efficiently copy only changed files, preserving permissions
           # The -a flag preserves permissions, including execute bits on binstubs
-          ${pkgs.rsync}/bin/rsync -a --delete \
+          ${pkgs.rsync}/bin/rsync -a --delete ${excludeArgs} \
             "$SOURCE_APP/" "$RUNTIME_DIR/"
 
-          # Create mutable directories within runtime app
+          # Create mutable directories and symlinks
           ${concatStringsSep "\n" (mapAttrsToList (dirName: dirPath: ''
             # Create external mutable directory
             mkdir -p ${dirPath}
             chown ${instanceCfg.user}:${instanceCfg.group} ${dirPath}
 
-            # Create or update symlink in runtime app to external mutable dir
-            # Remove directory copied from Nix store by rsync (if it exists)
-            rm -rf "$RUNTIME_DIR/${dirName}"
-            # Create symlink to external mutable directory
-            ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
+            # Create symlink to external mutable directory (if not already a symlink)
+            if [ ! -L "$RUNTIME_DIR/${dirName}" ]; then
+              ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
+            fi
           '') instanceCfg.mutable_dirs)}
 
           # Set ownership of runtime directory
