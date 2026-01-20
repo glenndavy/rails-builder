@@ -821,6 +821,8 @@
                 shellHook =
                   defaultShellHook
                   + ''
+                    export APP_ROOT=$(pwd)
+
                     # Complete Ruby environment isolation - prevent external Ruby artifacts
                     unset GEM_HOME
                     unset GEM_PATH
@@ -831,9 +833,13 @@
                     export GEM_HOME=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
                     export GEM_PATH=${shellGems}/lib/ruby/gems/${rubyMajorMinor}.0
 
-                    # PATH: Nix-provided gems and Ruby only - no inherited PATH
-                    # Include essential shell tools but exclude inherited PATH to prevent Ruby version conflicts
-                    export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin
+                    # Critical: Point BUNDLE_GEMFILE to the local Gemfile, not Nix store
+                    # This prevents bundler frozen mode errors when trying to modify Gemfile
+                    export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
+
+                    # PATH: Nix-provided gems and Ruby first, then original PATH for user tools
+                    # This gives Nix Ruby priority while preserving access to user tools (ag, eza, etc.)
+                    export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
 
                     echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                     echo "   Ruby: ${rubyVersion}"
