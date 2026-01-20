@@ -242,10 +242,14 @@ in {
             mkdir -p ${dirPath}
             chown ${instanceCfg.user}:${instanceCfg.group} ${dirPath}
 
-            # Create symlink to external mutable directory (if not already a symlink)
-            if [ ! -L "$RUNTIME_DIR/${dirName}" ]; then
-              ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
-            fi
+            # Remove any existing directory/symlink (from previous deployments)
+            # Add write permissions first to ensure we can delete readonly files
+            # Ignore errors if path doesn't exist or is already a symlink
+            chmod -R u+w "$RUNTIME_DIR/${dirName}" 2>/dev/null || true
+            rm -rf "$RUNTIME_DIR/${dirName}"
+
+            # Create symlink to external mutable directory
+            ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
           '') instanceCfg.mutable_dirs)}
 
           # Set ownership of runtime directory
