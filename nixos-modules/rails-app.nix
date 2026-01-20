@@ -236,6 +236,10 @@ in {
           ${pkgs.rsync}/bin/rsync -a --delete ${excludeArgs} \
             "$SOURCE_APP/" "$RUNTIME_DIR/"
 
+          # Make runtime directory writable so we can delete/create subdirectories
+          # (rsync copies readonly permissions from Nix store)
+          chmod u+w "$RUNTIME_DIR"
+
           # Create mutable directories and symlinks
           ${concatStringsSep "\n" (mapAttrsToList (dirName: dirPath: ''
             # Create external mutable directory
@@ -243,9 +247,6 @@ in {
             chown ${instanceCfg.user}:${instanceCfg.group} ${dirPath}
 
             # Remove any existing directory/symlink (from previous deployments)
-            # Add write permissions first to ensure we can delete readonly files
-            # Ignore errors if path doesn't exist or is already a symlink
-            chmod -R u+w "$RUNTIME_DIR/${dirName}" 2>/dev/null || true
             rm -rf "$RUNTIME_DIR/${dirName}"
 
             # Create symlink to external mutable directory
