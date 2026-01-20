@@ -239,8 +239,10 @@ in {
             chown ${instanceCfg.user}:${instanceCfg.group} ${dirPath}
 
             # Create or update symlink in runtime app to external mutable dir
-            # Use -T flag to treat target as file (replaces directory if it exists from rsync)
-            ln -sfnT ${dirPath} "$RUNTIME_DIR/${dirName}"
+            # Remove directory copied from Nix store by rsync (if it exists)
+            rm -rf "$RUNTIME_DIR/${dirName}"
+            # Create symlink to external mutable directory
+            ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
           '') instanceCfg.mutable_dirs)}
 
           # Set ownership of runtime directory
