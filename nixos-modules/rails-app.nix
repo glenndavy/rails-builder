@@ -239,7 +239,8 @@ in {
             chown ${instanceCfg.user}:${instanceCfg.group} ${dirPath}
 
             # Create or update symlink in runtime app to external mutable dir
-            ln -sfn ${dirPath} "$RUNTIME_DIR/${dirName}"
+            # Use -T flag to treat target as file (replaces directory if it exists from rsync)
+            ln -sfnT ${dirPath} "$RUNTIME_DIR/${dirName}"
           '') instanceCfg.mutable_dirs)}
 
           # Set ownership of runtime directory
