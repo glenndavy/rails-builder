@@ -57,12 +57,35 @@ let
       # This ensures 'bundle', 'rails', and other gem executables are available
       export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
 
-      # Set up gem paths for bundix builds
-      # For bundix/bundlerEnv builds, gems are in the Nix store
-      ${optionalString (instanceCfg.gem_path != null) ''
-        export GEM_HOME="${instanceCfg.gem_path}"
-        export GEM_PATH="${instanceCfg.gem_path}"
-      ''}
+      # Set up gem paths for bundix/bundlerEnv builds
+      # Auto-detect gem directory or use explicit gem_path
+      ${if instanceCfg.gem_path != null
+        then ''
+          # Use explicitly configured gem_path
+          export GEM_HOME="${instanceCfg.gem_path}"
+          export GEM_PATH="${instanceCfg.gem_path}"
+        ''
+        else ''
+          # Auto-detect: look for lib/ruby/gems/* in package dependencies
+          # bundix/bundlerEnv typically installs gems at lib/ruby/gems/X.Y.0
+          GEM_DIR=""
+          for pkg in ${appPackage} ${concatStringsSep " " (map (p: "${p}") instanceCfg.path_packages)}; do
+            if [ -d "$pkg/lib/ruby/gems" ]; then
+              for version_dir in "$pkg"/lib/ruby/gems/*; do
+                if [ -d "$version_dir" ]; then
+                  GEM_DIR="$version_dir"
+                  break 2
+                fi
+              done
+            fi
+          done
+
+          if [ -n "$GEM_DIR" ]; then
+            export GEM_HOME="$GEM_DIR"
+            export GEM_PATH="$GEM_DIR"
+            echo "Auto-detected gems at: $GEM_DIR"
+          fi
+        ''}
 
       # Execute environment setup command if specified
       ${optionalString (instanceCfg.environment_command != null) ''
@@ -208,8 +231,17 @@ let
       gem_path = mkOption {
         type = types.nullOr types.str;
         default = null;
-        description = "Path to gems directory for bundix builds (e.g., \${package}/lib/ruby/gems/3.2.0)";
-        example = "\${config.services.rails-app.web.package}/lib/ruby/gems/3.2.0";
+        description = ''
+          Path to gems directory for bundix builds.
+          If not specified, the module will auto-detect by searching for lib/ruby/gems/*
+          in the package and path_packages.
+
+          For bundix builds, either:
+          1. Let it auto-detect (recommended)
+          2. Or add the bundlerEnv package to path_packages
+          3. Or specify explicitly: "\${my-app.packages.system.package-with-bundlerenv}/lib/ruby/gems/3.2.0"
+        '';
+        example = "\${my-rails-app.packages.x86_64-linux.package-with-bundlerenv}/lib/ruby/gems/3.2.0";
       };
     };
   });
