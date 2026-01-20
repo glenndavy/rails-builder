@@ -817,7 +817,7 @@
               };
             in
               pkgs.mkShell {
-                buildInputs = [rubyPackage customBundix];
+                buildInputs = [rubyPackage bundlerPackage customBundix];
                 shellHook =
                   defaultShellHook
                   + ''
@@ -838,8 +838,8 @@
                     export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
 
                     # PATH: Real bundler FIRST (not bundlerEnv wrapper), then gems, Ruby, then user tools
-                    # bundlerEnv's bundle wrapper hardcodes Nix store paths, so we use real bundler
-                    export PATH=${customBundix}/bin:${shellGems}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
+                    # bundlerEnv's bundle wrapper hardcodes Nix store paths, so we use real bundler from bundlerPackage
+                    export PATH=${bundlerPackage}/bin:${customBundix}/bin:${shellGems}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
 
                     echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                     echo "   Ruby: ${rubyVersion}"
