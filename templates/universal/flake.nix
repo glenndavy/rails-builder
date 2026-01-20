@@ -84,7 +84,7 @@
       # Bundler package with exact version from Gemfile.lock
       # Uses precomputed hashes from bundler-hashes.nix for reproducible builds
       bundlerHashes = import (ruby-builder + "/bundler-hashes.nix");
-      bundlerPackage = let
+      bundlerPackageBase = let
         hashInfo = bundlerHashes.${bundlerVersion} or null;
       in
         if hashInfo != null
@@ -99,6 +99,19 @@
         else
           # Fallback to nixpkgs bundler if version not in hashes
           pkgs.bundler.override {ruby = rubyPackage;};
+
+      # Wrapper that provides both 'bundle' and 'bundler' commands
+      # buildRubyGem only creates 'bundler', but we need 'bundle' too
+      bundlerPackage = pkgs.symlinkJoin {
+        name = "bundler-${bundlerVersion}-wrapped";
+        paths = [ bundlerPackageBase ];
+        postBuild = ''
+          # Create 'bundle' symlink to 'bundler' if it doesn't exist
+          if [ -f $out/bin/bundler ] && [ ! -f $out/bin/bundle ]; then
+            ln -s bundler $out/bin/bundle
+          fi
+        '';
+      };
 
       # Tailwindcss package - exact version from Gemfile.lock
       # This is needed because bundlerEnv uses generic ruby platform gem
