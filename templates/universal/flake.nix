@@ -837,9 +837,9 @@
                     # This prevents bundler frozen mode errors when trying to modify Gemfile
                     export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
 
-                    # PATH: Nix-provided gems and Ruby first, then original PATH for user tools
-                    # This gives Nix Ruby priority while preserving access to user tools (ag, eza, etc.)
-                    export PATH=${shellGems}/bin:${rubyPackage}/bin:${customBundix}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
+                    # PATH: Real bundler FIRST (not bundlerEnv wrapper), then gems, Ruby, then user tools
+                    # bundlerEnv's bundle wrapper hardcodes Nix store paths, so we use real bundler
+                    export PATH=${customBundix}/bin:${shellGems}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
 
                     echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                     echo "   Ruby: ${rubyVersion}"
