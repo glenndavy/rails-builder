@@ -57,6 +57,13 @@ let
       # This ensures 'bundle', 'rails', and other gem executables are available
       export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
 
+      # Set up gem paths for bundix builds
+      # For bundix/bundlerEnv builds, gems are in the Nix store
+      ${optionalString (instanceCfg.gem_path != null) ''
+        export GEM_HOME="${instanceCfg.gem_path}"
+        export GEM_PATH="${instanceCfg.gem_path}"
+      ''}
+
       # Execute environment setup command if specified
       ${optionalString (instanceCfg.environment_command != null) ''
         echo "Setting up environment variables..."
@@ -195,6 +202,14 @@ let
         default = [];
         description = "Additional packages to include in PATH (e.g., for bundle, rails)";
         example = literalExpression "[ pkgs.ruby pkgs.bundler ]";
+      };
+
+      # Gem path for bundix/bundlerEnv builds
+      gem_path = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "Path to gems directory for bundix builds (e.g., \${package}/lib/ruby/gems/3.2.0)";
+        example = "\${config.services.rails-app.web.package}/lib/ruby/gems/3.2.0";
       };
     };
   });
