@@ -227,9 +227,9 @@ in {
           mkdir -p "$RUNTIME_DIR"
 
           # Sync app from Nix store to runtime directory (if changed)
-          # Use rsync to efficiently copy only changed files
+          # Use rsync to efficiently copy only changed files, preserving permissions
+          # The -a flag preserves permissions, including execute bits on binstubs
           ${pkgs.rsync}/bin/rsync -a --delete \
-            --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r \
             "$SOURCE_APP/" "$RUNTIME_DIR/"
 
           # Create mutable directories within runtime app
