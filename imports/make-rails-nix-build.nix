@@ -199,7 +199,59 @@
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
 
-      # Store Ruby path for NixOS module runtime detection
+      # Create comprehensive environment setup script with all build-time facts
+      mkdir -p $out/bin
+      cat > $out/bin/rails-env <<'ENVEOF'
+#!/usr/bin/env bash
+# Rails environment setup - generated at build time with all known facts
+# Source this script to set up the environment for running the Rails app
+
+# Sanity check: RAILS_ROOT must be set by caller
+if [ -z "$RAILS_ROOT" ]; then
+  echo "Error: RAILS_ROOT must be set before sourcing rails-env" >&2
+  exit 1
+fi
+
+# Ruby and Bundler paths (known at build time)
+export RUBY_ROOT="${rubyPackage}"
+${
+  if bundlerPackage != null
+  then ''export BUNDLER_ROOT="${bundlerPackage}"''
+  else ""
+}
+
+# Gem paths for bundix build (gems in vendor/bundle)
+export GEM_HOME="$RAILS_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0"
+export GEM_PATH="$RAILS_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0"
+
+# Rails-specific environment
+export BUNDLE_GEMFILE="$RAILS_ROOT/Gemfile"
+
+# PATH setup: Ruby first, then gems, then bundler (if exists), then existing PATH
+export PATH="${rubyPackage}/bin:${gems}/bin${
+  if bundlerPackage != null
+  then ":${bundlerPackage}/bin"
+  else ""
+}${
+  if tailwindcssPackage != null
+  then ":${tailwindcssPackage}/bin"
+  else ""
+}:$PATH"
+
+# Library paths for FFI gems (ruby-vips, etc.)
+export LD_LIBRARY_PATH="${buildInputLibPaths}''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="${fullPkgConfigPath}''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+
+# Optional: Tailwindcss integration
+${
+  if tailwindcssPackage != null
+  then ''export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"''
+  else ""
+}
+ENVEOF
+      chmod +x $out/bin/rails-env
+
+      # Keep metadata files for backwards compatibility
       mkdir -p $out/nix-support
       echo "${rubyPackage}" > $out/nix-support/ruby-path
       ${

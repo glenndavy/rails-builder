@@ -50,113 +50,34 @@ let
     in pkgs.writeShellScript "rails-app-${name}-wrapper" ''
       set -euo pipefail
 
-      # Change to runtime application directory (not Nix store)
-      cd ${runtimeDir}
+      # Set RAILS_ROOT for the environment script
+      export RAILS_ROOT=${runtimeDir}
 
-      # Extract Ruby from package metadata (stored at build time)
-      # This ensures we use the correct Ruby version that the gems were built with
-      PACKAGE_RUBY=""
-
-      if [ -f "${appPackage}/nix-support/ruby-path" ]; then
-        PACKAGE_RUBY=$(cat "${appPackage}/nix-support/ruby-path")
-        echo "Using Ruby from package metadata: $PACKAGE_RUBY"
+      # Source the build-time generated environment script
+      # This sets up Ruby, gems, PATH, and all build-time known facts
+      if [ -f "${appPackage}/bin/rails-env" ]; then
+        echo "Loading environment from ${appPackage}/bin/rails-env"
+        source "${appPackage}/bin/rails-env"
       else
-        # Fallback: query closure at runtime (for packages built with older rails-builder)
-        echo "No ruby-path metadata found, querying package closure..."
-        PACKAGE_RUBY=$(nix-store -qR "${appPackage}" 2>/dev/null | grep -m1 'ruby-' || true)
-        if [ -n "$PACKAGE_RUBY" ]; then
-          echo "Found Ruby in closure: $PACKAGE_RUBY"
+        echo "Warning: No rails-env script found (old package?), using fallback"
+        # Fallback for packages built with older rails-builder versions
+        if [ -f "${appPackage}/nix-support/ruby-path" ]; then
+          RUBY_PATH=$(cat "${appPackage}/nix-support/ruby-path")
+          export PATH="$RUBY_PATH/bin:${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
         fi
       fi
 
-      # Set up PATH with package Ruby FIRST, then app bins, then path_packages
-      # This ensures correct Ruby version is used (not one from bundler in path_packages)
-      if [ -n "$PACKAGE_RUBY" ] && [ -d "$PACKAGE_RUBY/bin" ]; then
-        export PATH="$PACKAGE_RUBY/bin:${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
-      else
-        echo "Warning: Could not find Ruby in package"
-        export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
-      fi
+      # Change to runtime application directory
+      cd ${runtimeDir}
 
-      # Set up gem paths for bundix/bundlerEnv builds
-      # Auto-detect gem directory or use explicit gem_path
-      ${if instanceCfg.gem_path != null
-        then ''
-          # Use explicitly configured gem_path
-          export GEM_HOME="${instanceCfg.gem_path}"
-          export GEM_PATH="${instanceCfg.gem_path}"
-        ''
-        else ''
-          # Auto-detect gem directory from multiple possible locations
-          # Different build approaches install gems in different places:
-          # - bundix: app/vendor/bundle/ruby/X.Y.Z or vendor/bundle/ruby/X.Y.Z
-          # - bundlerEnv: lib/ruby/gems/X.Y.Z
-
-          # Enable nullglob for gem directory detection (uses globs)
-          shopt -s nullglob
-
-          GEM_DIR=""
-
-          # Check app package first (most specific)
-          for pkg in ${appPackage} ${concatStringsSep " " (map (p: "${p}") instanceCfg.path_packages)}; do
-            # Pattern 1: bundix vendor/bundle (in app directory)
-            if [ -d "$pkg/app/vendor/bundle/ruby" ]; then
-              for version_dir in "$pkg"/app/vendor/bundle/ruby/*; do
-                if [ -d "$version_dir/gems" ]; then
-                  GEM_DIR="$version_dir"
-                  echo "Auto-detected bundix gems at: $GEM_DIR"
-                  break 2
-                fi
-              done
-            fi
-
-            # Pattern 2: bundix vendor/bundle (at package root)
-            if [ -d "$pkg/vendor/bundle/ruby" ]; then
-              for version_dir in "$pkg"/vendor/bundle/ruby/*; do
-                if [ -d "$version_dir/gems" ]; then
-                  GEM_DIR="$version_dir"
-                  echo "Auto-detected bundix gems at: $GEM_DIR"
-                  break 2
-                fi
-              done
-            fi
-
-            # Pattern 3: bundlerEnv lib/ruby/gems (standard)
-            if [ -d "$pkg/lib/ruby/gems" ]; then
-              for version_dir in "$pkg"/lib/ruby/gems/*; do
-                # Skip if this is Ruby's stdlib (has no gems subdirectory with user gems)
-                if [ -d "$version_dir/gems" ] && [ "$(ls -A "$version_dir/gems" 2>/dev/null | wc -l)" -gt 10 ]; then
-                  GEM_DIR="$version_dir"
-                  echo "Auto-detected bundlerEnv gems at: $GEM_DIR"
-                  break 2
-                fi
-              done
-            fi
-          done
-
-          if [ -n "$GEM_DIR" ]; then
-            export GEM_HOME="$GEM_DIR"
-            export GEM_PATH="$GEM_DIR"
-          else
-            echo "Warning: Could not auto-detect gem directory"
-          fi
-        ''}
-
-      # Restore default glob behavior (after all glob operations complete)
-      shopt -u nullglob
-
-      # Execute environment setup command if specified
+      # Execute environment setup command if specified (runtime secrets, etc.)
       ${optionalString (instanceCfg.environment_command != null) ''
-        echo "Setting up environment variables..."
+        echo "Setting up environment variables from command..."
         eval "$(${instanceCfg.environment_command})"
       ''}
 
-      # Apply environment overrides
+      # Apply environment overrides (takes precedence over everything)
       ${envOverrides}
-
-      # Set up Rails-specific environment
-      export RAILS_ROOT=${runtimeDir}
-      export BUNDLE_GEMFILE=${runtimeDir}/Gemfile
 
       # Execute the application command
       echo "Starting: ${appCommand}"
@@ -290,14 +211,11 @@ let
         type = types.nullOr types.str;
         default = null;
         description = ''
-          Path to gems directory for bundix builds.
-          If not specified, the module will auto-detect by searching for lib/ruby/gems/*
-          in the package and path_packages.
+          [DEPRECATED] This option is no longer needed as of rails-builder 3.11.0.
 
-          For bundix builds, either:
-          1. Let it auto-detect (recommended)
-          2. Or add the bundlerEnv package to path_packages
-          3. Or specify explicitly: "\${my-app.packages.system.package-with-bundlerenv}/lib/ruby/gems/3.2.0"
+          Gem paths are now automatically configured by the rails-env script
+          generated at build time. This option is kept for backwards compatibility
+          but has no effect on packages built with rails-builder >= 3.11.0.
         '';
         example = "\${my-rails-app.packages.x86_64-linux.package-with-bundlerenv}/lib/ruby/gems/3.2.0";
       };

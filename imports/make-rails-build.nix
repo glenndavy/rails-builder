@@ -119,7 +119,36 @@
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
 
-      # Store Ruby path for NixOS module runtime detection
+      # Create comprehensive environment setup script with all build-time facts
+      mkdir -p $out/bin
+      cat > $out/bin/rails-env <<'ENVEOF'
+#!/usr/bin/env bash
+# Rails environment setup - generated at build time with all known facts
+# Source this script to set up the environment for running the Rails app
+
+# Sanity check: RAILS_ROOT must be set by caller
+if [ -z "$RAILS_ROOT" ]; then
+  echo "Error: RAILS_ROOT must be set before sourcing rails-env" >&2
+  exit 1
+fi
+
+# Ruby path (known at build time)
+export RUBY_ROOT="${rubyPackage}"
+
+# Rails-specific environment
+export BUNDLE_PATH="$RAILS_ROOT/vendor/bundle"
+export BUNDLE_GEMFILE="$RAILS_ROOT/Gemfile"
+
+# PATH setup: Ruby first, then app bins, then existing PATH
+export PATH="${rubyPackage}/bin:$RAILS_ROOT/bin:$PATH"
+
+# Library paths (for bundler-based builds)
+export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+ENVEOF
+      chmod +x $out/bin/rails-env
+
+      # Keep metadata files for backwards compatibility
       mkdir -p $out/nix-support
       echo "${rubyPackage}" > $out/nix-support/ruby-path
     '';
