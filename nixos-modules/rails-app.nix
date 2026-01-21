@@ -306,6 +306,10 @@ in {
             "PATH=${pathEnv}"
           ];
 
+          # State directory management - creates /var/lib/rails-app-${name} automatically
+          StateDirectory = "rails-app-${name}";
+          StateDirectoryMode = "0755";
+
           # Security hardening
           NoNewPrivileges = true;
           PrivateTmp = true;
@@ -333,5 +337,19 @@ in {
     users.groups = mapAttrs' (name: instanceCfg:
       nameValuePair instanceCfg.group {}
     ) (filterAttrs (name: instanceCfg: instanceCfg.enable) cfg);
+
+    # Use tmpfiles.d to pre-create directories before systemd namespace setup
+    systemd.tmpfiles.rules = flatten (mapAttrsToList (name: instanceCfg:
+      let
+        runtimeDir = "/var/lib/rails-app-${name}/runtime";
+      in
+        [
+          # Create runtime directory
+          "d ${runtimeDir} 0755 ${instanceCfg.user} ${instanceCfg.group} -"
+        ] ++ (mapAttrsToList (dirName: dirPath:
+          # Create mutable directories
+          "d ${dirPath} 0755 ${instanceCfg.user} ${instanceCfg.group} -"
+        ) instanceCfg.mutable_dirs)
+    ) (filterAttrs (name: instanceCfg: instanceCfg.enable) cfg));
   };
 }
