@@ -57,6 +57,10 @@
     # Import tailwindcss hashes for exact version matching
     tailwindcssHashes = import (ruby-builder + "/tailwindcss-hashes.nix");
 
+    # Application name for Nix store paths (helps differentiate multiple apps)
+    # Defaults to directory name, customize as needed
+    appName = builtins.baseNameOf (builtins.toString ./.);
+
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
       # Use custom bundix from ruby-builder (glenndavy/bundix fork with fixes)
@@ -238,13 +242,14 @@
       # Bundler approach (traditional) - using Rails builder with framework override
       bundlerBuild = let
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
-          inherit rubyVersion gccVersion opensslVersion;
+          inherit rubyVersion gccVersion opensslVersion appName;
           src = ./.;
           buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor framework;});
         };
-        # Override the app name to be framework-specific
+        # Override the app name to include framework if desired
+        # By default uses appName from parent scope (directory name)
         frameworkApp = pkgs.stdenv.mkDerivation {
-          name = "${framework}-app";
+          name = appName;  # Use consistent app name
           src = railsBuild.app;
           installPhase = ''
             cp -r $src $out
@@ -321,7 +326,7 @@
         in
           # Use Rails build script for all frameworks - it's generic enough
           import (ruby-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage;
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage appName;
             src = ./.;
             defaultShellHook = bundixShellHook;
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";

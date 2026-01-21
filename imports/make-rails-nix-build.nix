@@ -19,6 +19,7 @@
   defaultShellHook,
   tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
   bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
+  appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -43,7 +44,7 @@
   fullPkgConfigPath = "${pkgConfigPaths}:${pkgConfigPathsExtra}";
 
   app = pkgs.stdenv.mkDerivation {
-    name = "rails-app";
+    name = appName;
     inherit src;
 
     phases = [

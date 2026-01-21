@@ -4,6 +4,7 @@
   opensslVersion ? "3_2",
   src ? ./.,
   buildRailsApp,
+  appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
 }: let
   rubyPackage = pkgs."ruby-${rubyVersion}";
   rubyVersionSplit = builtins.splitVersion rubyVersion;
@@ -54,7 +55,7 @@
   ];
 
   app = pkgs.stdenv.mkDerivation {
-    name = "rails-app";
+    name = appName;
     inherit src;
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nix-ld];
     buildInputs = universalBuildInputs
