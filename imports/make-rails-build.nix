@@ -143,8 +143,8 @@ export BUNDLE_GEMFILE="$RAILS_ROOT/Gemfile"
 export PATH="${rubyPackage}/bin:$RAILS_ROOT/bin:$PATH"
 
 # Library paths (for bundler-based builds)
-export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}''${PKG_CONFIG_PATH:-}"
+export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}''${LD_LIBRARY_PATH:-}"
 ENVEOF
       chmod +x $out/bin/rails-env
 

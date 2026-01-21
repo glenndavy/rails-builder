@@ -239,8 +239,8 @@ export PATH="${rubyPackage}/bin:${gems}/bin${
 }:$PATH"
 
 # Library paths for FFI gems (ruby-vips, etc.)
-export LD_LIBRARY_PATH="${buildInputLibPaths}''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
-export PKG_CONFIG_PATH="${fullPkgConfigPath}''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
+export LD_LIBRARY_PATH="${buildInputLibPaths}''${LD_LIBRARY_PATH:+:}''${LD_LIBRARY_PATH:-}"
+export PKG_CONFIG_PATH="${fullPkgConfigPath}''${PKG_CONFIG_PATH:+:}''${PKG_CONFIG_PATH:-}"
 
 # Optional: Tailwindcss integration
 ${
