@@ -53,9 +53,43 @@ let
       # Change to runtime application directory (not Nix store)
       cd ${runtimeDir}
 
-      # Set up PATH to include Ruby, gems, and bundler
-      # This ensures 'bundle', 'rails', and other gem executables are available
-      export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
+      # Extract Ruby from package closure (propagatedBuildInputs)
+      # This ensures we use the correct Ruby version that the gems were built with
+      PACKAGE_RUBY=""
+      for dep in ${appPackage}/*-runtime-deps 2>/dev/null || true; do
+        if [ -f "$dep" ]; then
+          while IFS= read -r line; do
+            if [[ "$line" == *"/ruby-"* ]] && [ -d "$line/bin" ]; then
+              PACKAGE_RUBY="$line"
+              break 2
+            fi
+          done < "$dep"
+        fi
+      done
+
+      # Fallback: search package closure directly
+      if [ -z "$PACKAGE_RUBY" ]; then
+        for dep_path in ${appPackage}/nix-support/propagated-*-input* 2>/dev/null || true; do
+          if [ -f "$dep_path" ]; then
+            while IFS= read -r dep; do
+              if [[ "$dep" =~ ruby-[0-9] ]] && [ -d "$dep/bin" ]; then
+                PACKAGE_RUBY="$dep"
+                break 2
+              fi
+            done < "$dep_path"
+          fi
+        done
+      fi
+
+      # Set up PATH with package Ruby FIRST, then app bins, then path_packages
+      # This ensures correct Ruby version is used (not one from bundler in path_packages)
+      if [ -n "$PACKAGE_RUBY" ]; then
+        echo "Using Ruby from package closure: $PACKAGE_RUBY"
+        export PATH="$PACKAGE_RUBY/bin:${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
+      else
+        echo "Warning: Could not find Ruby in package closure"
+        export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
+      fi
 
       # Set up gem paths for bundix/bundlerEnv builds
       # Auto-detect gem directory or use explicit gem_path
