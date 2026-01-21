@@ -53,44 +53,28 @@ let
       # Change to runtime application directory (not Nix store)
       cd ${runtimeDir}
 
-      # Extract Ruby from package closure (propagatedBuildInputs)
+      # Extract Ruby from package metadata (stored at build time)
       # This ensures we use the correct Ruby version that the gems were built with
-      # Enable nullglob so non-matching globs expand to nothing instead of literal string
-      shopt -s nullglob
-
       PACKAGE_RUBY=""
-      for dep in ${appPackage}/*-runtime-deps; do
-        if [ -f "$dep" ]; then
-          while IFS= read -r line; do
-            if [[ "$line" == *"/ruby-"* ]] && [ -d "$line/bin" ]; then
-              PACKAGE_RUBY="$line"
-              break 2
-            fi
-          done < "$dep"
-        fi
-      done
 
-      # Fallback: search package closure directly
-      if [ -z "$PACKAGE_RUBY" ]; then
-        for dep_path in ${appPackage}/nix-support/propagated-*-input*; do
-          if [ -f "$dep_path" ]; then
-            while IFS= read -r dep; do
-              if [[ "$dep" =~ ruby-[0-9] ]] && [ -d "$dep/bin" ]; then
-                PACKAGE_RUBY="$dep"
-                break 2
-              fi
-            done < "$dep_path"
-          fi
-        done
+      if [ -f "${appPackage}/nix-support/ruby-path" ]; then
+        PACKAGE_RUBY=$(cat "${appPackage}/nix-support/ruby-path")
+        echo "Using Ruby from package metadata: $PACKAGE_RUBY"
+      else
+        # Fallback: query closure at runtime (for packages built with older rails-builder)
+        echo "No ruby-path metadata found, querying package closure..."
+        PACKAGE_RUBY=$(nix-store -qR "${appPackage}" 2>/dev/null | grep -m1 '/ruby-[0-9]' || true)
+        if [ -n "$PACKAGE_RUBY" ]; then
+          echo "Found Ruby in closure: $PACKAGE_RUBY"
+        fi
       fi
 
       # Set up PATH with package Ruby FIRST, then app bins, then path_packages
       # This ensures correct Ruby version is used (not one from bundler in path_packages)
-      if [ -n "$PACKAGE_RUBY" ]; then
-        echo "Using Ruby from package closure: $PACKAGE_RUBY"
+      if [ -n "$PACKAGE_RUBY" ] && [ -d "$PACKAGE_RUBY/bin" ]; then
         export PATH="$PACKAGE_RUBY/bin:${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
       else
-        echo "Warning: Could not find Ruby in package closure"
+        echo "Warning: Could not find Ruby in package"
         export PATH="${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
       fi
 
@@ -107,6 +91,10 @@ let
           # Different build approaches install gems in different places:
           # - bundix: app/vendor/bundle/ruby/X.Y.Z or vendor/bundle/ruby/X.Y.Z
           # - bundlerEnv: lib/ruby/gems/X.Y.Z
+
+          # Enable nullglob for gem directory detection (uses globs)
+          shopt -s nullglob
+
           GEM_DIR=""
 
           # Check app package first (most specific)

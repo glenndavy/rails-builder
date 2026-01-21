@@ -118,6 +118,10 @@
       echo "INSTALL PHASE"
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
+
+      # Store Ruby path for NixOS module runtime detection
+      mkdir -p $out/nix-support
+      echo "${rubyPackage}" > $out/nix-support/ruby-path
     '';
   };
 
