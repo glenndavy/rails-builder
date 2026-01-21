@@ -63,7 +63,7 @@ let
       else
         # Fallback: query closure at runtime (for packages built with older rails-builder)
         echo "No ruby-path metadata found, querying package closure..."
-        PACKAGE_RUBY=$(nix-store -qR "${appPackage}" 2>/dev/null | grep -m1 '/ruby-[0-9]' || true)
+        PACKAGE_RUBY=$(nix-store -qR "${appPackage}" 2>/dev/null | grep -m1 'ruby-' || true)
         if [ -n "$PACKAGE_RUBY" ]; then
           echo "Found Ruby in closure: $PACKAGE_RUBY"
         fi
