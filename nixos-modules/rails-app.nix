@@ -55,8 +55,11 @@ let
 
       # Extract Ruby from package closure (propagatedBuildInputs)
       # This ensures we use the correct Ruby version that the gems were built with
+      # Enable nullglob so non-matching globs expand to nothing instead of literal string
+      shopt -s nullglob
+
       PACKAGE_RUBY=""
-      for dep in ${appPackage}/*-runtime-deps 2>/dev/null || true; do
+      for dep in ${appPackage}/*-runtime-deps; do
         if [ -f "$dep" ]; then
           while IFS= read -r line; do
             if [[ "$line" == *"/ruby-"* ]] && [ -d "$line/bin" ]; then
@@ -69,7 +72,7 @@ let
 
       # Fallback: search package closure directly
       if [ -z "$PACKAGE_RUBY" ]; then
-        for dep_path in ${appPackage}/nix-support/propagated-*-input* 2>/dev/null || true; do
+        for dep_path in ${appPackage}/nix-support/propagated-*-input*; do
           if [ -f "$dep_path" ]; then
             while IFS= read -r dep; do
               if [[ "$dep" =~ ruby-[0-9] ]] && [ -d "$dep/bin" ]; then
@@ -150,6 +153,9 @@ let
             echo "Warning: Could not auto-detect gem directory"
           fi
         ''}
+
+      # Restore default glob behavior (after all glob operations complete)
+      shopt -u nullglob
 
       # Execute environment setup command if specified
       ${optionalString (instanceCfg.environment_command != null) ''
