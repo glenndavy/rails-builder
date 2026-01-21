@@ -18,6 +18,7 @@
   tzinfo,
   defaultShellHook,
   tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
+  bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -73,9 +74,10 @@
         pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
       ];
 
-    # Make Ruby a runtime dependency so it's always available
-    # This ensures the correct Ruby version is in the package closure
-    propagatedBuildInputs = [ rubyPackage ];
+    # Make Ruby and optionally Bundler runtime dependencies
+    # This ensures the correct versions are in the package closure
+    propagatedBuildInputs = [ rubyPackage ]
+      ++ (if bundlerPackage != null then [ bundlerPackage ] else []);
 
     # Set LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
     LD_LIBRARY_PATH = buildInputLibPaths;
