@@ -73,6 +73,10 @@
         pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
       ];
 
+    # Make Ruby a runtime dependency so it's always available
+    # This ensures the correct Ruby version is in the package closure
+    propagatedBuildInputs = [ rubyPackage ];
+
     # Set LD_LIBRARY_PATH for FFI-based gems (ruby-vips, etc.)
     LD_LIBRARY_PATH = buildInputLibPaths;
 

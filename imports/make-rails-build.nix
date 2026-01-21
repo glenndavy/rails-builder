@@ -61,6 +61,11 @@
       ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
         pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
       ];
+
+    # Make Ruby a runtime dependency so it's always available
+    # This ensures the correct Ruby version is in the package closure
+    propagatedBuildInputs = [ rubyPackage ];
+
     phases = [
       "unpackPhase" # optional, but harmless
       "patchPhase" # optional
