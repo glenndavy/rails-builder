@@ -5,6 +5,7 @@
   src ? ./.,
   buildRailsApp,
   appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
+  bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
 }: let
   rubyPackage = pkgs."ruby-${rubyVersion}";
   rubyVersionSplit = builtins.splitVersion rubyVersion;
@@ -135,13 +136,22 @@ fi
 
 # Ruby path (known at build time)
 export RUBY_ROOT="${rubyPackage}"
+${
+  if bundlerPackage != null
+  then ''export BUNDLER_ROOT="${bundlerPackage}"''
+  else ""
+}
 
 # Rails-specific environment
 export BUNDLE_PATH="$RAILS_ROOT/vendor/bundle"
 export BUNDLE_GEMFILE="$RAILS_ROOT/Gemfile"
 
-# PATH setup: Ruby first, then app bins, then existing PATH
-export PATH="${rubyPackage}/bin:$RAILS_ROOT/bin:$PATH"
+# PATH setup: Ruby first, then bundler (if exists), then app bins, then existing PATH
+export PATH="${rubyPackage}/bin${
+  if bundlerPackage != null
+  then ":${bundlerPackage}/bin"
+  else ""
+}:$RAILS_ROOT/bin:$PATH"
 
 # Library paths (for bundler-based builds)
 export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}''${PKG_CONFIG_PATH:-}"
@@ -164,7 +174,8 @@ ENVEOF
         pkgs.gosu
         pkgs.rsync
         pkgs.nodejs
-      ];
+      ]
+      ++ (if bundlerPackage != null then [bundlerPackage] else []);
 
     shellHook = ''
       export PS1="shell:>"

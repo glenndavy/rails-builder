@@ -242,7 +242,7 @@
       # Bundler approach (traditional) - using Rails builder with framework override
       bundlerBuild = let
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
-          inherit rubyVersion gccVersion opensslVersion appName;
+          inherit rubyVersion gccVersion opensslVersion appName bundlerPackage;
           src = ./.;
           buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor framework;});
         };
