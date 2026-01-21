@@ -66,14 +66,43 @@ let
           export GEM_PATH="${instanceCfg.gem_path}"
         ''
         else ''
-          # Auto-detect: look for lib/ruby/gems/* in package dependencies
-          # bundix/bundlerEnv typically installs gems at lib/ruby/gems/X.Y.0
+          # Auto-detect gem directory from multiple possible locations
+          # Different build approaches install gems in different places:
+          # - bundix: app/vendor/bundle/ruby/X.Y.Z or vendor/bundle/ruby/X.Y.Z
+          # - bundlerEnv: lib/ruby/gems/X.Y.Z
           GEM_DIR=""
+
+          # Check app package first (most specific)
           for pkg in ${appPackage} ${concatStringsSep " " (map (p: "${p}") instanceCfg.path_packages)}; do
+            # Pattern 1: bundix vendor/bundle (in app directory)
+            if [ -d "$pkg/app/vendor/bundle/ruby" ]; then
+              for version_dir in "$pkg"/app/vendor/bundle/ruby/*; do
+                if [ -d "$version_dir/gems" ]; then
+                  GEM_DIR="$version_dir"
+                  echo "Auto-detected bundix gems at: $GEM_DIR"
+                  break 2
+                fi
+              done
+            fi
+
+            # Pattern 2: bundix vendor/bundle (at package root)
+            if [ -d "$pkg/vendor/bundle/ruby" ]; then
+              for version_dir in "$pkg"/vendor/bundle/ruby/*; do
+                if [ -d "$version_dir/gems" ]; then
+                  GEM_DIR="$version_dir"
+                  echo "Auto-detected bundix gems at: $GEM_DIR"
+                  break 2
+                fi
+              done
+            fi
+
+            # Pattern 3: bundlerEnv lib/ruby/gems (standard)
             if [ -d "$pkg/lib/ruby/gems" ]; then
               for version_dir in "$pkg"/lib/ruby/gems/*; do
-                if [ -d "$version_dir" ]; then
+                # Skip if this is Ruby's stdlib (has no gems subdirectory with user gems)
+                if [ -d "$version_dir/gems" ] && [ "$(ls -A "$version_dir/gems" 2>/dev/null | wc -l)" -gt 10 ]; then
                   GEM_DIR="$version_dir"
+                  echo "Auto-detected bundlerEnv gems at: $GEM_DIR"
                   break 2
                 fi
               done
@@ -83,7 +112,8 @@ let
           if [ -n "$GEM_DIR" ]; then
             export GEM_HOME="$GEM_DIR"
             export GEM_PATH="$GEM_DIR"
-            echo "Auto-detected gems at: $GEM_DIR"
+          else
+            echo "Warning: Could not auto-detect gem directory"
           fi
         ''}
 
