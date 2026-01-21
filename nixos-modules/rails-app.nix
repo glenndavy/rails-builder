@@ -300,10 +300,11 @@ in {
           Restart = "always";
           RestartSec = "10s";
 
-          # Ensure package dependencies are in PATH
+          # Environment variables for the service
+          # Includes PATH and all user-specified environment_overrides
           Environment = [
             "PATH=${pathEnv}"
-          ];
+          ] ++ (mapAttrsToList (name: value: "${name}=${toString value}") instanceCfg.environment_overrides);
 
           # Security hardening
           NoNewPrivileges = true;
