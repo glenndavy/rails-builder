@@ -179,6 +179,14 @@ ENVEOF
 
     shellHook = ''
       export PS1="shell:>"
+
+      # PATH setup: bundlerPackage FIRST (correct version), then Ruby, then system
+      # This ensures we use the bundler version from Gemfile.lock, not nixpkgs bundler
+      ${if bundlerPackage != null
+        then ''export PATH="${bundlerPackage}/bin:${rubyPackage}/bin:$PATH"''
+        else ''export PATH="${rubyPackage}/bin:$PATH"''
+      }
+
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
       export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
     '';
