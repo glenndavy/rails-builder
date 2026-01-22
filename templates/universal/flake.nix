@@ -498,8 +498,8 @@
                 export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
                 # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
-                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
-                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
+                # bundlerPackage must come BEFORE app bin/ to override any old binstubs
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:$APP_ROOT/bin:${rubyPackage}/bin${
                   if manage-postgres-script != null
                   then ":${manage-postgres-script}/bin"
                   else ""
@@ -679,8 +679,8 @@
                 export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
                 # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
-                # This ensures our Ruby takes precedence but neovim, nix-shell, etc. remain accessible
-                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:$APP_ROOT/bin:${bundlerPackage}/bin:${rubyPackage}/bin${
+                # bundlerPackage must come BEFORE app bin/ to override any old binstubs
+                export PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${bundlerPackage}/bin:$APP_ROOT/bin:${rubyPackage}/bin${
                   if manage-postgres-script != null
                   then ":${manage-postgres-script}/bin"
                   else ""
