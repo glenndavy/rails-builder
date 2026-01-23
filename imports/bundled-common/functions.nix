@@ -123,19 +123,23 @@ rec {
       version,
       path,
       ruby,
+      gemdir,
       ...
     }@attrs:
     let
+      # Resolve path relative to gemdir if it's a string
+      resolvedPath = if builtins.isString path then gemdir + ("/" + path) else path;
+
       # Detect if this is a git gem from vendor/cache by checking path
-      isVendorCacheGitGem = lib.hasInfix "/vendor/cache/" (toString path);
-      gemDirName = builtins.baseNameOf (toString path);
+      isVendorCacheGitGem = lib.hasInfix "/vendor/cache/" (toString resolvedPath);
+      gemDirName = builtins.baseNameOf (toString resolvedPath);
 
       # Build actual derivation that copies the gem source
       drv = stdenv.mkDerivation {
         pname = gemName;
         inherit version;
 
-        src = path;
+        src = resolvedPath;
 
         # vendor/cache contains already-unpacked directories, not archives
         dontUnpack = true;

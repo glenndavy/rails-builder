@@ -130,7 +130,7 @@ let
         gemAttrs = composeGemAttrs ruby gems name attrs;
       in
       if gemAttrs.type == "path" then
-        pathDerivation (gemAttrs.source // gemAttrs)
+        pathDerivation (gemAttrs.source // gemAttrs // { gemdir = gemFiles.gemdir; })
       else
         buildRubyGem gemAttrs
     );
