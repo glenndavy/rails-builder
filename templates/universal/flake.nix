@@ -141,7 +141,6 @@
           pkgs.libyaml
           pkgs.curl
           pkgs.pkg-config
-          pkgs.nix-ld
         ]
         ++ (
           if frameworkInfo.needsPostgresql
@@ -214,6 +213,7 @@
           else []
         )
         ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+          pkgs.nix-ld  # For running unpatched binaries (Linux only)
           pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
         ];
 
