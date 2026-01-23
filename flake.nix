@@ -37,8 +37,11 @@
       mkRailsBuild = import ./imports/make-rails-build.nix {inherit pkgs;};
       mkRailsNixBuild = import ./imports/make-rails-nix-build.nix {inherit pkgs;};
       versionDetection = import ./imports/detect-versions.nix;
+
+      # Custom bundlerEnv that supports vendor/cache gems
+      customBundlerEnv = pkgs.callPackage ./imports/bundler-env {};
     in {
-      inherit mkRailsBuild mkRailsNixBuild;
+      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv;
       inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion;
       version = version;
     };
