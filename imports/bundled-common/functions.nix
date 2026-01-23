@@ -144,8 +144,8 @@ rec {
         dontPatchShebangs = true;
 
         installPhase = ''
-          mkdir -p $out/lib/ruby/gems/${ruby.version.majMin}.0/gems/${gemDirName}
-          cp -r $src/* $out/lib/ruby/gems/${ruby.version.majMin}.0/gems/${gemDirName}/
+          mkdir -p $out/lib/ruby/gems/${ruby.version.majMin}.0/gems
+          cp -r $src $out/lib/ruby/gems/${ruby.version.majMin}.0/gems/${gemDirName}
 
           # For vendor/cache git gems, also create bundler/gems symlink
           ${lib.optionalString isVendorCacheGitGem ''
