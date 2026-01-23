@@ -166,6 +166,20 @@
       cp -rL ${gems}/lib/ruby/gems/${rubyMajorMinor}.0/* vendor/bundle/ruby/${rubyMajorMinor}.0/
       echo "  Making copied gems writable..."
       chmod -R u+w vendor/bundle/ruby/${rubyMajorMinor}.0/
+
+      # Create bundler/gems directory structure for git gems from vendor/cache
+      # This allows Bundler to find git gems that were converted to path sources in gemset.nix
+      echo "  Setting up bundler/gems structure for cached git gems..."
+      mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems
+      if [ -d vendor/cache ]; then
+        for cached_gem in vendor/cache/*-*; do
+          if [ -d "$cached_gem" ] && [ -f "$cached_gem/.bundlecache" ]; then
+            gem_basename=$(basename "$cached_gem")
+            echo "    Symlinking $gem_basename to bundler/gems/"
+            ln -sf "$PWD/$cached_gem" vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems/$gem_basename
+          fi
+        done
+      fi
       echo "  Done copying gems"
 
       # Set up environment for direct gem access (no bundle exec needed)
@@ -178,6 +192,13 @@
         else ""
       }:$PATH
 
+      # Configure Bundler to use cached gems from vendor/cache for git gems
+      # This prevents Bundler from trying to access git during asset precompilation
+      export BUNDLE_FROZEN=true
+      export BUNDLE_CACHE_PATH=$PWD/vendor/cache
+      export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
+      export BUNDLE_GEMFILE=$PWD/Gemfile
+
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
       echo "│ STAGE 4: Asset Precompilation                                    │"
@@ -185,6 +206,9 @@
       echo "  PATH: $PATH"
       echo "  GEM_HOME: $GEM_HOME"
       echo "  GEM_PATH: $GEM_PATH"
+      echo "  BUNDLE_FROZEN: $BUNDLE_FROZEN"
+      echo "  BUNDLE_CACHE_PATH: $BUNDLE_CACHE_PATH"
+      echo "  BUNDLE_DISABLE_LOCAL_BRANCH_CHECK: $BUNDLE_DISABLE_LOCAL_BRANCH_CHECK"
       echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile

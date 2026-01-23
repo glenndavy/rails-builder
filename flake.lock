@@ -3,11 +3,11 @@
     "bundix-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1769125159,
-        "narHash": "sha256-dCs1rWZGHlzvKjhi8BtTQlVrUYD8EtGbdq2myKl8jXE=",
+        "lastModified": 1769134983,
+        "narHash": "sha256-KVQvmCVqAIDcJ9MbReQmI9IzwkK2vJhLdU6w6Pxm9v4=",
         "owner": "glenndavy",
         "repo": "bundix",
-        "rev": "99b979db105ad1693d4a3931a347eecfbfd2f8e7",
+        "rev": "3a57d226897aa2583ec09fe9ba6fb5a61c0e16e9",
         "type": "github"
       },
       "original": {
@@ -52,11 +52,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1762977756,
-        "narHash": "sha256-4PqRErxfe+2toFJFgcRKZ0UI9NSIOJa+7RXVtBhy4KE=",
+        "lastModified": 1769018530,
+        "narHash": "sha256-MJ27Cy2NtBEV5tsK+YraYr2g851f3Fl1LpNHDzDX15c=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "c5ae371f1a6a7fd27823bc500d9390b38c05fa55",
+        "rev": "88d3861acdd3d2f0e361767018218e51810df8a1",
         "type": "github"
       },
       "original": {
@@ -75,11 +75,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1759902829,
-        "narHash": "sha256-8mF8hyntxkjxZ5AOM+uHbJMSdA/kTgNTGOdskCKm1+c=",
+        "lastModified": 1768456329,
+        "narHash": "sha256-WZUF92DgJqF30fIuq4cHj+X3NdlgrJxrMoeaMLfdN6U=",
         "owner": "bobvanderlinden",
         "repo": "nixpkgs-ruby",
-        "rev": "5fba6c022a63f1e76dee4da71edddad8959f088a",
+        "rev": "6e48fd5e0218b9fe70dab829228c5221c98eac19",
         "type": "github"
       },
       "original": {
