@@ -357,7 +357,14 @@
         };
         modeConfig =
           if builtins.pathExists ./gemset.nix
-          then {gemset = ./gemset.nix;}
+          then {
+            gemset = ./gemset.nix;
+            gemConfig = pkgs.defaultGemConfig // {
+              ruby-vips = attrs: {
+                buildInputs = [ pkgs.vips ];
+              };
+            };
+          }
           else {
             # Lockfile-only mode - uses Gemfile.lock without hash verification
             gemfile = ./Gemfile;
@@ -832,6 +839,11 @@
                 ruby = rubyPackage;
                 gemdir = ./.;
                 gemset = ./gemset.nix;
+                gemConfig = pkgs.defaultGemConfig // {
+                  ruby-vips = attrs: {
+                    buildInputs = [ pkgs.vips ];
+                  };
+                };
               };
             in
               pkgs.mkShell {
