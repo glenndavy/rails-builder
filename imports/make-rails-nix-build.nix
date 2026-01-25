@@ -188,6 +188,25 @@
             # Initialize git repo if not already present (needed for BUNDLE_LOCAL__ override)
             if [ ! -d "$cached_gem/.git" ]; then
               echo "    Initializing git repo in $gem_basename for bundler local override..."
+
+              # Extract branch name from Gemfile.lock for this gem
+              # Look for GIT block with matching remote, then find the branch line
+              gem_remote_pattern=$(echo "$gem_basename" | sed 's/-[a-f0-9]\{7,\}$//')
+              branch_name=$(${pkgs.gawk}/bin/awk '
+                /^GIT/ { in_git=1; branch=""; next }
+                /^[A-Z]/ && !/^GIT/ { in_git=0 }
+                in_git && /remote:.*'"$gem_remote_pattern"'/ { found=1 }
+                in_git && found && /branch:/ { gsub(/.*branch: */, ""); print; exit }
+              ' Gemfile.lock)
+
+              # Also extract the revision from Gemfile.lock
+              revision=$(${pkgs.gawk}/bin/awk '
+                /^GIT/ { in_git=1; next }
+                /^[A-Z]/ && !/^GIT/ { in_git=0 }
+                in_git && /remote:.*'"$gem_remote_pattern"'/ { found=1 }
+                in_git && found && /revision:/ { gsub(/.*revision: */, ""); print; exit }
+              ' Gemfile.lock)
+
               (
                 cd "$cached_gem"
                 ${pkgs.git}/bin/git init -q
@@ -195,6 +214,19 @@
                 ${pkgs.git}/bin/git config user.name "Nix Build"
                 ${pkgs.git}/bin/git add -A
                 ${pkgs.git}/bin/git commit -q -m "Vendored gem from bundle cache" --allow-empty
+
+                # Create branch with the name from Gemfile.lock if specified
+                if [ -n "$branch_name" ]; then
+                  echo "    Creating branch '$branch_name' to match Gemfile.lock"
+                  ${pkgs.git}/bin/git checkout -q -b "$branch_name" 2>/dev/null || ${pkgs.git}/bin/git checkout -q "$branch_name" 2>/dev/null || true
+                fi
+
+                # Create a tag with the revision hash so bundler can find it
+                if [ -n "$revision" ]; then
+                  echo "    Creating ref for revision $revision"
+                  # Create a refs/heads entry that matches the revision
+                  ${pkgs.git}/bin/git update-ref "refs/heads/__bundler_ref_$revision" HEAD 2>/dev/null || true
+                fi
               )
             fi
 
