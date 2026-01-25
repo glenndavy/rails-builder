@@ -171,12 +171,44 @@
       # This allows Bundler to find git gems that were converted to path sources in gemset.nix
       echo "  Setting up bundler/gems structure for cached git gems..."
       mkdir -p vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems
+
+      # For git gems in vendor/cache, we need to:
+      # 1. Initialize a git repo (bundler requires it for local overrides)
+      # 2. Set BUNDLE_LOCAL__<gem_name> to point to the local path
+      # This prevents bundler from trying to fetch from the original git remote
       if [ -d vendor/cache ]; then
         for cached_gem in vendor/cache/*-*; do
           if [ -d "$cached_gem" ] && [ -f "$cached_gem/.bundlecache" ]; then
             gem_basename=$(basename "$cached_gem")
-            echo "    Symlinking $gem_basename to bundler/gems/"
+            echo "    Setting up $gem_basename for bundler..."
+
+            # Symlink to bundler/gems for gem loading
             ln -sf "$PWD/$cached_gem" vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems/$gem_basename
+
+            # Initialize git repo if not already present (needed for BUNDLE_LOCAL__ override)
+            if [ ! -d "$cached_gem/.git" ]; then
+              echo "    Initializing git repo in $gem_basename for bundler local override..."
+              (
+                cd "$cached_gem"
+                ${pkgs.git}/bin/git init -q
+                ${pkgs.git}/bin/git config user.email "nix-build@localhost"
+                ${pkgs.git}/bin/git config user.name "Nix Build"
+                ${pkgs.git}/bin/git add -A
+                ${pkgs.git}/bin/git commit -q -m "Vendored gem from bundle cache" --allow-empty
+              )
+            fi
+
+            # Extract gem name from directory (format: gem-name-revision)
+            # e.g., opscare-reports-87e403c81899 -> opscare-reports -> opscare_reports
+            # Note: gem names use underscores, directory names use hyphens
+            gem_name_with_revision="$gem_basename"
+            # Remove the revision suffix (last segment after final hyphen, if it looks like a hash)
+            gem_name_raw=$(echo "$gem_name_with_revision" | sed 's/-[a-f0-9]\{7,\}$//')
+            # Convert hyphens to underscores for bundler env var (BUNDLE_LOCAL__GEM_NAME)
+            gem_name_env=$(echo "$gem_name_raw" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+
+            echo "    Setting BUNDLE_LOCAL__$gem_name_env=$PWD/$cached_gem"
+            export "BUNDLE_LOCAL__$gem_name_env=$PWD/$cached_gem"
           fi
         done
       fi
@@ -197,6 +229,8 @@
       export BUNDLE_FROZEN=true
       export BUNDLE_CACHE_PATH=$PWD/vendor/cache
       export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
+      export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
+      export BUNDLE_ALLOW_OFFLINE_INSTALL=true
       export BUNDLE_GEMFILE=$PWD/Gemfile
 
       echo ""
@@ -209,6 +243,12 @@
       echo "  BUNDLE_FROZEN: $BUNDLE_FROZEN"
       echo "  BUNDLE_CACHE_PATH: $BUNDLE_CACHE_PATH"
       echo "  BUNDLE_DISABLE_LOCAL_BRANCH_CHECK: $BUNDLE_DISABLE_LOCAL_BRANCH_CHECK"
+      echo "  BUNDLE_DISABLE_LOCAL_REVISION_CHECK: $BUNDLE_DISABLE_LOCAL_REVISION_CHECK"
+      echo "  BUNDLE_ALLOW_OFFLINE_INSTALL: $BUNDLE_ALLOW_OFFLINE_INSTALL"
+      # Show any BUNDLE_LOCAL__ overrides that were set
+      env | grep "^BUNDLE_LOCAL__" | while read line; do
+        echo "  $line"
+      done
       echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile

@@ -767,6 +767,40 @@
                 export BUNDLE_APP_CONFIG="$APP_ROOT/.bundle"
                 export BUNDLE_PATH="$APP_ROOT/vendor/bundle"
 
+                # Configure bundler for offline/cached git gems
+                export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
+                export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
+                export BUNDLE_ALLOW_OFFLINE_INSTALL=true
+
+                # Set up local overrides for git gems in vendor/cache
+                # This prevents bundler from trying to fetch from git remotes
+                if [ -d "$APP_ROOT/vendor/cache" ]; then
+                  for cached_gem in "$APP_ROOT/vendor/cache"/*-*; do
+                    if [ -d "$cached_gem" ] && [ -f "$cached_gem/.bundlecache" ]; then
+                      gem_basename=$(basename "$cached_gem")
+
+                      # Initialize git repo if not present (needed for BUNDLE_LOCAL__ override)
+                      if [ ! -d "$cached_gem/.git" ]; then
+                        echo "  Initializing git repo in $gem_basename for bundler local override..."
+                        (
+                          cd "$cached_gem"
+                          ${pkgs.git}/bin/git init -q 2>/dev/null || true
+                          ${pkgs.git}/bin/git config user.email "nix-build@localhost" 2>/dev/null || true
+                          ${pkgs.git}/bin/git config user.name "Nix Build" 2>/dev/null || true
+                          ${pkgs.git}/bin/git add -A 2>/dev/null || true
+                          ${pkgs.git}/bin/git commit -q -m "Vendored gem from bundle cache" --allow-empty 2>/dev/null || true
+                        )
+                      fi
+
+                      # Extract gem name and set BUNDLE_LOCAL__ override
+                      gem_name_raw=$(echo "$gem_basename" | sed 's/-[a-f0-9]\{7,\}$//')
+                      gem_name_env=$(echo "$gem_name_raw" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+                      export "BUNDLE_LOCAL__$gem_name_env=$cached_gem"
+                      echo "  Set BUNDLE_LOCAL__$gem_name_env for cached git gem"
+                    fi
+                  done
+                fi
+
                 # Environment variables for gem compilation (same as bundlerEnv)
                 export PKG_CONFIG_PATH="${opensslPackage}/lib/pkgconfig:${pkgs.libxml2.dev}/lib/pkgconfig:${pkgs.libxslt.dev}/lib/pkgconfig:${pkgs.zlib.dev}/lib/pkgconfig${
                   if frameworkInfo.needsPostgresql
