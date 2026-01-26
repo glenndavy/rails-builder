@@ -264,12 +264,17 @@
       export BUNDLE_ALLOW_OFFLINE_INSTALL=true
       export BUNDLE_GEMFILE=$PWD/Gemfile
 
-      # Only set BUNDLE_FROZEN if no BUNDLE_LOCAL__ overrides are set
+      # Handle frozen mode based on whether local git gem overrides are present
       # BUNDLE_LOCAL__ overrides can cause gemspec mismatches which conflict with frozen mode
-      if ! env | grep -q "^BUNDLE_LOCAL__"; then
-        export BUNDLE_FROZEN=true
+      # Must explicitly set to false (not just unset) to override any bundlerEnv defaults
+      if env | grep -q "^BUNDLE_LOCAL__"; then
+        echo "  Note: Disabling frozen/deployment mode due to BUNDLE_LOCAL__ overrides"
+        export BUNDLE_FROZEN=false
+        export BUNDLE_DEPLOYMENT=false
+        # Remove any .bundle/config that might enable frozen mode
+        rm -f .bundle/config 2>/dev/null || true
       else
-        echo "  Note: BUNDLE_FROZEN disabled due to BUNDLE_LOCAL__ overrides"
+        export BUNDLE_FROZEN=true
       fi
 
       echo ""
@@ -280,6 +285,7 @@
       echo "  GEM_HOME: $GEM_HOME"
       echo "  GEM_PATH: $GEM_PATH"
       echo "  BUNDLE_FROZEN: ''${BUNDLE_FROZEN:-<not set>}"
+      echo "  BUNDLE_DEPLOYMENT: ''${BUNDLE_DEPLOYMENT:-<not set>}"
       echo "  BUNDLE_CACHE_PATH: $BUNDLE_CACHE_PATH"
       echo "  BUNDLE_DISABLE_LOCAL_BRANCH_CHECK: $BUNDLE_DISABLE_LOCAL_BRANCH_CHECK"
       echo "  BUNDLE_DISABLE_LOCAL_REVISION_CHECK: $BUNDLE_DISABLE_LOCAL_REVISION_CHECK"
