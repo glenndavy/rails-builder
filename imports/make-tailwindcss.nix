@@ -51,9 +51,11 @@ in pkgs.stdenv.mkDerivation {
 
     # Create wrapper script that runs tailwindcss via bun
     # Include libstdc++ for native node modules like @parcel/watcher
+    # Set NODE_PATH so tailwindcss can resolve @import "tailwindcss" in CSS files
     cat > $out/bin/tailwindcss << WRAPPER
 #!/usr/bin/env bash
 export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:\$LD_LIBRARY_PATH"
+export NODE_PATH="$src/node_modules:\$NODE_PATH"
 exec ${pkgs.bun}/bin/bun $src/node_modules/@tailwindcss/cli/dist/index.mjs "\$@"
 WRAPPER
     chmod +x $out/bin/tailwindcss

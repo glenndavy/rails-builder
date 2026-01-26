@@ -141,6 +141,13 @@
           # The gem will look for $TAILWINDCSS_INSTALL_DIR/tailwindcss
           export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
           echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+
+          # Symlink node_modules so tailwindcss can resolve @import "tailwindcss"
+          # The CLI uses enhanced-resolve which doesn't respect NODE_PATH
+          if [ -d "${tailwindcssPackage}/node_modules" ]; then
+            ln -sf "${tailwindcssPackage}/node_modules" ./node_modules
+            echo "  Symlinked node_modules for tailwindcss resolution"
+          fi
         ''
         else ""
       }
