@@ -280,7 +280,7 @@
       # Show any BUNDLE_LOCAL__ overrides that were set
       env | grep "^BUNDLE_LOCAL__" | while read line; do
         echo "  $line"
-      done
+      done || true
       echo "  Running: rails assets:precompile"
       # Use direct Rails command (bundlerEnv approach - no bundle exec)
       rails assets:precompile
