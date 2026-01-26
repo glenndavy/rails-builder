@@ -266,11 +266,14 @@
       # Bundix approach - disabled for now to avoid evaluation issues
       # Use bootstrap shell and manual package building after fixing hashes
       # Bundix approach (Nix bundlerEnv) - only if gemset.nix exists
+      # Use custom bundlerEnv from ruby-builder that handles path gems correctly
+      customBundlerEnv = ruby-builder.lib.${system}.customBundlerEnv;
+
       bundixBuild =
         if builtins.pathExists ./gemset.nix
         then let
-          # Simple bundlerEnv without auto-fix for package builds
-          gems = pkgs.bundlerEnv {
+          # Use custom bundlerEnv that handles vendor/cache path gems
+          gems = customBundlerEnv {
             name = "${framework}-gems";
             ruby = rubyPackage;
             gemdir = ./.;
