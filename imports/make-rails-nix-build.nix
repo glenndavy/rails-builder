@@ -258,12 +258,19 @@
 
       # Configure Bundler to use cached gems from vendor/cache for git gems
       # This prevents Bundler from trying to access git during asset precompilation
-      export BUNDLE_FROZEN=true
       export BUNDLE_CACHE_PATH=$PWD/vendor/cache
       export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
       export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
       export BUNDLE_ALLOW_OFFLINE_INSTALL=true
       export BUNDLE_GEMFILE=$PWD/Gemfile
+
+      # Only set BUNDLE_FROZEN if no BUNDLE_LOCAL__ overrides are set
+      # BUNDLE_LOCAL__ overrides can cause gemspec mismatches which conflict with frozen mode
+      if ! env | grep -q "^BUNDLE_LOCAL__"; then
+        export BUNDLE_FROZEN=true
+      else
+        echo "  Note: BUNDLE_FROZEN disabled due to BUNDLE_LOCAL__ overrides"
+      fi
 
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
@@ -272,7 +279,7 @@
       echo "  PATH: $PATH"
       echo "  GEM_HOME: $GEM_HOME"
       echo "  GEM_PATH: $GEM_PATH"
-      echo "  BUNDLE_FROZEN: $BUNDLE_FROZEN"
+      echo "  BUNDLE_FROZEN: ''${BUNDLE_FROZEN:-<not set>}"
       echo "  BUNDLE_CACHE_PATH: $BUNDLE_CACHE_PATH"
       echo "  BUNDLE_DISABLE_LOCAL_BRANCH_CHECK: $BUNDLE_DISABLE_LOCAL_BRANCH_CHECK"
       echo "  BUNDLE_DISABLE_LOCAL_REVISION_CHECK: $BUNDLE_DISABLE_LOCAL_REVISION_CHECK"
