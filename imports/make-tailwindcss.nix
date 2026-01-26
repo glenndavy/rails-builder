@@ -1,65 +1,69 @@
 # imports/make-tailwindcss.nix
-# Fetches the exact tailwindcss version needed based on Gemfile.lock
-# Uses precomputed hashes from tailwindcss-hashes.nix
+# Provides tailwindcss CLI using bun + @tailwindcss/cli npm package
+# The standalone GitHub binaries are broken (they're just bun runtime without tailwind bundled)
 {
   pkgs,
-  version,  # e.g., "4.1.16"
+  version,  # e.g., "4.1.18"
   tailwindcssHashes,  # import ../tailwindcss-hashes.nix
 }: let
-  # Platform mapping for tailwindcss releases
-  platformMap = {
-    "x86_64-linux" = "linux-x64";
-    "aarch64-linux" = "linux-arm64";
-    "x86_64-darwin" = "macos-x64";
-    "aarch64-darwin" = "macos-arm64";
-  };
-
-  platform = platformMap.${pkgs.stdenv.hostPlatform.system} or (throw "Unsupported platform: ${pkgs.stdenv.hostPlatform.system}");
-
-  # Tailwind v4 uses different release naming
-  binaryName = "tailwindcss-${platform}";
-
-  # Get hash from precomputed hashes
-  versionHashes = tailwindcssHashes.${version} or null;
-  hash = if versionHashes != null
-    then versionHashes.${platform} or (throw "No hash for tailwindcss ${version} on ${platform}")
-    else throw "No hashes for tailwindcss version ${version}. Add to tailwindcss-hashes.nix";
-
-  # Fetch the binary from GitHub releases
-  tailwindcssBinary = pkgs.fetchurl {
-    url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v${version}/${binaryName}";
-    sha256 = hash;
-  };
+  # Get the hash for this version
+  versionInfo = tailwindcssHashes.${version} or null;
+  npmDepsHash = if versionInfo != null && versionInfo.npmDeps != ""
+    then versionInfo.npmDeps
+    else pkgs.lib.fakeHash;
 
 in pkgs.stdenv.mkDerivation {
   pname = "tailwindcss";
   inherit version;
 
-  src = tailwindcssBinary;
+  # Fixed-output derivation that fetches npm packages
+  src = pkgs.runCommand "tailwindcss-npm-deps-${version}" {
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
+    outputHash = npmDepsHash;
+
+    nativeBuildInputs = [ pkgs.bun pkgs.cacert ];
+
+    # Required for network access
+    SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+  } ''
+    export HOME=$TMPDIR
+    export BUN_INSTALL_CACHE_DIR=$TMPDIR/bun-cache
+
+    mkdir -p $out
+    cd $out
+
+    # Create minimal package.json
+    echo '{"dependencies":{"@tailwindcss/cli":"${version}"}}' > package.json
+
+    # Install with bun
+    ${pkgs.bun}/bin/bun install --production
+
+    # Remove cache files that may vary
+    rm -rf $out/.bun-cache $out/bun.lockb 2>/dev/null || true
+  '';
 
   dontUnpack = true;
-
-  # For Linux: patch the binary to work with Nix's dynamic linker
-  nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
-    pkgs.autoPatchelfHook
-  ];
-
-  # Provide standard C library for autoPatchelfHook
-  buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
-    pkgs.stdenv.cc.cc.lib
-  ];
+  dontBuild = true;
 
   installPhase = ''
     mkdir -p $out/bin
-    cp $src $out/bin/tailwindcss
+
+    # Create wrapper script that runs tailwindcss via bun
+    # Include libstdc++ for native node modules like @parcel/watcher
+    cat > $out/bin/tailwindcss << WRAPPER
+#!/usr/bin/env bash
+export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:\$LD_LIBRARY_PATH"
+exec ${pkgs.bun}/bin/bun $src/node_modules/@tailwindcss/cli/dist/index.mjs "\$@"
+WRAPPER
     chmod +x $out/bin/tailwindcss
+
+    # Also symlink node_modules for reference
+    ln -s $src/node_modules $out/node_modules
   '';
 
-  # autoPatchelfHook runs automatically in fixupPhase after installPhase
-  # It will patch the binary's interpreter and RPATH for Linux
-
   meta = with pkgs.lib; {
-    description = "A utility-first CSS framework";
+    description = "A utility-first CSS framework (via bun)";
     homepage = "https://tailwindcss.com";
     license = licenses.mit;
     platforms = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
