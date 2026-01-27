@@ -17,6 +17,7 @@
 #       src = rails-app-src;
 #       # Optional overrides:
 #       # appName = "my-app";
+#       # railsEnv = "production";  # default, or "staging", "test"
 #       # rubyVersion = "3.2.0";  # auto-detected from .ruby-version if not specified
 #     };
 #   in {
@@ -29,6 +30,7 @@
   pkgs,
   src,            # Path to the Rails application source
   appName ? null, # Optional: Custom app name (defaults to "rails-app")
+  railsEnv ? "production", # Rails environment for asset precompilation
   rubyVersion ? null,     # Optional: Override Ruby version (auto-detected from .ruby-version)
   bundlerVersion ? null,  # Optional: Override Bundler version (auto-detected from Gemfile.lock)
   opensslVersion ? "3_2", # OpenSSL version: "3_2" (default) or "1_1" for legacy
@@ -220,7 +222,8 @@ let
       import ./make-rails-nix-build.nix {
         inherit pkgs universalBuildInputs rubyPackage rubyMajorMinor gems
                 gccPackage opensslPackage usrBinDerivation tzinfo
-                tailwindcssPackage bundlerPackage buildRailsApp defaultShellHook;
+                tailwindcssPackage bundlerPackage buildRailsApp defaultShellHook
+                railsEnv;
         rubyVersion = detectedRubyVersion;
         inherit gccVersion opensslVersion;
         inherit src;

@@ -20,6 +20,7 @@
   tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
   bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
   appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
+  railsEnv ? "production", # Rails environment for asset precompilation
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -296,6 +297,12 @@
       echo "┌──────────────────────────────────────────────────────────────────┐"
       echo "│ STAGE 4: Asset Precompilation                                    │"
       echo "└──────────────────────────────────────────────────────────────────┘"
+
+      # Set Rails environment for asset precompilation
+      export RAILS_ENV="${railsEnv}"
+      export SECRET_KEY_BASE="dummy_secret_for_asset_precompilation"
+
+      echo "  RAILS_ENV: $RAILS_ENV"
       echo "  PATH: $PATH"
       echo "  GEM_HOME: $GEM_HOME"
       echo "  GEM_PATH: $GEM_PATH"
@@ -460,7 +467,7 @@ in {
           "BUNDLE_PATH=/app/vendor/bundle"
           "BUNDLE_GEMFILE=/app/Gemfile"
           "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
-          "RAILS_ENV=production"
+          "RAILS_ENV=${railsEnv}"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
           "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
