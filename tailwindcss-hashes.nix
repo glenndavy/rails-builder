@@ -9,6 +9,6 @@
     npmDeps = "";  # TODO: compute when needed
   };
   "4.1.18" = {
-    npmDeps = "sha256-fw3dFXwTzHlbe/8cBscB0NQD+bSLk2YH3DJLkwU7HGY=";
+    npmDeps = "sha256-UABgFF3c029YymHjsazwWUw9BLzR9bP0EX6FN0MojEA=";
   };
 }
