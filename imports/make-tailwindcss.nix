@@ -6,10 +6,11 @@
   version,  # e.g., "4.1.18"
   tailwindcssHashes,  # import ../tailwindcss-hashes.nix
 }: let
-  # Get the hash for this version
+  system = pkgs.system;
+  # Get the hash for this version and system (hashes are architecture-specific)
   versionInfo = tailwindcssHashes.${version} or null;
-  npmDepsHash = if versionInfo != null && versionInfo.npmDeps != ""
-    then versionInfo.npmDeps
+  npmDepsHash = if versionInfo != null && versionInfo.npmDeps ? ${system}
+    then versionInfo.npmDeps.${system}
     else pkgs.lib.fakeHash;
 
 in pkgs.stdenv.mkDerivation {
