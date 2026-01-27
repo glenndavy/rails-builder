@@ -342,11 +342,14 @@ BOOTPATCH
       echo "  Running: rails assets:precompile (with bundler/setup bypassed)"
       rails assets:precompile
 
-      # Restore original boot.rb so the packaged app uses bundler normally at runtime
-      if [ -f config/boot.rb.nix-backup ]; then
-        echo "  Restoring original config/boot.rb"
-        mv config/boot.rb.nix-backup config/boot.rb
-      fi
+      # NOTE: We intentionally DO NOT restore boot.rb. The patched version stays
+      # in the packaged app. This is correct because:
+      # 1. Gems are already available via GEM_PATH - bundler/setup is just verification
+      # 2. bundlerEnv's bundler has frozen mode baked in which causes issues
+      # 3. At runtime, NIX_SKIP_BUNDLER_SETUP can be set to skip bundler, or unset to use it
+      # 4. For Nix-built apps where gems are pinned, bundler/setup adds overhead with no benefit
+      echo "  Note: Patched boot.rb retained in package (set NIX_SKIP_BUNDLER_SETUP=1 at runtime to skip bundler)"
+      rm -f config/boot.rb.nix-backup
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
@@ -408,6 +411,11 @@ ${
   then ''export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"''
   else ""
 }
+
+# Skip bundler/setup by default - gems are available via GEM_PATH
+# bundlerEnv's bundler has frozen mode baked in which causes issues with git gems
+# Unset this variable if you need bundler/setup to run for some reason
+export NIX_SKIP_BUNDLER_SETUP=1
 ENVEOF
       chmod +x $out/bin/rails-env
 
