@@ -1,2 +1,0 @@
-2026-01-27T01:19:17.394000+00:00 build/f7b46501-616b-4b13-81b9-936f13944a8c rails-app> /nix/store/cbj6dhiav7v55i7q12b4n2k1yhrkkbsc-bundler-2.7.2/lib/ruby/gems/3.2.0/gems/bundler-2.7.2/lib/bundler/definition.rb:462:in `ensure_equivalent_gemfile_and_lockfile': The gemspecs for git local gems changed, but the lockfile can't be updated because frozen mode is set (Bundler::ProductionError)
-2026-01-27T01:19:17.394000+00:00 build/f7b46501-616b-4b13-81b9-936f13944a8c rails-app>
