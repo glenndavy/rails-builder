@@ -312,44 +312,38 @@
         echo "  $line"
       done || true
 
-      # CRITICAL: bundlerEnv's bundler has frozen mode baked in at a level that
-      # environment variables cannot override. The solution is to bypass bundler/setup
-      # entirely during asset precompilation - the gems are already available via GEM_PATH.
-      #
-      # We temporarily patch config/boot.rb to skip 'require bundler/setup' when
-      # NIX_SKIP_BUNDLER_SETUP is set, then restore it after asset precompilation.
+      # DEBUG: Print all bundler-related environment to help diagnose CodeBuild vs local differences
+      echo ""
+      echo "  === BUNDLER DEBUG INFO ==="
+      echo "  All BUNDLE_* environment variables:"
+      env | grep -i "^BUNDLE" | sort || echo "    (none set)"
+      echo ""
+      echo "  Checking for .bundle/config files:"
+      for cfg in .bundle/config $HOME/.bundle/config /etc/bundle/config; do
+        if [ -f "$cfg" ]; then
+          echo "    Found: $cfg"
+          echo "    Contents:"
+          cat "$cfg" | sed 's/^/      /'
+        fi
+      done
+      echo ""
+      echo "  Which bundler binary:"
+      which bundler || echo "    bundler not in PATH"
+      echo "  Bundler version:"
+      bundler --version 2>&1 || echo "    (failed to get version)"
+      echo ""
+      echo "  Ruby load path for bundler:"
+      ruby -e "puts \$LOAD_PATH.grep(/bundler/)" 2>&1 || true
+      echo ""
+      echo "  GEM_HOME: $GEM_HOME"
+      echo "  GEM_PATH: $GEM_PATH"
+      echo "  Bundler gem location:"
+      ls -la $GEM_HOME/gems/bundler-* 2>/dev/null || echo "    (not found in GEM_HOME)"
+      echo "  === END BUNDLER DEBUG ==="
+      echo ""
 
-      if [ -f config/boot.rb ]; then
-        echo "  Patching config/boot.rb to skip bundler/setup..."
-        cp config/boot.rb config/boot.rb.nix-backup
-
-        # Create a patched boot.rb that skips bundler/setup when NIX_SKIP_BUNDLER_SETUP is set
-        cat > config/boot.rb << 'BOOTPATCH'
-ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __dir__)
-
-# During Nix asset precompilation, skip bundler/setup entirely.
-# Gems are already available via GEM_PATH - bundler/setup just verifies the lockfile
-# which fails because bundlerEnv's bundler has frozen mode baked in.
-unless ENV['NIX_SKIP_BUNDLER_SETUP']
-  require 'bundler/setup' # Set up gems listed in the Gemfile.
-end
-BOOTPATCH
-        echo "  Patched config/boot.rb to conditionally skip bundler/setup"
-      fi
-
-      # Run asset precompilation with bundler/setup bypassed
-      export NIX_SKIP_BUNDLER_SETUP=1
-      echo "  Running: rails assets:precompile (with bundler/setup bypassed)"
+      echo "  Running: rails assets:precompile"
       rails assets:precompile
-
-      # NOTE: We intentionally DO NOT restore boot.rb. The patched version stays
-      # in the packaged app. This is correct because:
-      # 1. Gems are already available via GEM_PATH - bundler/setup is just verification
-      # 2. bundlerEnv's bundler has frozen mode baked in which causes issues
-      # 3. At runtime, NIX_SKIP_BUNDLER_SETUP can be set to skip bundler, or unset to use it
-      # 4. For Nix-built apps where gems are pinned, bundler/setup adds overhead with no benefit
-      echo "  Note: Patched boot.rb retained in package (set NIX_SKIP_BUNDLER_SETUP=1 at runtime to skip bundler)"
-      rm -f config/boot.rb.nix-backup
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
@@ -411,11 +405,6 @@ ${
   then ''export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"''
   else ""
 }
-
-# Skip bundler/setup by default - gems are available via GEM_PATH
-# bundlerEnv's bundler has frozen mode baked in which causes issues with git gems
-# Unset this variable if you need bundler/setup to run for some reason
-export NIX_SKIP_BUNDLER_SETUP=1
 ENVEOF
       chmod +x $out/bin/rails-env
 
