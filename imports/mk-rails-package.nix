@@ -116,7 +116,8 @@ let
     else null;
 
   # Use customBundlerEnv from rails-builder (handles vendor/cache path gems)
-  customBundlerEnv = import ./bundler-env { inherit pkgs; };
+  # Must use callPackage to provide lib, callPackage, defaultGemConfig, etc.
+  customBundlerEnv = pkgs.callPackage ./bundler-env {};
 
   # Check if gemset.nix exists
   hasGemset = builtins.pathExists (src + "/gemset.nix");
