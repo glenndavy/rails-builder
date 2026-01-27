@@ -33,9 +33,12 @@ nix build .#docker-with-bundler                  # Docker image
 ### Key Files
 - `flake.nix` - Main flake definition and test infrastructure
 - `templates/universal/flake.nix` - User-facing template (single source of truth)
-- `imports/make-rails-build.nix` - Bundler-based build logic
-- `imports/make-rails-nix-build.nix` - BundlerEnv-based build logic
+- `imports/mk-rails-package.nix` - **High-level helper for external flakes** (use this!)
+- `imports/make-rails-build.nix` - Bundler-based build logic (low-level)
+- `imports/make-rails-nix-build.nix` - BundlerEnv-based build logic (low-level)
+- `imports/make-tailwindcss.nix` - Tailwind CSS v4 package builder
 - `bundler-hashes.nix` - Precomputed SHA256 hashes for bundler versions
+- `tailwindcss-hashes.nix` - Precomputed SHA256 hashes for tailwindcss npm deps
 - `nixos-modules/rails-app.nix` - NixOS service module
 
 ### Framework Detection
@@ -93,6 +96,58 @@ Development shells and package builds should share code:
 - Both bundler/bundix approaches use identical environment setups
 - When fixing one approach, apply similar fixes to the other
 - Extract common logic into shared functions
+
+## Using from External Flakes (mkRailsPackage)
+
+When building Rails apps from another flake (like a deployment config repo), use `mkRailsPackage` to ensure all correct configuration is applied:
+
+```nix
+{
+  inputs.rails-builder.url = "github:glenndavy/rails-builder";
+  inputs.rails-app-src = { url = "path:./app"; flake = false; };
+
+  outputs = { nixpkgs, rails-builder, rails-app-src, ... }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs { inherit system; };
+
+      # Build with all correct configuration
+      railsBuild = rails-builder.lib.${system}.mkRailsPackage {
+        inherit pkgs;
+        src = rails-app-src;
+        # Optional overrides:
+        # appName = "my-app";
+        # rubyVersion = "3.2.0";     # auto-detected if not specified
+        # bundlerVersion = "2.5.0";  # auto-detected if not specified
+        # opensslVersion = "3_2";    # or "1_1" for legacy
+        # extraBuildInputs = [ pkgs.imagemagick ];
+        # extraGemConfig = { my-gem = attrs: { ... }; };
+      };
+    in {
+      packages.${system} = {
+        rails-app = railsBuild.app;
+        docker-image = railsBuild.dockerImage;
+        gems = railsBuild.gems;
+      };
+    };
+}
+```
+
+**Why use `mkRailsPackage` instead of calling `make-rails-nix-build.nix` directly?**
+
+It ensures:
+- `customBundlerEnv` is used (handles vendor/cache path gems correctly)
+- `tailwindcssPackage` is included (Tailwind CSS v4 support)
+- `bundlerPackage` matches Gemfile.lock version exactly
+- `gemConfig` includes ruby-vips and other gem-specific fixes
+- All build inputs are correctly detected from Gemfile.lock
+
+The `railsBuild` object provides:
+- `app` - The built Rails application
+- `dockerImage` - Docker image (if available)
+- `gems` - The bundlerEnv gems derivation
+- `rubyPackage`, `bundlerPackage`, `tailwindcssPackage` - Individual components
+- `detected` - Auto-detected versions and framework info
 
 ## NixOS Module
 

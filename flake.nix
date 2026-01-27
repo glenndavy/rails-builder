@@ -21,7 +21,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.15.12";
+    version = "3.16.0";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -40,9 +40,13 @@
 
       # Custom bundlerEnv that supports vendor/cache gems
       customBundlerEnv = pkgs.callPackage ./imports/bundler-env {};
+
+      # High-level helper to build Rails packages with all correct configuration
+      # Usage: rails-builder.lib.${system}.mkRailsPackage { inherit pkgs; src = ./.; }
+      mkRailsPackage = args: import ./imports/mk-rails-package.nix args;
     in {
-      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv;
-      inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion;
+      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkRailsPackage;
+      inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion detectTailwindVersion;
       version = version;
     };
 
