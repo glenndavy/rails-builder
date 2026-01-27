@@ -208,7 +208,8 @@ let
   # Build script
   buildRailsApp = pkgs.writeShellScriptBin "make-rails-app-with-nix" (
     import ./make-rails-app-script.nix {
-      inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;
+      inherit pkgs rubyPackage rubyMajorMinor;
+      bundlerVersion = detectedBundlerVersion;
     }
   );
 
