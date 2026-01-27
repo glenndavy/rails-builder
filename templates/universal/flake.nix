@@ -442,6 +442,25 @@
           package-with-bundlerenv = bundlerEnvPackage;
         }
         // (
+          # Export gems derivation separately for pre-caching
+          # Build this first and push to S3 cache, then app builds won't need network access
+          if bundixBuild != null
+          then {
+            gems-with-bundix = customBundlerEnv {
+              name = "${framework}-gems";
+              ruby = rubyPackage;
+              gemdir = ./.;
+              gemset = ./gemset.nix;
+              gemConfig = pkgs.defaultGemConfig // {
+                ruby-vips = attrs: {
+                  buildInputs = [ pkgs.vips ];
+                };
+              };
+            };
+          }
+          else {}
+        )
+        // (
           if bundixBuild != null
           then {
             # Bundix approach packages - direct gem access

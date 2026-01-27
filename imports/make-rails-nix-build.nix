@@ -312,36 +312,6 @@
         echo "  $line"
       done || true
 
-      # DEBUG: Print all bundler-related environment to help diagnose CodeBuild vs local differences
-      echo ""
-      echo "  === BUNDLER DEBUG INFO ==="
-      echo "  All BUNDLE_* environment variables:"
-      env | grep -i "^BUNDLE" | sort || echo "    (none set)"
-      echo ""
-      echo "  Checking for .bundle/config files:"
-      for cfg in .bundle/config $HOME/.bundle/config /etc/bundle/config; do
-        if [ -f "$cfg" ]; then
-          echo "    Found: $cfg"
-          echo "    Contents:"
-          cat "$cfg" | sed 's/^/      /'
-        fi
-      done
-      echo ""
-      echo "  Which bundler binary:"
-      which bundler || echo "    bundler not in PATH"
-      echo "  Bundler version:"
-      bundler --version 2>&1 || echo "    (failed to get version)"
-      echo ""
-      echo "  Ruby load path for bundler:"
-      ruby -e "puts \$LOAD_PATH.grep(/bundler/)" 2>&1 || true
-      echo ""
-      echo "  GEM_HOME: $GEM_HOME"
-      echo "  GEM_PATH: $GEM_PATH"
-      echo "  Bundler gem location:"
-      ls -la $GEM_HOME/gems/bundler-* 2>/dev/null || echo "    (not found in GEM_HOME)"
-      echo "  === END BUNDLER DEBUG ==="
-      echo ""
-
       echo "  Running: rails assets:precompile"
       rails assets:precompile
 
