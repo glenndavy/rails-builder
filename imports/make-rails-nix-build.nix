@@ -312,40 +312,41 @@
         echo "  $line"
       done || true
 
-      # CRITICAL: Create a wrapper that sets bundler env vars AFTER any bundlerEnv wrapper runs
-      # bundlerEnv wrappers may override our env vars, so we need to re-set them at the last moment
-      # The wrapper also creates a .bundle/config to ensure bundler sees our settings
-      mkdir -p .bundle
-      cat > .bundle/config << 'BUNDLECONFIG'
----
-BUNDLE_FROZEN: "false"
-BUNDLE_DEPLOYMENT: "false"
-BUNDLE_PATH: "vendor/bundle"
-BUNDLE_DISABLE_CHECKSUM_VALIDATION: "true"
-BUNDLE_DISABLE_LOCAL_BRANCH_CHECK: "true"
-BUNDLE_DISABLE_LOCAL_REVISION_CHECK: "true"
-BUNDLE_ALLOW_OFFLINE_INSTALL: "true"
-BUNDLECONFIG
+      # CRITICAL: bundlerEnv's bundler has frozen mode baked in at a level that
+      # environment variables cannot override. The solution is to bypass bundler/setup
+      # entirely during asset precompilation - the gems are already available via GEM_PATH.
+      #
+      # We temporarily patch config/boot.rb to skip 'require bundler/setup' when
+      # NIX_SKIP_BUNDLER_SETUP is set, then restore it after asset precompilation.
 
-      # Create a wrapper script that forces our bundler settings AFTER any bundlerEnv wrapper executes
-      # This is necessary because bundlerEnv wrappers can override environment variables
-      cat > $TMPDIR/force-bundle-env << 'FORCEWRAPPER'
-#!/usr/bin/env bash
-# Force bundler settings - runs AFTER any bundlerEnv wrapper has set its variables
-export BUNDLE_FROZEN=false
-export BUNDLE_DEPLOYMENT=false
-export BUNDLE_IGNORE_CONFIG=false  # Now we WANT it to read our .bundle/config
-export BUNDLE_DISABLE_CHECKSUM_VALIDATION=true
-export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
-export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
-export BUNDLE_ALLOW_OFFLINE_INSTALL=true
-exec "$@"
-FORCEWRAPPER
-      chmod +x $TMPDIR/force-bundle-env
+      if [ -f config/boot.rb ]; then
+        echo "  Patching config/boot.rb to skip bundler/setup..."
+        cp config/boot.rb config/boot.rb.nix-backup
 
-      echo "  Running: rails assets:precompile (via force-bundle-env wrapper)"
-      # Use the wrapper to ensure our bundler settings take effect LAST
-      $TMPDIR/force-bundle-env rails assets:precompile
+        # Create a patched boot.rb that skips bundler/setup when NIX_SKIP_BUNDLER_SETUP is set
+        cat > config/boot.rb << 'BOOTPATCH'
+ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __dir__)
+
+# During Nix asset precompilation, skip bundler/setup entirely.
+# Gems are already available via GEM_PATH - bundler/setup just verifies the lockfile
+# which fails because bundlerEnv's bundler has frozen mode baked in.
+unless ENV['NIX_SKIP_BUNDLER_SETUP']
+  require 'bundler/setup' # Set up gems listed in the Gemfile.
+end
+BOOTPATCH
+        echo "  Patched config/boot.rb to conditionally skip bundler/setup"
+      fi
+
+      # Run asset precompilation with bundler/setup bypassed
+      export NIX_SKIP_BUNDLER_SETUP=1
+      echo "  Running: rails assets:precompile (with bundler/setup bypassed)"
+      rails assets:precompile
+
+      # Restore original boot.rb so the packaged app uses bundler normally at runtime
+      if [ -f config/boot.rb.nix-backup ]; then
+        echo "  Restoring original config/boot.rb"
+        mv config/boot.rb.nix-backup config/boot.rb
+      fi
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
