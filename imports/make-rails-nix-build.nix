@@ -311,9 +311,41 @@
       env | grep "^BUNDLE_LOCAL__" | while read line; do
         echo "  $line"
       done || true
-      echo "  Running: rails assets:precompile"
-      # Use direct Rails command (bundlerEnv approach - no bundle exec)
-      rails assets:precompile
+
+      # CRITICAL: Create a wrapper that sets bundler env vars AFTER any bundlerEnv wrapper runs
+      # bundlerEnv wrappers may override our env vars, so we need to re-set them at the last moment
+      # The wrapper also creates a .bundle/config to ensure bundler sees our settings
+      mkdir -p .bundle
+      cat > .bundle/config << 'BUNDLECONFIG'
+---
+BUNDLE_FROZEN: "false"
+BUNDLE_DEPLOYMENT: "false"
+BUNDLE_PATH: "vendor/bundle"
+BUNDLE_DISABLE_CHECKSUM_VALIDATION: "true"
+BUNDLE_DISABLE_LOCAL_BRANCH_CHECK: "true"
+BUNDLE_DISABLE_LOCAL_REVISION_CHECK: "true"
+BUNDLE_ALLOW_OFFLINE_INSTALL: "true"
+BUNDLECONFIG
+
+      # Create a wrapper script that forces our bundler settings AFTER any bundlerEnv wrapper executes
+      # This is necessary because bundlerEnv wrappers can override environment variables
+      cat > $TMPDIR/force-bundle-env << 'FORCEWRAPPER'
+#!/usr/bin/env bash
+# Force bundler settings - runs AFTER any bundlerEnv wrapper has set its variables
+export BUNDLE_FROZEN=false
+export BUNDLE_DEPLOYMENT=false
+export BUNDLE_IGNORE_CONFIG=false  # Now we WANT it to read our .bundle/config
+export BUNDLE_DISABLE_CHECKSUM_VALIDATION=true
+export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
+export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
+export BUNDLE_ALLOW_OFFLINE_INSTALL=true
+exec "$@"
+FORCEWRAPPER
+      chmod +x $TMPDIR/force-bundle-env
+
+      echo "  Running: rails assets:precompile (via force-bundle-env wrapper)"
+      # Use the wrapper to ensure our bundler settings take effect LAST
+      $TMPDIR/force-bundle-env rails assets:precompile
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
