@@ -409,30 +409,6 @@ ENVEOF
 
     shellHook = defaultShellHook;
   };
-  # Docker entrypoint script that sets up writable directories at runtime
-  dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
-    set -e
-
-    # The app is in the Nix store (read-only), we need to set up writable directories
-    APP_SOURCE="${app}"
-    RUNTIME_DIR="/app-runtime"
-
-    # Copy app to runtime dir if not already done (first run)
-    if [ ! -f "$RUNTIME_DIR/.initialized" ]; then
-      echo "Initializing app runtime directory..."
-      ${pkgs.rsync}/bin/rsync -a --delete "$APP_SOURCE/" "$RUNTIME_DIR/"
-      touch "$RUNTIME_DIR/.initialized"
-    fi
-
-    # Ensure writable directories exist
-    mkdir -p "$RUNTIME_DIR/tmp" "$RUNTIME_DIR/log" "$RUNTIME_DIR/storage" "$RUNTIME_DIR/tmp/pids" "$RUNTIME_DIR/tmp/cache"
-
-    # Change to runtime directory
-    cd "$RUNTIME_DIR"
-
-    # Execute the command
-    exec "$@"
-  '';
 in {
   inherit shell app;
   dockerImage = let
@@ -449,7 +425,6 @@ in {
           app
           gems
           usrBinDerivation
-          dockerEntrypoint
           pkgs.goreman
           rubyPackage
           pkgs.curl
@@ -486,31 +461,36 @@ in {
         chmod 1777 /tmp /var/tmp
         chown 1000:1000 /home/app_user
 
-        # Create writable app runtime directory
-        mkdir -p /app-runtime/tmp /app-runtime/log /app-runtime/storage /app-runtime/public/assets
-        chown -R 1000:1000 /app-runtime
-        chmod -R u+w /app-runtime
+        # Copy app from Nix store to /app (making it writable)
+        mkdir -p /app
+        ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
+
+        # Ensure writable subdirectories exist
+        mkdir -p /app/tmp /app/log /app/storage /app/tmp/pids /app/tmp/cache
+
+        # Make /app owned by app_user and writable
+        chown -R 1000:1000 /app
+        chmod -R u+w /app
       '';
       config = {
-        Entrypoint =
+        Cmd =
           if pkgs.stdenv.isLinux
-          then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
-          else ["${dockerEntrypoint}/bin/docker-entrypoint"];
-        Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
+          then ["${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web"]
+          else ["${pkgs.bash}/bin/bash" "-c" "${pkgs.goreman}/bin/goreman start web"];
         Env = [
-          "BUNDLE_PATH=/app-runtime/vendor/bundle"
-          "BUNDLE_GEMFILE=/app-runtime/Gemfile"
-          "GEM_PATH=/app-runtime/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app-runtime/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
+          "BUNDLE_PATH=/app/vendor/bundle"
+          "BUNDLE_GEMFILE=/app/Gemfile"
+          "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
           "RAILS_ENV=${railsEnv}"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-          "PATH=/app-runtime/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
+          "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
           "TZDIR=/usr/share/zoneinfo"
-          "TMPDIR=/app-runtime/tmp"
+          "TMPDIR=/app/tmp"
           "HOME=/home/app_user"
         ];
         User = "app_user:app_user";
-        WorkingDir = "/app-runtime";
+        WorkingDir = "/app";
       };
     };
 }
