@@ -21,7 +21,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.17.0";
+    version = "3.17.1";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -43,7 +43,10 @@
 
       # High-level helper to build Rails packages with all correct configuration
       # Usage: rails-builder.lib.${system}.mkRailsPackage { inherit pkgs; src = ./.; }
-      mkRailsPackage = args: import ./imports/mk-rails-package.nix args;
+      # Note: Automatically applies nixpkgs-ruby overlay to pkgs for ruby version packages
+      mkRailsPackage = args: import ./imports/mk-rails-package.nix (args // {
+        nixpkgsRubyOverlay = nixpkgs-ruby.overlays.default;
+      });
     in {
       inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkRailsPackage;
       inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion detectTailwindVersion;

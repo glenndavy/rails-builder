@@ -37,9 +37,16 @@
   gccVersion ? "latest",  # GCC version
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
+  nixpkgsRubyOverlay ? null, # Internal: nixpkgs-ruby overlay (passed by rails-builder)
 }:
 let
   system = pkgs.system;
+
+  # Apply nixpkgs-ruby overlay to get ruby-X.Y.Z packages
+  # This is passed automatically by rails-builder.lib.mkRailsPackage
+  pkgsWithRuby = if nixpkgsRubyOverlay != null
+    then pkgs.extend nixpkgsRubyOverlay
+    else pkgs;
 
   # Import detection utilities
   versionDetection = import ./detect-versions.nix;
@@ -62,8 +69,8 @@ let
   frameworkInfo = detectFramework { inherit src; };
   framework = frameworkInfo.framework;
 
-  # Ruby package
-  rubyPackage = pkgs."ruby-${detectedRubyVersion}";
+  # Ruby package (from nixpkgs-ruby overlay)
+  rubyPackage = pkgsWithRuby."ruby-${detectedRubyVersion}";
   rubyVersionSplit = builtins.splitVersion detectedRubyVersion;
   rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
 
