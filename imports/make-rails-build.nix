@@ -192,6 +192,55 @@ ENVEOF
       export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
     '';
   };
+  # Create /etc files derivation
+  etcFiles = pkgs.runCommand "etc-files" {} ''
+    mkdir -p $out/etc
+    cat > $out/etc/passwd <<-EOF
+    root:x:0:0::/root:/bin/bash
+    app_user:x:1000:1000:App User:/app:/bin/bash
+    EOF
+    cat > $out/etc/group <<-EOF
+    root:x:0:
+    app_user:x:1000:
+    EOF
+    cat > $out/etc/shadow <<-EOF
+    root:*:18000:0:99999:7:::
+    app_user:*:18000:0:99999:7:::
+    EOF
+  '';
+
+  # Writable directories
+  writableDirs = pkgs.runCommand "writable-dirs" {} ''
+    mkdir -p $out/tmp $out/var/tmp $out/app/tmp $out/app/log $out/app/storage
+    mkdir -p $out/app/tmp/pids $out/app/tmp/cache
+  '';
+
+  # Wrap app in /app directory
+  appInPlace = pkgs.runCommand "app-in-place" {} ''
+    mkdir -p $out/app
+    ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
+  '';
+
+  # Docker contents (app NOT at root - use appInPlace for /app structure)
+  dockerContents =
+    universalBuildInputs
+    ++ [
+      usrBinDerivation
+      writableDirs
+      etcFiles
+      appInPlace
+      pkgs.goreman
+      rubyPackage
+      pkgs.curl
+      opensslPackage
+      pkgs.rsync
+      pkgs.zlib
+      pkgs.nodejs
+      pkgs.bash
+      pkgs.coreutils
+    ]
+    ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.gosu ];
+
 in {
   inherit shell app;
   dockerImage = let
@@ -202,26 +251,14 @@ in {
   in
     pkgs.dockerTools.buildLayeredImage {
       name = "rails-app-image";
-      contents =
-        universalBuildInputs
-        ++ [
-          app
-          usrBinDerivation
-          pkgs.goreman
-          rubyPackage
-          pkgs.curl
-          opensslPackage
-          pkgs.rsync
-          pkgs.zlib
-          pkgs.nodejs
-          pkgs.bash
-          pkgs.coreutils
-        ]
-        ++ (
-          if pkgs.stdenv.isLinux
-          then [pkgs.gosu]
-          else []
-        );
+      contents = dockerContents;
+      enableFakechroot = pkgs.stdenv.isLinux;
+      fakeRootCommands = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        # Set permissions on mutable directories
+        chmod 1777 /tmp /var/tmp
+        chown -R 1000:1000 /app
+        chmod -R u+w /app/tmp /app/log /app/storage
+      '';
       config = {
         Cmd = [
           "${pkgs.bash}/bin/bash"
@@ -242,24 +279,6 @@ in {
           "TZDIR=/usr/share/zoneinfo"
         ];
         WorkingDir = "/app";
-        enableFakechroot = !pkgs.stdenv.isDarwin;
-        fakeRootCommands = ''
-          mkdir -p /etc
-          cat > /etc/passwd <<-EOF
-          root:x:0:0::/root:/bin/bash
-          app_user:x:1000:1000:App User:/app:/bin/bash
-          EOF
-          cat > /etc/group <<-EOF
-          root:x:0:
-          app_user:x:1000:
-          EOF
-          cat > /etc/shadow <<-EOF
-          root:*:18000:0:99999:7:::
-          app_user:*:18000:0:99999:7:::
-          EOF
-          chown -R 1000:1000 /app
-          chmod -R u+w /app
-        '';
       };
     };
 }
