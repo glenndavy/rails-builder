@@ -38,6 +38,7 @@
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
   nixpkgsRubyOverlay ? null, # Internal: nixpkgs-ruby overlay (passed by rails-builder)
+  railsBuilderVersion ? "unknown", # Internal: version for debugging (passed by rails-builder)
 }:
 let
   system = pkgs.system;
@@ -230,7 +231,7 @@ let
         inherit pkgs universalBuildInputs rubyPackage rubyMajorMinor gems
                 gccPackage opensslPackage usrBinDerivation tzinfo
                 tailwindcssPackage bundlerPackage buildRailsApp defaultShellHook
-                railsEnv;
+                railsEnv railsBuilderVersion;
         rubyVersion = detectedRubyVersion;
         inherit gccVersion opensslVersion;
         inherit src;

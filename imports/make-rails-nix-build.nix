@@ -21,6 +21,7 @@
   bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
   appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
   railsEnv ? "production", # Rails environment for asset precompilation
+  railsBuilderVersion ? "unknown", # Version of rails-builder for debugging
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -332,6 +333,9 @@
     installPhase = ''
       mkdir -p $out/app
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
+
+      # Write rails-builder version for debugging
+      echo "${railsBuilderVersion}" > $out/.rails-builder-version
 
       # Create comprehensive environment setup script with all build-time facts
       mkdir -p $out/bin
