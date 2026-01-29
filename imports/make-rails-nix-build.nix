@@ -409,6 +409,25 @@ ENVEOF
 
     shellHook = defaultShellHook;
   };
+  # Docker entrypoint that sets up writable symlinks before running the app
+  dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
+    set -e
+
+    # Create writable directories
+    mkdir -p /tmp/rails-app/tmp /tmp/rails-app/log /tmp/rails-app/storage /tmp/rails-app/tmp/pids /tmp/rails-app/tmp/cache
+
+    # Symlink writable dirs from app location
+    # The app is at ${app}, we create symlinks for the writable parts
+    export RAILS_TMP_PATH=/tmp/rails-app/tmp
+    export RAILS_LOG_PATH=/tmp/rails-app/log
+    export RAILS_STORAGE_PATH=/tmp/rails-app/storage
+
+    # Change to app directory
+    cd ${app}
+
+    # Execute the command
+    exec "$@"
+  '';
 in {
   inherit shell app;
   dockerImage = let
@@ -425,11 +444,11 @@ in {
           app
           gems
           usrBinDerivation
+          dockerEntrypoint
           pkgs.goreman
           rubyPackage
           pkgs.curl
           opensslPackage
-          pkgs.rsync
           pkgs.zlib
           pkgs.nodejs
           pkgs.bash
@@ -445,7 +464,7 @@ in {
         mkdir -p /etc
         cat > /etc/passwd <<-EOF
         root:x:0:0::/root:/bin/bash
-        app_user:x:1000:1000:App User:/home/app_user:/bin/bash
+        app_user:x:1000:1000:App User:/tmp:/bin/bash
         EOF
         cat > /etc/group <<-EOF
         root:x:0:
@@ -456,41 +475,29 @@ in {
         app_user:*:18000:0:99999:7:::
         EOF
 
-        # Create writable directories
-        mkdir -p /tmp /var/tmp /home/app_user
-        chmod 1777 /tmp /var/tmp
-        chown 1000:1000 /home/app_user
-
-        # Copy app from Nix store to /app (making it writable)
-        mkdir -p /app
-        ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
-
-        # Ensure writable subdirectories exist
-        mkdir -p /app/tmp /app/log /app/storage /app/tmp/pids /app/tmp/cache
-
-        # Make /app owned by app_user and writable
-        chown -R 1000:1000 /app
-        chmod -R u+w /app
+        # Create writable /tmp directory
+        mkdir -p /tmp
+        chmod 1777 /tmp
       '';
       config = {
-        Cmd =
+        Entrypoint =
           if pkgs.stdenv.isLinux
-          then ["${pkgs.bash}/bin/bash" "-c" "${pkgs.gosu}/bin/gosu app_user ${pkgs.goreman}/bin/goreman start web"]
-          else ["${pkgs.bash}/bin/bash" "-c" "${pkgs.goreman}/bin/goreman start web"];
+          then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
+          else ["${dockerEntrypoint}/bin/docker-entrypoint"];
+        Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
         Env = [
-          "BUNDLE_PATH=/app/vendor/bundle"
-          "BUNDLE_GEMFILE=/app/Gemfile"
-          "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems"
+          "BUNDLE_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
+          "BUNDLE_GEMFILE=${app}/Gemfile"
+          "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
+          "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
           "RAILS_ENV=${railsEnv}"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-          "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-          "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
-          "TZDIR=/usr/share/zoneinfo"
-          "TMPDIR=/app/tmp"
-          "HOME=/home/app_user"
+          "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
+          "TZDIR=${tzinfo}/usr/share/zoneinfo"
+          "TMPDIR=/tmp/rails-app/tmp"
+          "HOME=/tmp"
         ];
-        User = "app_user:app_user";
-        WorkingDir = "/app";
+        WorkingDir = "${app}";
       };
     };
 }
