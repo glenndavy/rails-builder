@@ -331,8 +331,8 @@
     '';
 
     installPhase = ''
-      mkdir -p $out/app
-      rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
+      mkdir -p $out
+      rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/
 
       # Write rails-builder version for debugging
       echo "${railsBuilderVersion}" > $out/.rails-builder-version
