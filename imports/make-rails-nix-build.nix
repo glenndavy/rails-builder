@@ -522,6 +522,8 @@ ENVEOF
       name = "rails-app-root";
       paths = dockerContents;
       pathsToLink = [ "/" ];
+      # Ignore collisions between gems and ruby binaries (e.g., rdbg, irb)
+      ignoreCollisions = true;
     };
     config = dockerConfig;
   };
