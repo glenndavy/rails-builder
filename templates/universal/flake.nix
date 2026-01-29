@@ -330,6 +330,8 @@
           # Use Rails build script for all frameworks - it's generic enough
           import (ruby-builder + "/imports/make-rails-nix-build.nix") {
             inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage appName;
+            railsBuilderVersion = version;
+            appRevision = self.rev or null;
             src = ./.;
             defaultShellHook = bundixShellHook;
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";

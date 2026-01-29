@@ -22,6 +22,7 @@
   appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
   railsEnv ? "production", # Rails environment for asset precompilation
   railsBuilderVersion ? "unknown", # Version of rails-builder for debugging
+  appRevision ? null, # Optional: Git revision of the app (falls back to src.rev)
   ...
 }: let
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
@@ -339,7 +340,7 @@
       echo "${railsBuilderVersion}" > $out/.rails-builder-version
 
       # Write app git revision if available
-      echo "${if src ? rev then src.rev else "unknown"}" > $out/REVISION
+      echo "${if appRevision != null then appRevision else if src ? rev then src.rev else "unknown"}" > $out/REVISION
 
       # Create comprehensive environment setup script with all build-time facts
       mkdir -p $out/bin
