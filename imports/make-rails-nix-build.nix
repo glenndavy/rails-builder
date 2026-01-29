@@ -337,6 +337,9 @@
       # Write rails-builder version for debugging
       echo "${railsBuilderVersion}" > $out/.rails-builder-version
 
+      # Write app git revision if available
+      echo "${if src ? rev then src.rev else "unknown"}" > $out/REVISION
+
       # Create comprehensive environment setup script with all build-time facts
       mkdir -p $out/bin
       cat > $out/bin/rails-env <<'ENVEOF'
