@@ -430,8 +430,7 @@ ENVEOF
     cd /app
     exec "$@"
   '';
-in {
-  inherit shell app;
+
   # Create /etc files as a derivation (used on Darwin where fakeroot doesn't work)
   etcFiles = pkgs.runCommand "etc-files" {} ''
     mkdir -p $out/etc
@@ -454,6 +453,8 @@ in {
     mkdir -p $out/app
     ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
   '';
+in {
+  inherit shell app;
 
   dockerImage = let
     commitSha =
