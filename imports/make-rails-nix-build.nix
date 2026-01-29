@@ -409,23 +409,17 @@ ENVEOF
 
     shellHook = defaultShellHook;
   };
-  # Docker entrypoint that sets up writable symlinks before running the app
+  # Derivation that creates writable directory structure for Docker
+  # This becomes a layer in the image with proper permissions
+  writableDirs = pkgs.runCommand "writable-dirs" {} ''
+    mkdir -p $out/tmp $out/var/tmp $out/app/tmp $out/app/log $out/app/storage
+    mkdir -p $out/app/tmp/pids $out/app/tmp/cache
+  '';
+
+  # Docker entrypoint that ensures we're in the right directory
   dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
     set -e
-
-    # Create writable directories
-    mkdir -p /tmp/rails-app/tmp /tmp/rails-app/log /tmp/rails-app/storage /tmp/rails-app/tmp/pids /tmp/rails-app/tmp/cache
-
-    # Symlink writable dirs from app location
-    # The app is at ${app}, we create symlinks for the writable parts
-    export RAILS_TMP_PATH=/tmp/rails-app/tmp
-    export RAILS_LOG_PATH=/tmp/rails-app/log
-    export RAILS_STORAGE_PATH=/tmp/rails-app/storage
-
-    # Change to app directory
-    cd ${app}
-
-    # Execute the command
+    cd /app
     exec "$@"
   '';
 in {
@@ -441,14 +435,15 @@ in {
       contents =
         universalBuildInputs
         ++ [
-          app
           gems
           usrBinDerivation
+          writableDirs
           dockerEntrypoint
           pkgs.goreman
           rubyPackage
           pkgs.curl
           opensslPackage
+          pkgs.rsync
           pkgs.zlib
           pkgs.nodejs
           pkgs.bash
@@ -464,7 +459,7 @@ in {
         mkdir -p /etc
         cat > /etc/passwd <<-EOF
         root:x:0:0::/root:/bin/bash
-        app_user:x:1000:1000:App User:/tmp:/bin/bash
+        app_user:x:1000:1000:App User:/app:/bin/bash
         EOF
         cat > /etc/group <<-EOF
         root:x:0:
@@ -475,9 +470,13 @@ in {
         app_user:*:18000:0:99999:7:::
         EOF
 
-        # Create writable /tmp directory
-        mkdir -p /tmp
-        chmod 1777 /tmp
+        # Set permissions on writable directories
+        chmod 1777 /tmp /var/tmp
+        chown -R 1000:1000 /app
+        chmod -R u+w /app
+
+        # Copy app into /app (writableDirs created the directory structure)
+        ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
       '';
       config = {
         Entrypoint =
@@ -486,18 +485,18 @@ in {
           else ["${dockerEntrypoint}/bin/docker-entrypoint"];
         Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
         Env = [
-          "BUNDLE_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
-          "BUNDLE_GEMFILE=${app}/Gemfile"
+          "BUNDLE_PATH=/app/vendor/bundle"
+          "BUNDLE_GEMFILE=/app/Gemfile"
           "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
           "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
           "RAILS_ENV=${railsEnv}"
           "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
           "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
           "TZDIR=${tzinfo}/usr/share/zoneinfo"
-          "TMPDIR=/tmp/rails-app/tmp"
-          "HOME=/tmp"
+          "TMPDIR=/app/tmp"
+          "HOME=/app"
         ];
-        WorkingDir = "${app}";
+        WorkingDir = "/app";
       };
     };
 }
