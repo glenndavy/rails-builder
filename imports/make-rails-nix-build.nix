@@ -432,7 +432,7 @@ ENVEOF
   '';
 in {
   inherit shell app;
-  # Create /etc files as a derivation (works on both Linux and Darwin)
+  # Create /etc files as a derivation (used on Darwin where fakeroot doesn't work)
   etcFiles = pkgs.runCommand "etc-files" {} ''
     mkdir -p $out/etc
     cat > $out/etc/passwd <<-EOF
@@ -449,7 +449,7 @@ in {
     EOF
   '';
 
-  # Wrap app in /app directory structure
+  # Wrap app in /app directory structure (used on Darwin where fakeroot doesn't work)
   appInPlace = pkgs.runCommand "app-in-place" {} ''
     mkdir -p $out/app
     ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
@@ -469,8 +469,6 @@ in {
           gems
           usrBinDerivation
           writableDirs
-          etcFiles
-          appInPlace
           dockerEntrypoint
           pkgs.goreman
           rubyPackage
@@ -482,14 +480,40 @@ in {
           pkgs.bash
           pkgs.coreutils
         ]
-        ++ (
-          if pkgs.stdenv.isLinux
-          then [pkgs.gosu]
-          else []
-        );
-      enableFakechroot = false;
-      # fakeRootCommands removed - doesn't work on Darwin
-      # /etc files and app are now included via derivations in contents
+        # Darwin: include /etc and /app via derivations (no fakeroot)
+        ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+          etcFiles
+          appInPlace
+        ]
+        # Linux: gosu for user switching (fakeroot handles /etc and /app)
+        ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+          pkgs.gosu
+        ];
+      enableFakechroot = pkgs.stdenv.isLinux;
+      # fakeRootCommands only on Linux - Darwin doesn't support fakeroot
+      fakeRootCommands = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+        mkdir -p /etc
+        cat > /etc/passwd <<-EOF
+        root:x:0:0::/root:/bin/bash
+        app_user:x:1000:1000:App User:/app:/bin/bash
+        EOF
+        cat > /etc/group <<-EOF
+        root:x:0:
+        app_user:x:1000:
+        EOF
+        cat > /etc/shadow <<-EOF
+        root:*:18000:0:99999:7:::
+        app_user:*:18000:0:99999:7:::
+        EOF
+
+        # Set permissions on writable directories
+        chmod 1777 /tmp /var/tmp
+        chown -R 1000:1000 /app
+        chmod -R u+w /app
+
+        # Copy app into /app (writableDirs created the directory structure)
+        ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
+      '';
       config = {
         Entrypoint =
           if pkgs.stdenv.isLinux
