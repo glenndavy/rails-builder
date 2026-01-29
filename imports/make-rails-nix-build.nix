@@ -453,8 +453,6 @@ ENVEOF
     mkdir -p $out/app
     ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
   '';
-in {
-  inherit shell app;
 
   # Common Docker image contents
   dockerContents =
@@ -529,4 +527,7 @@ in {
   };
 
   dockerImage = if pkgs.stdenv.isLinux then dockerImageLinux else dockerImageDarwin;
+
+in {
+  inherit shell app dockerImage;
 }
