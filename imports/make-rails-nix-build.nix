@@ -454,15 +454,13 @@ ENVEOF
     ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
   '';
 
-  # Common Docker image contents
-  dockerContents =
+  # Base Docker image contents (shared between Linux and Darwin)
+  dockerContentsBase =
     universalBuildInputs
     ++ [
       gems
       usrBinDerivation
       writableDirs
-      etcFiles
-      appInPlace
       dockerEntrypoint
       pkgs.goreman
       rubyPackage
@@ -473,10 +471,13 @@ ENVEOF
       pkgs.nodejs
       pkgs.bash
       pkgs.coreutils
-    ]
-    ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-      pkgs.gosu
     ];
+
+  # Linux: minimal contents (app and /etc created in fakeRootCommands for proper permissions)
+  dockerContentsLinux = dockerContentsBase ++ [ pkgs.gosu ];
+
+  # Darwin: include app and /etc as derivations (no fakeroot available)
+  dockerContentsDarwin = dockerContentsBase ++ [ etcFiles appInPlace ];
 
   # Common Docker config
   dockerConfig = {
@@ -503,13 +504,36 @@ ENVEOF
   # Linux: Full layered image with fakeroot for proper permissions
   dockerImageLinux = pkgs.dockerTools.buildLayeredImage {
     name = "rails-app-image";
-    contents = dockerContents;
+    contents = dockerContentsLinux;
     enableFakechroot = true;
     fakeRootCommands = ''
-      # Set permissions on writable directories
-      chmod 1777 /tmp /var/tmp
+      # Create /etc files
+      mkdir -p /etc
+      cat > /etc/passwd <<-EOF
+      root:x:0:0::/root:/bin/bash
+      app_user:x:1000:1000:App User:/app:/bin/bash
+      EOF
+      cat > /etc/group <<-EOF
+      root:x:0:
+      app_user:x:1000:
+      EOF
+      cat > /etc/shadow <<-EOF
+      root:*:18000:0:99999:7:::
+      app_user:*:18000:0:99999:7:::
+      EOF
+
+      # Copy app into /app
+      mkdir -p /app
+      ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
+
+      # Set ownership on app directory
       chown -R 1000:1000 /app
-      chmod -R u+w /app
+
+      # Create and set permissions on mutable directories
+      mkdir -p /tmp /var/tmp /app/tmp /app/tmp/pids /app/tmp/cache /app/log /app/storage
+      chmod 1777 /tmp /var/tmp
+      chmod -R u+w /app/tmp /app/log /app/storage
+      chown -R 1000:1000 /app/tmp /app/log /app/storage
     '';
     config = dockerConfig;
   };
@@ -526,7 +550,7 @@ ENVEOF
     # --ignore-existing prevents collisions, earlier packages take priority
     ${pkgs.lib.concatMapStringsSep "\n" (pkg: ''
       rsync -a --ignore-existing ${pkg}/ $out/ 2>/dev/null || true
-    '') dockerContents}
+    '') dockerContentsDarwin}
   '';
 
   dockerImageDarwin = pkgs.dockerTools.buildImage {
