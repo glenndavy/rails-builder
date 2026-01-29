@@ -516,15 +516,22 @@ ENVEOF
 
   # Darwin: Simple image without fakeroot (no permission setting)
   # Note: For production images with proper permissions, build on Linux
+  # Use rsync to properly merge contents instead of buildEnv symlinks
+  dockerRootDarwin = pkgs.runCommand "rails-app-root" {
+    nativeBuildInputs = [ pkgs.rsync ];
+  } ''
+    mkdir -p $out
+
+    # Merge all package contents using rsync
+    # --ignore-existing prevents collisions, earlier packages take priority
+    ${pkgs.lib.concatMapStringsSep "\n" (pkg: ''
+      rsync -a --ignore-existing ${pkg}/ $out/ 2>/dev/null || true
+    '') dockerContents}
+  '';
+
   dockerImageDarwin = pkgs.dockerTools.buildImage {
     name = "rails-app-image";
-    copyToRoot = pkgs.buildEnv {
-      name = "rails-app-root";
-      paths = dockerContents;
-      pathsToLink = [ "/" ];
-      # Ignore collisions between gems and ruby binaries (e.g., rdbg, irb)
-      ignoreCollisions = true;
-    };
+    copyToRoot = dockerRootDarwin;
     config = dockerConfig;
   };
 
