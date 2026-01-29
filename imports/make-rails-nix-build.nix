@@ -456,84 +456,77 @@ ENVEOF
 in {
   inherit shell app;
 
-  dockerImage = let
-    commitSha =
-      if src ? rev
-      then builtins.substring 0 8 src.rev
-      else "latest";
-  in
-    pkgs.dockerTools.buildLayeredImage {
-      name = "rails-app-image";
-      contents =
-        universalBuildInputs
-        ++ [
-          gems
-          usrBinDerivation
-          writableDirs
-          dockerEntrypoint
-          pkgs.goreman
-          rubyPackage
-          pkgs.curl
-          opensslPackage
-          pkgs.rsync
-          pkgs.zlib
-          pkgs.nodejs
-          pkgs.bash
-          pkgs.coreutils
-        ]
-        # Darwin: include /etc and /app via derivations (no fakeroot)
-        ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-          etcFiles
-          appInPlace
-        ]
-        # Linux: gosu for user switching (fakeroot handles /etc and /app)
-        ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-          pkgs.gosu
-        ];
-      enableFakechroot = pkgs.stdenv.isLinux;
-      # fakeRootCommands only on Linux - Darwin doesn't support fakeroot
-      fakeRootCommands = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-        mkdir -p /etc
-        cat > /etc/passwd <<-EOF
-        root:x:0:0::/root:/bin/bash
-        app_user:x:1000:1000:App User:/app:/bin/bash
-        EOF
-        cat > /etc/group <<-EOF
-        root:x:0:
-        app_user:x:1000:
-        EOF
-        cat > /etc/shadow <<-EOF
-        root:*:18000:0:99999:7:::
-        app_user:*:18000:0:99999:7:::
-        EOF
+  # Common Docker image contents
+  dockerContents =
+    universalBuildInputs
+    ++ [
+      gems
+      usrBinDerivation
+      writableDirs
+      etcFiles
+      appInPlace
+      dockerEntrypoint
+      pkgs.goreman
+      rubyPackage
+      pkgs.curl
+      opensslPackage
+      pkgs.rsync
+      pkgs.zlib
+      pkgs.nodejs
+      pkgs.bash
+      pkgs.coreutils
+    ]
+    ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+      pkgs.gosu
+    ];
 
-        # Set permissions on writable directories
-        chmod 1777 /tmp /var/tmp
-        chown -R 1000:1000 /app
-        chmod -R u+w /app
+  # Common Docker config
+  dockerConfig = {
+    Entrypoint =
+      if pkgs.stdenv.isLinux
+      then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
+      else ["${dockerEntrypoint}/bin/docker-entrypoint"];
+    Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
+    Env = [
+      "BUNDLE_PATH=/app/vendor/bundle"
+      "BUNDLE_GEMFILE=/app/Gemfile"
+      "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
+      "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
+      "RAILS_ENV=${railsEnv}"
+      "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
+      "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
+      "TZDIR=${tzinfo}/usr/share/zoneinfo"
+      "TMPDIR=/app/tmp"
+      "HOME=/app"
+    ];
+    WorkingDir = "/app";
+  };
 
-        # Copy app into /app (writableDirs created the directory structure)
-        ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
-      '';
-      config = {
-        Entrypoint =
-          if pkgs.stdenv.isLinux
-          then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
-          else ["${dockerEntrypoint}/bin/docker-entrypoint"];
-        Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
-        Env = [
-          "BUNDLE_PATH=/app/vendor/bundle"
-          "BUNDLE_GEMFILE=/app/Gemfile"
-          "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
-          "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
-          "RAILS_ENV=${railsEnv}"
-          "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-          "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
-          "TZDIR=${tzinfo}/usr/share/zoneinfo"
-          "TMPDIR=/app/tmp"
-          "HOME=/app"
-        ];
-        WorkingDir = "/app";
-      };
+  # Linux: Full layered image with fakeroot for proper permissions
+  dockerImageLinux = pkgs.dockerTools.buildLayeredImage {
+    name = "rails-app-image";
+    contents = dockerContents;
+    enableFakechroot = true;
+    fakeRootCommands = ''
+      # Set permissions on writable directories
+      chmod 1777 /tmp /var/tmp
+      chown -R 1000:1000 /app
+      chmod -R u+w /app
+    '';
+    config = dockerConfig;
+  };
+
+  # Darwin: Simple image without fakeroot (no permission setting)
+  # Note: For production images with proper permissions, build on Linux
+  dockerImageDarwin = pkgs.dockerTools.buildImage {
+    name = "rails-app-image";
+    copyToRoot = pkgs.buildEnv {
+      name = "rails-app-root";
+      paths = dockerContents;
+      pathsToLink = [ "/" ];
     };
+    config = dockerConfig;
+  };
+
+  dockerImage = if pkgs.stdenv.isLinux then dockerImageLinux else dockerImageDarwin;
 }
