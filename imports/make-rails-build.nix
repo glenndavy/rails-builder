@@ -58,7 +58,8 @@
   app = pkgs.stdenv.mkDerivation {
     name = appName;
     inherit src;
-    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nix-ld];
+    nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp]
+      ++ pkgs.lib.optionals pkgs.stdenv.isLinux [pkgs.nix-ld];
     buildInputs = universalBuildInputs
       ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
         pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld

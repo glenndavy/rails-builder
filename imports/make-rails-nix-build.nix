@@ -60,7 +60,8 @@
     ];
 
     nativeBuildInputs =
-      [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage pkgs.nix-ld pkgs.git]
+      [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage pkgs.git]
+      ++ pkgs.lib.optionals pkgs.stdenv.isLinux [pkgs.nix-ld]
       ++ universalBuildInputs # Include all buildInputs in nativeBuildInputs for library access
       ++ (
         if builtins.pathExists (src + "/yarn.lock")
