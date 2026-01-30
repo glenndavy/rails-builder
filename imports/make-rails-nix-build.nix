@@ -452,6 +452,13 @@ ENVEOF
   dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
     set -e
     cd /app
+
+    # If no arguments passed, run goreman with configurable Procfile and role
+    # PROCFILE_NAME defaults to "Procfile", PROCFILE_ROLE defaults to "web"
+    if [ $# -eq 0 ]; then
+      exec ${pkgs.goreman}/bin/goreman -f "''${PROCFILE_NAME:-Procfile}" start "''${PROCFILE_ROLE:-web}"
+    fi
+
     exec "$@"
   '';
 
@@ -518,7 +525,7 @@ ENVEOF
       if pkgs.stdenv.isLinux
       then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
       else ["${dockerEntrypoint}/bin/docker-entrypoint"];
-    Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
+    # No Cmd - entrypoint handles default (goreman with PROCFILE_NAME/PROCFILE_ROLE)
     Env = [
       # Bundix: gems are in Nix store, bundler finds them via GEM_HOME/GEM_PATH
       # Use bundlerEnv's confFiles for BUNDLE_GEMFILE (contains normalized Gemfile that bundler expects)

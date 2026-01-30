@@ -240,6 +240,12 @@ ENVEOF
     export GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0
     export PATH=/app/bin:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin
 
+    # If no arguments passed, run goreman with configurable Procfile and role
+    # PROCFILE_NAME defaults to "Procfile", PROCFILE_ROLE defaults to "web"
+    if [ $# -eq 0 ]; then
+      exec ${pkgs.goreman}/bin/goreman -f "''${PROCFILE_NAME:-Procfile}" start "''${PROCFILE_ROLE:-web}"
+    fi
+
     exec "$@"
   '';
 
@@ -282,7 +288,7 @@ ENVEOF
       if pkgs.stdenv.isLinux
       then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
       else ["${dockerEntrypoint}/bin/docker-entrypoint"];
-    Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
+    # No Cmd - entrypoint handles default (goreman with PROCFILE_NAME/PROCFILE_ROLE)
     Env = [
       "BUNDLE_PATH=/app/vendor/bundle"
       "BUNDLE_GEMFILE=/app/Gemfile"
