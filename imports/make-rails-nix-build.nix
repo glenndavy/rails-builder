@@ -285,15 +285,10 @@
       # Remove any existing .bundle/config to prevent conflicts
       rm -rf .bundle/config $HOME/.bundle/config 2>/dev/null || true
 
-      # Handle frozen mode based on whether local git gem overrides are present
-      # BUNDLE_LOCAL__ overrides can cause gemspec mismatches which conflict with frozen mode
-      # For asset precompilation, we generally want frozen=false to avoid lockfile update attempts
-      if env | grep -q "^BUNDLE_LOCAL__"; then
-        echo "  Note: Disabling frozen/deployment mode due to BUNDLE_LOCAL__ overrides"
-      fi
-      # Always disable frozen mode during asset precompilation to prevent lockfile conflicts
-      # The gems are already installed by bundlerEnv, we just need to compile assets
-      export BUNDLE_FROZEN=false
+      # Keep frozen mode enabled to prevent Gemfile.lock modifications
+      # BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true (set above) prevents errors on revision mismatch
+      # BUNDLE_FROZEN=true prevents bundler from "helpfully" updating Gemfile.lock
+      export BUNDLE_FROZEN=true
       export BUNDLE_DEPLOYMENT=false
 
       echo ""
