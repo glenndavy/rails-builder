@@ -250,9 +250,10 @@ let
         );
       in (import ./make-rails-build.nix { inherit pkgs; }) {
         rubyVersion = detectedRubyVersion;
-        inherit src;
+        inherit src railsEnv railsBuilderVersion;
         buildRailsApp = buildRailsAppFallback;
-        inherit appName bundlerPackage;
+        appName = finalAppName;
+        inherit bundlerPackage;
       };
 
 in {

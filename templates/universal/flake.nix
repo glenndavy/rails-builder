@@ -243,6 +243,12 @@
       bundlerBuild = let
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
           inherit rubyVersion gccVersion opensslVersion appName bundlerPackage;
+          railsBuilderVersion = version;
+          # Use rev if clean, dirtyRev if dirty (strip "-dirty" suffix)
+          appRevision = let
+            rev = self.rev or self.dirtyRev or null;
+          in if rev != null then builtins.replaceStrings ["-dirty"] [""] rev else null;
+          railsEnv = "production";
           src = ./.;
           buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor framework;});
         };

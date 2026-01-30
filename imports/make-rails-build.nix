@@ -6,6 +6,9 @@
   buildRailsApp,
   appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
   bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
+  railsBuilderVersion ? "unknown", # Optional: Version string for debugging
+  appRevision ? null, # Optional: Git revision of the app
+  railsEnv ? "production", # Rails environment
 }: let
   rubyPackage = pkgs."ruby-${rubyVersion}";
   rubyVersionSplit = builtins.splitVersion rubyVersion;
@@ -119,8 +122,15 @@
 
     installPhase = ''
       echo "INSTALL PHASE"
-      mkdir -p $out/app
-      rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/app
+      # Put files directly in $out (not $out/app) - consistent with bundix version
+      mkdir -p $out
+      rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/
+
+      # Write rails-builder version for debugging
+      echo "${railsBuilderVersion}" > $out/.rails-builder-version
+
+      # Write app git revision if available
+      echo "${if appRevision != null then appRevision else if src ? rev then src.rev else "unknown"}" > $out/REVISION
 
       # Create comprehensive environment setup script with all build-time facts
       mkdir -p $out/bin
@@ -215,20 +225,27 @@ ENVEOF
     mkdir -p $out/app/tmp/pids $out/app/tmp/cache
   '';
 
-  # Wrap app in /app directory
-  appInPlace = pkgs.runCommand "app-in-place" {} ''
-    mkdir -p $out/app
-    ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
+  # Docker entrypoint script - consistent with bundix version
+  dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
+    set -e
+    cd /app
+    exec "$@"
   '';
 
-  # Docker contents (app NOT at root - use appInPlace for /app structure)
-  dockerContents =
+  # Wrap app in /app directory for Docker
+  # app derivation puts files directly in $out/, so we rsync to $out/app/
+  appInPlace = pkgs.runCommand "app-in-place" {} ''
+    mkdir -p $out/app
+    ${pkgs.rsync}/bin/rsync -rltD --no-perms --chmod=ugo=rwX ${app}/ $out/app/
+  '';
+
+  # Base Docker contents (shared)
+  dockerContentsBase =
     universalBuildInputs
     ++ [
       usrBinDerivation
       writableDirs
-      etcFiles
-      appInPlace
+      dockerEntrypoint
       pkgs.goreman
       rubyPackage
       pkgs.curl
@@ -239,46 +256,83 @@ ENVEOF
       pkgs.bash
       pkgs.coreutils
     ]
-    ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.gosu ];
+    # Include bundler so 'bundle exec' works
+    ++ (if bundlerPackage != null then [ bundlerPackage ] else []);
+
+  # Linux: minimal contents (app and /etc created in fakeRootCommands for proper permissions)
+  dockerContentsLinux = dockerContentsBase ++ [ pkgs.gosu ];
+
+  # Darwin: include app and /etc as derivations (no fakeroot available)
+  dockerContentsDarwin = dockerContentsBase ++ [ etcFiles appInPlace ];
+
+  # Common Docker config - consistent with bundix version
+  dockerConfig = {
+    Entrypoint =
+      if pkgs.stdenv.isLinux
+      then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
+      else ["${dockerEntrypoint}/bin/docker-entrypoint"];
+    Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
+    Env = [
+      "BUNDLE_PATH=/app/vendor/bundle"
+      "BUNDLE_GEMFILE=/app/Gemfile"
+      "BUNDLE_FROZEN=true"
+      "RAILS_ENV=${railsEnv}"
+      "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
+      "PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
+      "TZDIR=${tzinfo}/usr/share/zoneinfo"
+      "TMPDIR=/app/tmp"
+      "HOME=/app"
+    ];
+    WorkingDir = "/app";
+  };
+
+  # Linux: Full layered image with fakeroot for proper permissions
+  dockerImageLinux = pkgs.dockerTools.buildLayeredImage {
+    name = "rails-app-image";
+    contents = dockerContentsLinux;
+    enableFakechroot = true;
+    fakeRootCommands = ''
+      # Create /etc files
+      mkdir -p /etc
+      cat > /etc/passwd <<-EOF
+      root:x:0:0::/root:/bin/bash
+      app_user:x:1000:1000:App User:/app:/bin/bash
+      EOF
+      cat > /etc/group <<-EOF
+      root:x:0:
+      app_user:x:1000:
+      EOF
+      cat > /etc/shadow <<-EOF
+      root:*:18000:0:99999:7:::
+      app_user:*:18000:0:99999:7:::
+      EOF
+
+      # Copy app into /app (use --no-perms to avoid permission issues from Nix store)
+      mkdir -p /app
+      ${pkgs.rsync}/bin/rsync -rltD --no-perms --chmod=ugo=rwX ${app}/ /app/
+
+      # Set ownership on app directory
+      chown -R 1000:1000 /app
+
+      # Set permissions on mutable directories
+      chmod 1777 /tmp /var/tmp
+      chmod -R u+w /app/tmp /app/log /app/storage 2>/dev/null || true
+    '';
+    config = dockerConfig;
+  };
+
+  # Darwin: simpler image without fakeroot
+  dockerImageDarwin = pkgs.dockerTools.buildImage {
+    name = "rails-app-image";
+    copyToRoot = pkgs.buildEnv {
+      name = "rails-app-darwin-root";
+      paths = dockerContentsDarwin;
+      pathsToLink = [ "/" ];
+    };
+    config = dockerConfig;
+  };
 
 in {
   inherit shell app;
-  dockerImage = let
-    commitSha =
-      if src ? rev
-      then builtins.substring 0 8 src.rev
-      else "latest";
-  in
-    pkgs.dockerTools.buildLayeredImage {
-      name = "rails-app-image";
-      contents = dockerContents;
-      enableFakechroot = pkgs.stdenv.isLinux;
-      fakeRootCommands = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-        # Set permissions on mutable directories
-        chmod 1777 /tmp /var/tmp
-        chown -R 1000:1000 /app
-        chmod -R u+w /app/tmp /app/log /app/storage
-      '';
-      config = {
-        Cmd = [
-          "${pkgs.bash}/bin/bash"
-          "-c"
-          "${
-            if pkgs.stdenv.isLinux
-            then "${pkgs.gosu}/bin/gosu app_user "
-            else ""
-          }${pkgs.goreman}/bin/goreman start web"
-        ];
-        Env = [
-          "BUNDLE_PATH=/app/vendor/bundle"
-          "BUNDLE_GEMFILE=/app/Gemfile"
-          "RAILS_ENV=production"
-          "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-          "RUBYOPT=-I${rubyPackage}/lib/ruby/${rubyMajorMinor}.0"
-          "PATH=/app/vendor/bundle/bin:${rubyPackage}/bin:/usr/local/bin:/usr/bin:/bin"
-          "TZDIR=/usr/share/zoneinfo"
-        ];
-        WorkingDir = "/app";
-      };
-    };
+  dockerImage = if pkgs.stdenv.isLinux then dockerImageLinux else dockerImageDarwin;
 }
