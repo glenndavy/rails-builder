@@ -197,6 +197,9 @@
             ln -sf "$PWD/$cached_gem" vendor/bundle/ruby/${rubyMajorMinor}.0/bundler/gems/$gem_basename
 
             # Initialize git repo if not already present (needed for BUNDLE_LOCAL__ override)
+            # NOTE: This creates a NEW commit with a NEW SHA, which differs from the
+            # original revision in Gemfile.lock. This causes bundler to see a mismatch.
+            # See "GEMFILE.LOCK PRESERVATION WORKAROUND" in STAGE 4 for how we handle this.
             if [ ! -d "$cached_gem/.git" ]; then
               echo "    Initializing git repo in $gem_basename for bundler local override..."
 
@@ -285,8 +288,27 @@
       # Remove any existing .bundle/config to prevent conflicts
       rm -rf .bundle/config $HOME/.bundle/config 2>/dev/null || true
 
-      # Bundler may modify Gemfile.lock due to BUNDLE_LOCAL__ overrides
-      # We save the original and restore it after asset precompilation
+      # ============================================================================
+      # GEMFILE.LOCK PRESERVATION WORKAROUND
+      # ============================================================================
+      # Problem: For vendor/cache git gems, we initialize a git repo and commit
+      # the contents (see STAGE 3 above). This creates a NEW commit with a NEW SHA,
+      # different from the original revision in Gemfile.lock.
+      #
+      # When bundler runs with BUNDLE_LOCAL__ overrides, it validates that the
+      # local gem's gemspec matches what's recorded in Gemfile.lock. Since we have
+      # a different commit SHA, bundler sees a mismatch.
+      #
+      # With BUNDLE_FROZEN=true: bundler fails with "gemspecs changed" error
+      # With BUNDLE_FROZEN=false: bundler "helpfully" updates Gemfile.lock
+      #
+      # Neither BUNDLE_DISABLE_LOCAL_REVISION_CHECK nor BUNDLE_DISABLE_CHECKSUM_VALIDATION
+      # prevent the gemspec validation that causes this issue.
+      #
+      # Solution: Let bundler modify Gemfile.lock during asset precompilation,
+      # then restore the original afterward. The final artifact gets the correct
+      # Gemfile.lock that matches the source repository.
+      # ============================================================================
       cp Gemfile.lock Gemfile.lock.original
       export BUNDLE_FROZEN=false
       export BUNDLE_DEPLOYMENT=false
@@ -320,7 +342,9 @@
       echo "  Running: rails assets:precompile"
       rails assets:precompile
 
-      # Restore original Gemfile.lock (bundler may have modified it due to BUNDLE_LOCAL__ overrides)
+      # Restore original Gemfile.lock - see "GEMFILE.LOCK PRESERVATION WORKAROUND" above
+      # This ensures the final artifact has the correct Gemfile.lock from source,
+      # not the modified version bundler created during asset precompilation
       echo "  Restoring original Gemfile.lock..."
       mv Gemfile.lock.original Gemfile.lock
 
