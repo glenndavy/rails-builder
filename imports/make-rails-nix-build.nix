@@ -523,9 +523,9 @@ ENVEOF
       app_user:*:18000:0:99999:7:::
       EOF
 
-      # Copy app into /app
+      # Copy app into /app (use --no-perms to avoid permission issues from Nix store)
       mkdir -p /app
-      ${pkgs.rsync}/bin/rsync -a ${app}/ /app/
+      ${pkgs.rsync}/bin/rsync -rltD --no-perms --chmod=ugo=rwX ${app}/ /app/
 
       # Set ownership on app directory
       chown -R 1000:1000 /app
