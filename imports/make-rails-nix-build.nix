@@ -285,10 +285,10 @@
       # Remove any existing .bundle/config to prevent conflicts
       rm -rf .bundle/config $HOME/.bundle/config 2>/dev/null || true
 
-      # Keep frozen mode enabled to prevent Gemfile.lock modifications
-      # BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true (set above) prevents errors on revision mismatch
-      # BUNDLE_FROZEN=true prevents bundler from "helpfully" updating Gemfile.lock
-      export BUNDLE_FROZEN=true
+      # Bundler may modify Gemfile.lock due to BUNDLE_LOCAL__ overrides
+      # We save the original and restore it after asset precompilation
+      cp Gemfile.lock Gemfile.lock.original
+      export BUNDLE_FROZEN=false
       export BUNDLE_DEPLOYMENT=false
 
       echo ""
@@ -319,6 +319,10 @@
 
       echo "  Running: rails assets:precompile"
       rails assets:precompile
+
+      # Restore original Gemfile.lock (bundler may have modified it due to BUNDLE_LOCAL__ overrides)
+      echo "  Restoring original Gemfile.lock..."
+      mv Gemfile.lock.original Gemfile.lock
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
