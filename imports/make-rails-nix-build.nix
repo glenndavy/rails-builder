@@ -491,8 +491,10 @@ ENVEOF
       else ["${dockerEntrypoint}/bin/docker-entrypoint"];
     Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
     Env = [
-      "BUNDLE_PATH=/app/vendor/bundle"
+      # Bundix: gems are in Nix store, bundler finds them via GEM_HOME/GEM_PATH
+      # Don't set BUNDLE_PATH - it would point bundler to wrong location
       "BUNDLE_GEMFILE=/app/Gemfile"
+      "BUNDLE_FROZEN=true"
       "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
       "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
