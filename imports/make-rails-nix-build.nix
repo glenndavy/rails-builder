@@ -472,7 +472,10 @@ ENVEOF
       pkgs.nodejs
       pkgs.bash
       pkgs.coreutils
-    ];
+    ]
+    # Include bundler so 'bundle exec' works even in bundix environments
+    # (Procfiles and binstubs typically use 'bundle exec')
+    ++ (if bundlerPackage != null then [ bundlerPackage ] else []);
 
   # Linux: minimal contents (app and /etc created in fakeRootCommands for proper permissions)
   dockerContentsLinux = dockerContentsBase ++ [ pkgs.gosu ];
@@ -494,7 +497,7 @@ ENVEOF
       "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
       "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-      "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
+      "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
       "TZDIR=${tzinfo}/usr/share/zoneinfo"
       "TMPDIR=/app/tmp"
       "HOME=/app"
