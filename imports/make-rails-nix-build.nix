@@ -478,6 +478,10 @@ ENVEOF
     ${pkgs.rsync}/bin/rsync -a ${app}/ $out/app/
   '';
 
+  # The bundlerEnv's confFiles contains the normalized Gemfile/Gemfile.lock
+  # that bundler expects - this must be used for BUNDLE_GEMFILE
+  gemsConfFiles = gems.confFiles or gems.passthru.confFiles or null;
+
   # Base Docker image contents (shared between Linux and Darwin)
   dockerContentsBase =
     universalBuildInputs
@@ -498,7 +502,9 @@ ENVEOF
     ]
     # Include bundler so 'bundle exec' works even in bundix environments
     # (Procfiles and binstubs typically use 'bundle exec')
-    ++ (if bundlerPackage != null then [ bundlerPackage ] else []);
+    ++ (if bundlerPackage != null then [ bundlerPackage ] else [])
+    # Include bundlerEnv's confFiles (normalized Gemfile for bundler)
+    ++ (if gemsConfFiles != null then [ gemsConfFiles ] else []);
 
   # Linux: minimal contents (app and /etc created in fakeRootCommands for proper permissions)
   dockerContentsLinux = dockerContentsBase ++ [ pkgs.gosu ];
@@ -515,14 +521,14 @@ ENVEOF
     Cmd = ["${pkgs.goreman}/bin/goreman" "start" "web"];
     Env = [
       # Bundix: gems are in Nix store, bundler finds them via GEM_HOME/GEM_PATH
-      # Don't set BUNDLE_PATH - it would point bundler to wrong location
-      "BUNDLE_GEMFILE=/app/Gemfile"
+      # Use bundlerEnv's confFiles for BUNDLE_GEMFILE (contains normalized Gemfile that bundler expects)
+      "BUNDLE_GEMFILE=${if gemsConfFiles != null then "${gemsConfFiles}/Gemfile" else "/app/Gemfile"}"
       "BUNDLE_FROZEN=true"
       "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
       "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
       "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
-      "PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
+      "PATH=${gems}/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
       "TZDIR=${tzinfo}/usr/share/zoneinfo"
       "TMPDIR=/app/tmp"
       "HOME=/app"
