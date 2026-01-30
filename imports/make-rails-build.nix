@@ -225,10 +225,21 @@ ENVEOF
     mkdir -p $out/app/tmp/pids $out/app/tmp/cache
   '';
 
-  # Docker entrypoint script - consistent with bundix version
+  # Docker entrypoint script - sets up bundler environment
   dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
     set -e
     cd /app
+
+    # Ensure bundler environment is set up for interactive shells
+    # These should match the Docker Env, but we set them explicitly
+    # in case bash startup files modify the environment
+    export BUNDLE_PATH=/app/vendor/bundle
+    export BUNDLE_GEMFILE=/app/Gemfile
+    export BUNDLE_FROZEN=true
+    export GEM_HOME=/app/vendor/bundle/ruby/${rubyMajorMinor}.0
+    export GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0
+    export PATH=/app/bin:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin
+
     exec "$@"
   '';
 
@@ -276,6 +287,8 @@ ENVEOF
       "BUNDLE_PATH=/app/vendor/bundle"
       "BUNDLE_GEMFILE=/app/Gemfile"
       "BUNDLE_FROZEN=true"
+      "GEM_HOME=/app/vendor/bundle/ruby/${rubyMajorMinor}.0"
+      "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
       "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
       "PATH=/app/bin:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
