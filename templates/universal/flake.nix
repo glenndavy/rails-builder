@@ -57,14 +57,21 @@
     # Import tailwindcss hashes for exact version matching
     tailwindcssHashes = import (ruby-builder + "/tailwindcss-hashes.nix");
 
-    # Application name for Nix store paths and Docker images
+    # ============================================================================
+    # APPLICATION NAME - CUSTOMIZE THIS FOR YOUR APP
+    # ============================================================================
     # This name is used for:
     #   - Nix derivation name (appears in /nix/store/<hash>-<appName>)
     #   - Docker image name (e.g., <appName>-image:latest)
-    # Defaults to the directory name. Customize for multi-app repos or clarity:
-    #   appName = "my-rails-app";
-    #   appName = "ops-core-api";
-    appName = builtins.baseNameOf (builtins.toString ./.);
+    #
+    # IMPORTANT: Set this to your app's name! Examples:
+    #   appName = "ops-core-rails";
+    #   appName = "my-api";
+    #   appName = "acme-web";
+    #
+    # The default uses the detected framework, but a custom name is recommended.
+    # ============================================================================
+    appName = null;  # Set to your app name, e.g., "my-rails-app"
 
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
@@ -79,6 +86,9 @@
       # Framework detection
       frameworkInfo = detectFramework {src = ./.;};
       framework = frameworkInfo.framework;
+
+      # Resolve app name: use provided appName, or fall back to framework-based default
+      resolvedAppName = if appName != null then appName else "${framework}-app";
 
       gccPackage =
         if gccVersion == "latest"
@@ -247,7 +257,8 @@
       # Bundler approach (traditional) - using Rails builder with framework override
       bundlerBuild = let
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
-          inherit rubyVersion gccVersion opensslVersion appName bundlerPackage;
+          inherit rubyVersion gccVersion opensslVersion bundlerPackage;
+          appName = resolvedAppName;
           railsBuilderVersion = version;
           # Use rev if clean, dirtyRev if dirty (strip "-dirty" suffix)
           appRevision = let
@@ -258,9 +269,8 @@
           buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor framework;});
         };
         # Override the app name to include framework if desired
-        # By default uses appName from parent scope (directory name)
         frameworkApp = pkgs.stdenv.mkDerivation {
-          name = appName;  # Use consistent app name
+          name = resolvedAppName;
           src = railsBuild.app;
           installPhase = ''
             cp -r $src $out
@@ -340,7 +350,8 @@
         in
           # Use Rails build script for all frameworks - it's generic enough
           import (ruby-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage appName;
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage;
+            appName = resolvedAppName;
             railsBuilderVersion = version;
             # Use rev if clean, dirtyRev if dirty (strip "-dirty" suffix)
             appRevision = let
