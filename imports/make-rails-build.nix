@@ -59,7 +59,8 @@
   ];
 
   app = pkgs.stdenv.mkDerivation {
-    name = appName;
+    pname = appName;
+    version = railsBuilderVersion;
     inherit src;
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp]
       ++ pkgs.lib.optionals pkgs.stdenv.isLinux [pkgs.nix-ld];

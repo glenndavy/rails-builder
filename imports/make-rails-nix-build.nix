@@ -47,7 +47,8 @@
   fullPkgConfigPath = "${pkgConfigPaths}:${pkgConfigPathsExtra}";
 
   app = pkgs.stdenv.mkDerivation {
-    name = appName;
+    pname = appName;
+    version = railsBuilderVersion;
     inherit src;
 
     phases = [
