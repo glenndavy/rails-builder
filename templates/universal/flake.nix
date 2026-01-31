@@ -57,8 +57,13 @@
     # Import tailwindcss hashes for exact version matching
     tailwindcssHashes = import (ruby-builder + "/tailwindcss-hashes.nix");
 
-    # Application name for Nix store paths (helps differentiate multiple apps)
-    # Defaults to directory name, customize as needed
+    # Application name for Nix store paths and Docker images
+    # This name is used for:
+    #   - Nix derivation name (appears in /nix/store/<hash>-<appName>)
+    #   - Docker image name (e.g., <appName>-image:latest)
+    # Defaults to the directory name. Customize for multi-app repos or clarity:
+    #   appName = "my-rails-app";
+    #   appName = "ops-core-api";
     appName = builtins.baseNameOf (builtins.toString ./.);
 
     mkOutputsForSystem = system: let

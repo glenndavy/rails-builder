@@ -59,7 +59,10 @@
   echo "┌──────────────────────────────────────────────────────────────────┐"
   echo "│ STAGE 3: Bundle Install                                          │"
   echo "└──────────────────────────────────────────────────────────────────┘"
-  if ! ${bundlerPackage}/bin/bundle install --standalone --path $BUNDLE_PATH --binstubs; then
+  # Use --deployment instead of --standalone so that bundle exec works interactively
+  # --deployment: installs to vendor/bundle with proper bundler metadata
+  # --standalone: creates setup.rb for bundler-less runtime but breaks bundle exec
+  if ! ${bundlerPackage}/bin/bundle install --deployment --path $BUNDLE_PATH --binstubs; then
     echo "ERROR: bundle install failed" >&2
     exit 1
   fi

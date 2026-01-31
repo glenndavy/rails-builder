@@ -545,7 +545,7 @@ ENVEOF
 
   # Linux: Full layered image with fakeroot for proper permissions
   dockerImageLinux = pkgs.dockerTools.buildLayeredImage {
-    name = "rails-app-image";
+    name = "${appName}-image";
     contents = dockerContentsLinux;
     enableFakechroot = true;
     fakeRootCommands = ''
@@ -596,7 +596,7 @@ ENVEOF
   '';
 
   dockerImageDarwin = pkgs.dockerTools.buildImage {
-    name = "rails-app-image";
+    name = "${appName}-image";
     copyToRoot = dockerRootDarwin;
     config = dockerConfig;
   };
