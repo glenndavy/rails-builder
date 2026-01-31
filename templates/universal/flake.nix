@@ -54,24 +54,27 @@
     detectNodeVersion = versionDetection.detectNodeVersion;
     detectTailwindVersion = versionDetection.detectTailwindVersion;
 
+    # Import app name detection
+    appNameDetection = import (ruby-builder + "/imports/detect-app-name.nix");
+
     # Import tailwindcss hashes for exact version matching
     tailwindcssHashes = import (ruby-builder + "/tailwindcss-hashes.nix");
 
     # ============================================================================
-    # APPLICATION NAME - CUSTOMIZE THIS FOR YOUR APP
+    # APPLICATION NAME
     # ============================================================================
     # This name is used for:
     #   - Nix derivation name (appears in /nix/store/<hash>-<appName>)
     #   - Docker image name (e.g., <appName>-image:latest)
     #
-    # IMPORTANT: Set this to your app's name! Examples:
-    #   appName = "ops-core-rails";
-    #   appName = "my-api";
-    #   appName = "acme-web";
+    # Auto-detection (when null):
+    #   - Rails: Extracts from config/application.rb (module OpsCore -> ops-core)
+    #   - Other: Falls back to "${framework}-app" (e.g., "rails-app")
     #
-    # The default uses the detected framework, but a custom name is recommended.
+    # Override with explicit name if needed:
+    #   appName = "my-custom-name";
     # ============================================================================
-    appName = null;  # Set to your app name, e.g., "my-rails-app"
+    appName = null;  # Auto-detect from config/application.rb
 
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
@@ -87,8 +90,15 @@
       frameworkInfo = detectFramework {src = ./.;};
       framework = frameworkInfo.framework;
 
-      # Resolve app name: use provided appName, or fall back to framework-based default
-      resolvedAppName = if appName != null then appName else "${framework}-app";
+      # Auto-detect app name from config/application.rb (for Rails apps)
+      # Extracts module name and converts CamelCase to kebab-case: OpsCore -> ops-core
+      detectedAppName = appNameDetection.detectAppName { src = ./.; inherit framework; };
+
+      # Resolve app name priority: explicit > auto-detected > framework-based default
+      resolvedAppName =
+        if appName != null then appName
+        else if detectedAppName != null then detectedAppName
+        else "${framework}-app";
 
       gccPackage =
         if gccVersion == "latest"
