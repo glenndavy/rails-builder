@@ -21,7 +21,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.17.37";
+    version = "3.17.38";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -199,7 +199,13 @@
     # Apps
     apps = forAllSystems (system: let
       pkgs = mkPkgsForSystem system;
+      customBundix = mkBundixForSystem system;
       fix-gemset-sha-script = pkgs.writeShellScriptBin "fix-gemset-sha" (import ./imports/fix-gemset-sha.nix {inherit pkgs;});
+      generate-gemset-for-script = pkgs.writeShellScriptBin "generate-gemset-for" (import ./imports/generate-gemset-for.nix {
+        inherit pkgs;
+        bundixPackage = customBundix;
+        defaultRubyPackage = pkgs.ruby;
+      });
     in {
       flakeVersion = {
         type = "app";
@@ -213,6 +219,14 @@
       fix-gemset-sha = {
         type = "app";
         program = "${fix-gemset-sha-script}/bin/fix-gemset-sha";
+      };
+
+      # Generate gemset.nix for an external app source (orchestrator pattern)
+      # Usage: nix run github:glenndavy/rails-builder#generate-gemset-for -- /path/to/app
+      # Usage: nix run github:glenndavy/rails-builder#generate-gemset-for -- /path/to/app -o ./apps/my-app/gemset.nix
+      generate-gemset-for = {
+        type = "app";
+        program = "${generate-gemset-for-script}/bin/generate-gemset-for";
       };
     });
 
