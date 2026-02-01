@@ -9,7 +9,7 @@
 #   - bundlerPackage matches Gemfile.lock version
 #   - gemConfig includes ruby-vips and other gem-specific fixes
 #
-# Usage in your flake:
+# Usage in your flake (local gemset.nix in app source):
 #
 #   let
 #     railsBuild = rails-builder.lib.${system}.mkRailsPackage {
@@ -26,10 +26,22 @@
 #     packages.gems = railsBuild.gems;
 #   }
 #
+# Usage with external gemset.nix (orchestrator pattern):
+#
+#   let
+#     railsBuild = rails-builder.lib.${system}.mkRailsPackage {
+#       inherit pkgs;
+#       src = my-rails-app-input;           # App source (no flake.nix needed)
+#       gemset = ./apps/my-app/gemset.nix;  # gemset.nix in orchestrator repo
+#       appName = "my-app";
+#     };
+#   in { ... }
+#
 {
   pkgs,
   src,            # Path to the Rails application source
   appName ? null, # Optional: Custom app name (defaults to "rails-app")
+  gemset ? null,  # Optional: Path to gemset.nix (defaults to src + "/gemset.nix")
   railsEnv ? "production", # Rails environment for asset precompilation
   rubyVersion ? null,     # Optional: Override Ruby version (auto-detected from .ruby-version)
   bundlerVersion ? null,  # Optional: Override Bundler version (auto-detected from Gemfile.lock)
@@ -129,8 +141,18 @@ let
   # Must use callPackage to provide lib, callPackage, defaultGemConfig, etc.
   customBundlerEnv = pkgs.callPackage ./bundler-env {};
 
-  # Check if gemset.nix exists
-  hasGemset = builtins.pathExists (src + "/gemset.nix");
+  # Check if gemset.nix exists - either explicitly provided or in src
+  # Priority: explicit gemset parameter > src + "/gemset.nix"
+  hasGemset =
+    if gemset != null
+    then true
+    else builtins.pathExists (src + "/gemset.nix");
+
+  # Resolve which gemset.nix to use
+  resolvedGemset =
+    if gemset != null
+    then gemset
+    else src + "/gemset.nix";
 
   # Gems derivation using customBundlerEnv
   gems =
@@ -139,7 +161,7 @@ let
       name = "${finalAppName}-gems";
       ruby = rubyPackage;
       gemdir = src;
-      gemset = src + "/gemset.nix";
+      gemset = resolvedGemset;
       gemConfig = pkgs.defaultGemConfig // {
         ruby-vips = attrs: {
           buildInputs = [ pkgs.vips ];
