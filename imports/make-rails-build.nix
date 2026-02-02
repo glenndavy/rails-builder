@@ -247,8 +247,14 @@ ENVEOF
 
     # If no arguments passed, run goreman with configurable Procfile and role
     # PROCFILE_NAME defaults to "Procfile", PROCFILE_ROLE defaults to "web"
+    # PORT sets the port directly (takes precedence)
+    # PROCFILE_BASE_PORT sets goreman's base port (defaults to 5000)
+    BASE_PORT="''${PORT:-''${PROCFILE_BASE_PORT:-5000}}"
     if [ $# -eq 0 ]; then
-      exec ${pkgs.goreman}/bin/goreman -f "/app/''${PROCFILE_NAME:-Procfile}" start "''${PROCFILE_ROLE:-web}"
+      exec ${pkgs.goreman}/bin/goreman \
+        -f "/app/''${PROCFILE_NAME:-Procfile}" \
+        -port "$BASE_PORT" \
+        start "''${PROCFILE_ROLE:-web}"
     fi
 
     # For custom commands, run them from /app
