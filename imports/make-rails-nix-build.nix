@@ -452,14 +452,19 @@ ENVEOF
   # Docker entrypoint that ensures we're in the right directory
   dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
     set -e
+
+    # Always run from /app - use absolute paths to be robust
     cd /app
+    export PWD=/app
+    export HOME=/app
 
     # If no arguments passed, run goreman with configurable Procfile and role
     # PROCFILE_NAME defaults to "Procfile", PROCFILE_ROLE defaults to "web"
     if [ $# -eq 0 ]; then
-      exec ${pkgs.goreman}/bin/goreman -f "''${PROCFILE_NAME:-Procfile}" start "''${PROCFILE_ROLE:-web}"
+      exec ${pkgs.goreman}/bin/goreman -f "/app/''${PROCFILE_NAME:-Procfile}" start "''${PROCFILE_ROLE:-web}"
     fi
 
+    # For custom commands, run them from /app
     exec "$@"
   '';
 
