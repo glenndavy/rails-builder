@@ -253,7 +253,7 @@ ENVEOF
     if [ $# -eq 0 ]; then
       exec ${pkgs.goreman}/bin/goreman \
         -f "/app/''${PROCFILE_NAME:-Procfile}" \
-        -port "$BASE_PORT" \
+        -b "$BASE_PORT" \
         start "''${PROCFILE_ROLE:-web}"
     fi
 
