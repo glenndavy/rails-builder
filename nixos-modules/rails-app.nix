@@ -63,7 +63,7 @@ let
         # Fallback for packages built with older rails-builder versions
         if [ -f "${appPackage}/nix-support/ruby-path" ]; then
           RUBY_PATH=$(cat "${appPackage}/nix-support/ruby-path")
-          export PATH="$RUBY_PATH/bin:${appPackage}/app/bin:${runtimeDir}/bin:$PATH"
+          export PATH="$RUBY_PATH/bin:${appPackage}/bin:${runtimeDir}/bin:$PATH"
         fi
       fi
 
@@ -247,7 +247,8 @@ in {
           excludeArgs = concatStringsSep " " (mapAttrsToList (dirName: _: "--exclude='${dirName}'") instanceCfg.mutable_dirs);
         in ''
           RUNTIME_DIR="/var/lib/rails-app-${name}/runtime"
-          SOURCE_APP="${instanceCfg.package}/app"
+          # Package root contains the Rails app directly (not in /app subdirectory)
+          SOURCE_APP="${instanceCfg.package}"
 
           # Create runtime directory
           mkdir -p "$RUNTIME_DIR"
@@ -284,8 +285,9 @@ in {
           let
             runtimeDir = "/var/lib/rails-app-${name}/runtime";
             # Build PATH from package bin dirs plus any additional path_packages
+            # Package root contains Rails app directly (bin/ is at package root, not /app/bin)
             pathDirs = [
-              "${instanceCfg.package}/app/bin"
+              "${instanceCfg.package}/bin"
               "${pkgs.coreutils}/bin"
               "${pkgs.bash}/bin"
             ] ++ map (pkg: "${pkg}/bin") instanceCfg.path_packages
