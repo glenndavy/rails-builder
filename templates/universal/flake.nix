@@ -994,9 +994,14 @@
 
                     # Configure bundler for offline/cached git gems
                     # Without these, bundler tries to fetch from git remotes or validate revisions
+                    # BUNDLE_FROZEN=false is critical: the local git repo has a different SHA
+                    # than Gemfile.lock since we init a fresh repo from cached contents
+                    export BUNDLE_FROZEN=false
+                    export BUNDLE_DEPLOYMENT=false
                     export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
                     export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
                     export BUNDLE_ALLOW_OFFLINE_INSTALL=true
+                    export BUNDLE_DISABLE_CHECKSUM_VALIDATION=true
 
                     # Set up local overrides for git gems in vendor/cache
                     # This prevents bundler from trying to clone from git remotes at runtime
