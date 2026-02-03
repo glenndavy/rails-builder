@@ -1062,9 +1062,13 @@
                       done
                     fi
 
-                    # PATH: Real bundler FIRST (not bundlerEnv wrapper), then gems, Ruby, then user tools
-                    # bundlerEnv's bundle wrapper hardcodes Nix store paths, so we use real bundler from bundlerPackage
-                    export PATH=${bundlerPackage}/bin:${customBundix}/bin:${shellGems}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
+                    # PATH: App binstubs FIRST (they respect our BUNDLE_GEMFILE env var via ||= in boot.rb),
+                    # then real bundler (not bundlerEnv wrapper which hardcodes confFiles paths),
+                    # then shellGems/bin for gem executables not in app/bin, then Ruby and tools.
+                    # Critical: $APP_ROOT/bin must come BEFORE ${shellGems}/bin because bundlerEnv's
+                    # binstubs hardcode ENV["BUNDLE_GEMFILE"] to read-only confFiles in Nix store,
+                    # which forces frozen mode and breaks BUNDLE_LOCAL__ git gem overrides.
+                    export PATH=${bundlerPackage}/bin:$APP_ROOT/bin:${customBundix}/bin:${shellGems}/bin:${rubyPackage}/bin:${pkgs.bash}/bin:${pkgs.coreutils}/bin:${pkgs.gnused}/bin:${pkgs.gnugrep}/bin:${pkgs.findutils}/bin:${pkgs.gawk}/bin:${pkgs.git}/bin:${pkgs.which}/bin:${pkgs.less}/bin:$ORIGINAL_PATH
 
                     echo "💎 Bundix Environment: Direct gem access (Nix-isolated)"
                     echo "   Ruby: ${rubyVersion}"
