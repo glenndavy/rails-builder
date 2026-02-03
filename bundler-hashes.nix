@@ -1,4 +1,16 @@
 {
+  "2.7.2" = {
+    url = "https://rubygems.org/downloads/bundler-2.7.2.gem";
+    sha256 = "0w9q50ybilfyy8pscc97m0s27npnyg42aabab2v93jqs5sgazv0x";
+  };
+  "2.7.1" = {
+    url = "https://rubygems.org/downloads/bundler-2.7.1.gem";
+    sha256 = "02qyvh32f6zglhzxc4in6piinwy8g9ajyrdyk0m6nxvrm01a1m8a";
+  };
+  "2.7.0" = {
+    url = "https://rubygems.org/downloads/bundler-2.7.0.gem";
+    sha256 = "1aqmgqsdzih40547620f8hmvvqq1612na0hl76mhrpck2n68xh97";
+  };
   "2.6.8" = {
     url = "https://rubygems.org/downloads/bundler-2.6.8.gem";
     sha256 = "1ac7rk7z6vazr6bb9xy25z9sin9f6712v534jpj658cnfa8rksdx";
