@@ -518,6 +518,7 @@ ENVEOF
       pkgs.nodejs
       pkgs.bash
       pkgs.coreutils
+      pkgs.less
     ]
     # Include bundler so 'bundle exec' works even in bundix environments
     # (Procfiles and binstubs typically use 'bundle exec')

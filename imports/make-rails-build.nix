@@ -284,6 +284,7 @@ ENVEOF
       pkgs.nodejs
       pkgs.bash
       pkgs.coreutils
+      pkgs.less
     ]
     # Include bundler so 'bundle exec' works
     ++ (if bundlerPackage != null then [ bundlerPackage ] else []);
