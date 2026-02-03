@@ -956,8 +956,10 @@
           with-bundix =
             if builtins.pathExists ./gemset.nix
             then let
-              # Simple bundlerEnv without auto-fix for devshell
-              shellGems = pkgs.bundlerEnv {
+              # Use customBundlerEnv that handles vendor/cache git gems correctly
+              # Standard pkgs.bundlerEnv doesn't create bundler/gems/ symlinks needed
+              # for git-sourced gems cached in vendor/cache
+              shellGems = customBundlerEnv {
                 name = "${framework}-gems";
                 ruby = rubyPackage;
                 gemdir = ./.;
@@ -970,7 +972,7 @@
               };
             in
               pkgs.mkShell {
-                buildInputs = [rubyPackage bundlerPackage customBundix];
+                buildInputs = [rubyPackage bundlerPackage customBundix pkgs.git pkgs.gawk];
                 shellHook =
                   defaultShellHook
                   + ''
@@ -989,6 +991,71 @@
                     # Critical: Point BUNDLE_GEMFILE to the local Gemfile, not Nix store
                     # This prevents bundler frozen mode errors when trying to modify Gemfile
                     export BUNDLE_GEMFILE=$APP_ROOT/Gemfile
+
+                    # Configure bundler for offline/cached git gems
+                    # Without these, bundler tries to fetch from git remotes or validate revisions
+                    export BUNDLE_DISABLE_LOCAL_BRANCH_CHECK=true
+                    export BUNDLE_DISABLE_LOCAL_REVISION_CHECK=true
+                    export BUNDLE_ALLOW_OFFLINE_INSTALL=true
+
+                    # Set up local overrides for git gems in vendor/cache
+                    # This prevents bundler from trying to clone from git remotes at runtime
+                    if [ -d "$APP_ROOT/vendor/cache" ]; then
+                      for cached_gem in "$APP_ROOT/vendor/cache"/*-*; do
+                        if [ -d "$cached_gem" ] && [ -f "$cached_gem/.bundlecache" ]; then
+                          gem_basename=$(basename "$cached_gem")
+
+                          # Initialize git repo if not present (needed for BUNDLE_LOCAL__ override)
+                          if [ ! -d "$cached_gem/.git" ]; then
+                            echo "  Initializing git repo in $gem_basename for bundler local override..."
+
+                            # Extract branch name from Gemfile.lock for this gem
+                            gem_remote_pattern=$(echo "$gem_basename" | sed 's/-[a-f0-9]\{7,\}$//')
+                            branch_name=$(${pkgs.gawk}/bin/awk '
+                              /^GIT/ { in_git=1; branch=""; next }
+                              /^[A-Z]/ && !/^GIT/ { in_git=0 }
+                              in_git && /remote:.*'"$gem_remote_pattern"'/ { found=1 }
+                              in_git && found && /branch:/ { gsub(/.*branch: */, ""); print; exit }
+                            ' "$APP_ROOT/Gemfile.lock" 2>/dev/null)
+
+                            # Also extract the revision from Gemfile.lock
+                            revision=$(${pkgs.gawk}/bin/awk '
+                              /^GIT/ { in_git=1; next }
+                              /^[A-Z]/ && !/^GIT/ { in_git=0 }
+                              in_git && /remote:.*'"$gem_remote_pattern"'/ { found=1 }
+                              in_git && found && /revision:/ { gsub(/.*revision: */, ""); print; exit }
+                            ' "$APP_ROOT/Gemfile.lock" 2>/dev/null)
+
+                            (
+                              cd "$cached_gem"
+                              ${pkgs.git}/bin/git init -q 2>/dev/null || true
+                              ${pkgs.git}/bin/git config user.email "nix-build@localhost" 2>/dev/null || true
+                              ${pkgs.git}/bin/git config user.name "Nix Build" 2>/dev/null || true
+                              ${pkgs.git}/bin/git add -A 2>/dev/null || true
+                              ${pkgs.git}/bin/git commit -q -m "Vendored gem from bundle cache" --allow-empty 2>/dev/null || true
+
+                              # Create branch with the name from Gemfile.lock if specified
+                              if [ -n "$branch_name" ]; then
+                                echo "  Creating branch '$branch_name' to match Gemfile.lock"
+                                ${pkgs.git}/bin/git checkout -q -b "$branch_name" 2>/dev/null || ${pkgs.git}/bin/git checkout -q "$branch_name" 2>/dev/null || true
+                              fi
+
+                              # Create a ref for the revision so bundler can find it
+                              if [ -n "$revision" ]; then
+                                echo "  Creating ref for revision $revision"
+                                ${pkgs.git}/bin/git update-ref "refs/heads/__bundler_ref_$revision" HEAD 2>/dev/null || true
+                              fi
+                            )
+                          fi
+
+                          # Extract gem name and set BUNDLE_LOCAL__ override
+                          gem_name_raw=$(echo "$gem_basename" | sed 's/-[a-f0-9]\{7,\}$//')
+                          gem_name_env=$(echo "$gem_name_raw" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+                          export "BUNDLE_LOCAL__$gem_name_env=$cached_gem"
+                          echo "  Set BUNDLE_LOCAL__$gem_name_env for cached git gem"
+                        fi
+                      done
+                    fi
 
                     # PATH: Real bundler FIRST (not bundlerEnv wrapper), then gems, Ruby, then user tools
                     # bundlerEnv's bundle wrapper hardcodes Nix store paths, so we use real bundler from bundlerPackage
