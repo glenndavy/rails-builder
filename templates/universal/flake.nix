@@ -458,6 +458,13 @@
           then ''
             # Point tailwindcss-ruby gem to Nix-provided binary (version ${tailwindVersion})
             export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+
+            # Symlink node_modules so tailwindcss v4 can resolve @import "tailwindcss"
+            # The tailwindcss CLI needs node_modules/tailwindcss to find base styles
+            if [ -d "${tailwindcssPackage}/node_modules" ] && [ ! -e "./node_modules" ]; then
+              ln -sf "${tailwindcssPackage}/node_modules" ./node_modules
+              echo "  Symlinked node_modules for tailwindcss resolution"
+            fi
           ''
           else ""
         }
