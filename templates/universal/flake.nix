@@ -267,7 +267,7 @@
       # Bundler approach (traditional) - using Rails builder with framework override
       bundlerBuild = let
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
-          inherit rubyVersion gccVersion opensslVersion bundlerPackage;
+          inherit rubyVersion gccVersion opensslVersion bundlerPackage tailwindcssPackage;
           appName = resolvedAppName;
           railsBuilderVersion = version;
           # Use rev if clean, dirtyRev if dirty (strip "-dirty" suffix)

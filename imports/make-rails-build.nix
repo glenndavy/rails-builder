@@ -9,6 +9,7 @@
   railsBuilderVersion ? "unknown", # Optional: Version string for debugging
   appRevision ? null, # Optional: Git revision of the app
   railsEnv ? "production", # Rails environment
+  tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
 }: let
   rubyPackage = pkgs."ruby-${rubyVersion}";
   rubyVersionSplit = builtins.splitVersion rubyVersion;
@@ -56,7 +57,8 @@
     pkgs.curl
     tzinfo
     pkgs.pkg-config
-  ];
+  ]
+  ++ (if tailwindcssPackage != null then [tailwindcssPackage] else []);
 
   app = pkgs.stdenv.mkDerivation {
     pname = appName;
@@ -100,6 +102,18 @@
         export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
         export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]}"
       ''}
+
+      ${if tailwindcssPackage != null then ''
+        # Point tailwindcss-ruby gem to Nix-provided binary via TAILWINDCSS_INSTALL_DIR
+        export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"
+        echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
+
+        # Symlink node_modules so tailwindcss v4 can resolve @import "tailwindcss"
+        if [ -d "${tailwindcssPackage}/node_modules" ]; then
+          ln -sf "${tailwindcssPackage}/node_modules" ./node_modules
+          echo "  Symlinked node_modules for tailwindcss resolution"
+        fi
+      '' else ""}
 
       echo "  HOME: $HOME"
       echo "  DATABASE_URL: $DATABASE_URL"
