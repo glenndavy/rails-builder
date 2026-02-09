@@ -149,8 +149,10 @@
 
           # Symlink node_modules so tailwindcss can resolve @import "tailwindcss"
           # The CLI uses enhanced-resolve which doesn't respect NODE_PATH
+          # Remove any existing node_modules first (may be read-only from Nix unpack)
           if [ -d "${tailwindcssPackage}/node_modules" ]; then
-            ln -sf "${tailwindcssPackage}/node_modules" ./node_modules
+            rm -rf ./node_modules 2>/dev/null || true
+            ln -sfn "${tailwindcssPackage}/node_modules" ./node_modules
             echo "  Symlinked node_modules for tailwindcss resolution"
           fi
         ''
@@ -457,6 +459,21 @@ ENVEOF
     cd /app
     export PWD=/app
     export HOME=/app
+
+    # Ensure bundlerEnv environment is set up for interactive shells
+    # These should match the Docker Env, but we set them explicitly
+    # in case bash startup files modify the environment or docker exec
+    # doesn't properly inherit all ENV vars
+    export BUNDLE_GEMFILE="${if gemsConfFiles != null then "${gemsConfFiles}/Gemfile" else "/app/Gemfile"}"
+    export BUNDLE_FROZEN=true
+    export GEM_HOME="${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
+    export GEM_PATH="${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
+    export PATH="${gems}/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}${if tailwindcssPackage != null then ":${tailwindcssPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
+    export RAILS_ENV="${railsEnv}"
+    export RUBYLIB="${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
+    export TZDIR="${tzinfo}/usr/share/zoneinfo"
+    export TMPDIR=/app/tmp
+    ${if tailwindcssPackage != null then ''export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"'' else ""}
 
     # If no arguments passed, run goreman with configurable Procfile and role
     # PROCFILE_NAME defaults to "Procfile", PROCFILE_ROLE defaults to "web"

@@ -109,8 +109,10 @@
         echo "  TAILWINDCSS_INSTALL_DIR: $TAILWINDCSS_INSTALL_DIR"
 
         # Symlink node_modules so tailwindcss v4 can resolve @import "tailwindcss"
+        # Remove any existing node_modules first (may be read-only from Nix unpack)
         if [ -d "${tailwindcssPackage}/node_modules" ]; then
-          ln -sf "${tailwindcssPackage}/node_modules" ./node_modules
+          rm -rf ./node_modules 2>/dev/null || true
+          ln -sfn "${tailwindcssPackage}/node_modules" ./node_modules
           echo "  Symlinked node_modules for tailwindcss resolution"
         fi
       '' else ""}
