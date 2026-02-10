@@ -461,11 +461,10 @@ ENVEOF
     export HOME=/app
 
     # Ensure bundlerEnv environment is set up for interactive shells
-    # These should match the Docker Env, but we set them explicitly
-    # in case bash startup files modify the environment or docker exec
-    # doesn't properly inherit all ENV vars
-    export BUNDLE_GEMFILE="${if gemsConfFiles != null then "${gemsConfFiles}/Gemfile" else "/app/Gemfile"}"
+    # NOTE: Do NOT set BUNDLE_GEMFILE or BUNDLE_PATH here!
+    # The bundlerEnv binstubs set these correctly via gen-bin-stubs.rb.
     export BUNDLE_FROZEN=true
+    export BUNDLE_IGNORE_CONFIG=true
     export GEM_HOME="${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
     export GEM_PATH="${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
     export PATH="${gems}/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}${if tailwindcssPackage != null then ":${tailwindcssPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
@@ -556,11 +555,13 @@ ENVEOF
       then ["${pkgs.gosu}/bin/gosu" "app_user" "${dockerEntrypoint}/bin/docker-entrypoint"]
       else ["${dockerEntrypoint}/bin/docker-entrypoint"];
     # No Cmd - entrypoint handles default (goreman with PROCFILE_NAME/PROCFILE_ROLE)
+    # NOTE: Do NOT set BUNDLE_GEMFILE or BUNDLE_PATH here!
+    # The bundlerEnv binstubs set these correctly via gen-bin-stubs.rb.
+    # Setting them here would override the binstub's values (which use confFiles).
     Env = [
       # Bundix: gems are in Nix store, bundler finds them via GEM_HOME/GEM_PATH
-      # Use bundlerEnv's confFiles for BUNDLE_GEMFILE (contains normalized Gemfile that bundler expects)
-      "BUNDLE_GEMFILE=${if gemsConfFiles != null then "${gemsConfFiles}/Gemfile" else "/app/Gemfile"}"
       "BUNDLE_FROZEN=true"
+      "BUNDLE_IGNORE_CONFIG=true"
       "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
       "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
