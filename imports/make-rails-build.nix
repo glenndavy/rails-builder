@@ -203,7 +203,13 @@ ENVEOF
         pkgs.rsync
         pkgs.nodejs
       ]
-      ++ (if bundlerPackage != null then [bundlerPackage] else []);
+      ++ (if bundlerPackage != null then [bundlerPackage] else [])
+      ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+        pkgs.darwin.apple_sdk.frameworks.CoreFoundation
+        pkgs.darwin.apple_sdk.frameworks.CoreServices
+        pkgs.darwin.apple_sdk.frameworks.Security
+        pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+      ];
 
     shellHook = ''
       export PS1="shell:>"
