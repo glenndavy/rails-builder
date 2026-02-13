@@ -248,6 +248,78 @@ ENVEOF
     mkdir -p $out/app/tmp/pids $out/app/tmp/cache
   '';
 
+  # Healthcheck script - checks goreman status and optionally HTTP endpoint
+  healthcheckScript = pkgs.writeShellScriptBin "healthcheck" ''
+    set -e
+
+    # Configuration via environment variables
+    ROLE="''${PROCFILE_ROLE:-web}"
+    GOREMAN_RPC_PORT="''${GOREMAN_RPC_PORT:-8555}"
+    HEALTHCHECK_PORT="''${PORT:-''${PROCFILE_BASE_PORT:-5000}}"
+    HEALTHCHECK_PATH="''${HEALTHCHECK_PATH:-/up}"
+    HEALTHCHECK_TIMEOUT="''${HEALTHCHECK_TIMEOUT:-5}"
+
+    # Check goreman process status via RPC
+    check_goreman() {
+      local status
+      status=$(${pkgs.goreman}/bin/goreman -p "$GOREMAN_RPC_PORT" run status "$ROLE" 2>&1) || {
+        echo "FAIL: goreman status check failed: $status"
+        return 1
+      }
+
+      # goreman run status outputs "processname: status"
+      # Check if our role shows as running
+      if echo "$status" | grep -q "$ROLE:.*running"; then
+        echo "OK: goreman reports $ROLE is running"
+        return 0
+      else
+        echo "FAIL: goreman reports $ROLE is not running: $status"
+        return 1
+      fi
+    }
+
+    # HTTP healthcheck for web-like roles
+    check_http() {
+      local url="http://127.0.0.1:''${HEALTHCHECK_PORT}''${HEALTHCHECK_PATH}"
+      local response
+      response=$(${pkgs.curl}/bin/curl -sf -o /dev/null -w "%{http_code}" \
+        --max-time "$HEALTHCHECK_TIMEOUT" "$url" 2>&1) || {
+        echo "FAIL: HTTP healthcheck to $url failed"
+        return 1
+      }
+
+      if [ "$response" -ge 200 ] && [ "$response" -lt 400 ]; then
+        echo "OK: HTTP healthcheck returned $response"
+        return 0
+      else
+        echo "FAIL: HTTP healthcheck returned $response"
+        return 1
+      fi
+    }
+
+    # Main healthcheck logic
+    echo "Healthcheck for role: $ROLE"
+
+    # Always check goreman status
+    check_goreman || exit 1
+
+    # For web-like roles, also check HTTP endpoint
+    case "$ROLE" in
+      web|server|puma|unicorn|rails)
+        if [ "''${HEALTHCHECK_SKIP_HTTP:-}" != "true" ]; then
+          check_http || exit 1
+        fi
+        ;;
+      *)
+        # Non-web roles: goreman check is sufficient
+        echo "OK: Non-web role, skipping HTTP check"
+        ;;
+    esac
+
+    echo "OK: All healthchecks passed"
+    exit 0
+  '';
+
   # Docker entrypoint script - sets up bundler environment
   dockerEntrypoint = pkgs.writeShellScriptBin "docker-entrypoint" ''
     set -e
@@ -297,6 +369,7 @@ ENVEOF
       usrBinDerivation
       writableDirs
       dockerEntrypoint
+      healthcheckScript
       pkgs.goreman
       rubyPackage
       pkgs.curl
@@ -338,6 +411,15 @@ ENVEOF
       "HOME=/app"
     ];
     WorkingDir = "/app";
+    # Healthcheck using the /bin/healthcheck script
+    # Checks goreman status and HTTP endpoint (for web roles)
+    Healthcheck = {
+      Test = ["CMD" "${healthcheckScript}/bin/healthcheck"];
+      Interval = 30000000000;  # 30 seconds in nanoseconds
+      Timeout = 10000000000;   # 10 seconds in nanoseconds
+      Retries = 3;
+      StartPeriod = 60000000000;  # 60 seconds startup grace period
+    };
   };
 
   # Linux: Full layered image with fakeroot for proper permissions
