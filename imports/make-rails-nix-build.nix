@@ -476,9 +476,9 @@ ENVEOF
         return 1
       }
 
-      # goreman run status outputs "processname: status"
-      # Check if our role shows as running
-      if echo "$status" | ${pkgs.gnugrep}/bin/grep -q "$ROLE:.*running"; then
+      # goreman run status outputs "*processname" for running processes
+      # The asterisk prefix indicates the process is running
+      if echo "$status" | ${pkgs.gnugrep}/bin/grep -q "^\*$ROLE$"; then
         echo "OK: goreman reports $ROLE is running"
         return 0
       else
