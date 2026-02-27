@@ -284,10 +284,10 @@ in {
   shell = railsBuild.shell or null;
   dockerImage = railsBuild.dockerImage or null;
 
-  # Components (for advanced use)
+  # Components (for external Docker builds and advanced use)
   inherit gems rubyPackage bundlerPackage tailwindcssPackage;
   inherit universalBuildInputs;
-  inherit rubyMajorMinor;
+  inherit rubyMajorMinor railsEnv;
 
   # Detected info (useful for debugging)
   detected = {

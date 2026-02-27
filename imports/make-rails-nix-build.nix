@@ -362,6 +362,10 @@
       mkdir -p $out
       rsync -a --delete --include '.*' --exclude 'flake.nix' --exclude 'flake.lock' --exclude 'prepare-build.sh' . $out/
 
+      # Remove vendor/cache - gems are already installed in vendor/bundle from Nix store
+      # This reduces Docker image size since vendor/cache contains .gem archives and git gem directories
+      rm -rf $out/vendor/cache
+
       # Write rails-builder version for debugging
       echo "${railsBuilderVersion}" > $out/.rails-builder-version
 
