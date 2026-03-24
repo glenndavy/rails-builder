@@ -166,6 +166,12 @@ let
         ruby-vips = attrs: {
           buildInputs = [ pkgs.vips ];
         };
+        rmagick = attrs: {
+          buildInputs = [ pkgs.imagemagick pkgs.pkg-config ];
+        };
+        cairo = attrs: {
+          buildInputs = [ pkgs.cairo pkgs.pkg-config ];
+        };
       } // extraGemConfig;
     }
     else null;
@@ -215,6 +221,7 @@ let
   ++ (if frameworkInfo.needsRedis then [ pkgs.redis ] else [])
   ++ (if frameworkInfo.needsImageMagick then [ pkgs.imagemagick ] else [])
   ++ (if frameworkInfo.needsLibVips then [ pkgs.vips ] else [])
+  ++ (if frameworkInfo.needsCairo then [ pkgs.cairo ] else [])
   ++ (if tailwindcssPackage != null then [ tailwindcssPackage ] else [])
   ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
     pkgs.nix-ld
@@ -228,11 +235,19 @@ let
       if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib/pkgconfig" else ""
     }${
       if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib/pkgconfig" else ""
+    }${
+      if frameworkInfo.needsImageMagick then ":${pkgs.imagemagick.dev}/lib/pkgconfig" else ""
+    }${
+      if frameworkInfo.needsCairo then ":${pkgs.cairo.dev}/lib/pkgconfig" else ""
     }"
     export LD_LIBRARY_PATH="${pkgs.curl}/lib${
       if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""
     }${
       if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""
+    }${
+      if frameworkInfo.needsImageMagick then ":${pkgs.imagemagick}/lib" else ""
+    }${
+      if frameworkInfo.needsCairo then ":${pkgs.cairo}/lib" else ""
     }:${opensslPackage}/lib"
     export DATABASE_URL="postgresql://localhost/dummy_build_db"
   '';

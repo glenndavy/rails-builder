@@ -212,6 +212,13 @@
           else []
         )
         ++ (
+          if frameworkInfo.needsCairo
+          then [
+            pkgs.cairo # Cairo graphics library
+          ]
+          else []
+        )
+        ++ (
           if frameworkInfo.needsLibVips
           then [
             pkgs.vips # libvips for fast image processing
@@ -313,6 +320,12 @@
               ruby-vips = attrs: {
                 buildInputs = [ pkgs.vips ];
               };
+              rmagick = attrs: {
+                buildInputs = [ pkgs.imagemagick pkgs.pkg-config ];
+              };
+              cairo = attrs: {
+                buildInputs = [ pkgs.cairo pkgs.pkg-config ];
+              };
             };
           };
 
@@ -345,6 +358,14 @@
               if frameworkInfo.needsMysql
               then ":${pkgs.mysql80}/lib/pkgconfig"
               else ""
+            }${
+              if frameworkInfo.needsImageMagick
+              then ":${pkgs.imagemagick.dev}/lib/pkgconfig"
+              else ""
+            }${
+              if frameworkInfo.needsCairo
+              then ":${pkgs.cairo.dev}/lib/pkgconfig"
+              else ""
             }"
             export LD_LIBRARY_PATH="${pkgs.curl}/lib${
               if frameworkInfo.needsPostgresql
@@ -353,6 +374,14 @@
             }${
               if frameworkInfo.needsMysql
               then ":${pkgs.mysql80}/lib"
+              else ""
+            }${
+              if frameworkInfo.needsImageMagick
+              then ":${pkgs.imagemagick}/lib"
+              else ""
+            }${
+              if frameworkInfo.needsCairo
+              then ":${pkgs.cairo}/lib"
               else ""
             }:${opensslPackage}/lib"
             export DATABASE_URL="postgresql://localhost/dummy_build_db"
@@ -403,6 +432,12 @@
               ruby-vips = attrs: {
                 buildInputs = [ pkgs.vips ];
               };
+              rmagick = attrs: {
+                buildInputs = [ pkgs.imagemagick pkgs.pkg-config ];
+              };
+              cairo = attrs: {
+                buildInputs = [ pkgs.cairo pkgs.pkg-config ];
+              };
             };
           }
           else {
@@ -414,6 +449,12 @@
             gemConfig = pkgs.defaultGemConfig // {
               ruby-vips = attrs: {
                 buildInputs = [ pkgs.vips ];
+              };
+              rmagick = attrs: {
+                buildInputs = [ pkgs.imagemagick pkgs.pkg-config ];
+              };
+              cairo = attrs: {
+                buildInputs = [ pkgs.cairo pkgs.pkg-config ];
               };
             };
           };
@@ -435,6 +476,14 @@
           if frameworkInfo.needsMysql
           then ":${pkgs.mysql80}/lib/pkgconfig"
           else ""
+        }${
+          if frameworkInfo.needsImageMagick
+          then ":${pkgs.imagemagick.dev}/lib/pkgconfig"
+          else ""
+        }${
+          if frameworkInfo.needsCairo
+          then ":${pkgs.cairo.dev}/lib/pkgconfig"
+          else ""
         }"
         export LD_LIBRARY_PATH="${pkgs.curl}/lib${
           if frameworkInfo.needsPostgresql
@@ -443,6 +492,14 @@
         }${
           if frameworkInfo.needsMysql
           then ":${pkgs.mysql80}/lib"
+          else ""
+        }${
+          if frameworkInfo.needsImageMagick
+          then ":${pkgs.imagemagick}/lib"
+          else ""
+        }${
+          if frameworkInfo.needsCairo
+          then ":${pkgs.cairo}/lib"
           else ""
         }:${opensslPackage}/lib"
         export DATABASE_URL="postgresql://localhost/dummy_build_db"
@@ -498,6 +555,12 @@
               gemConfig = pkgs.defaultGemConfig // {
                 ruby-vips = attrs: {
                   buildInputs = [ pkgs.vips ];
+                };
+                rmagick = attrs: {
+                  buildInputs = [ pkgs.imagemagick pkgs.pkg-config ];
+                };
+                cairo = attrs: {
+                  buildInputs = [ pkgs.cairo pkgs.pkg-config ];
                 };
               };
             };
@@ -902,6 +965,14 @@
                   if frameworkInfo.needsPostgresql
                   then ":${pkgs.postgresql.dev}/lib/pkgconfig"
                   else ""
+                }${
+                  if frameworkInfo.needsImageMagick
+                  then ":${pkgs.imagemagick.dev}/lib/pkgconfig"
+                  else ""
+                }${
+                  if frameworkInfo.needsCairo
+                  then ":${pkgs.cairo.dev}/lib/pkgconfig"
+                  else ""
                 }"
 
                 echo "🔧 Bundix Environment for ${framework} (Bootstrap Mode)"
@@ -974,6 +1045,12 @@
                 gemConfig = pkgs.defaultGemConfig // {
                   ruby-vips = attrs: {
                     buildInputs = [ pkgs.vips ];
+                  };
+                  rmagick = attrs: {
+                    buildInputs = [ pkgs.imagemagick pkgs.pkg-config ];
+                  };
+                  cairo = attrs: {
+                    buildInputs = [ pkgs.cairo pkgs.pkg-config ];
                   };
                 };
               };

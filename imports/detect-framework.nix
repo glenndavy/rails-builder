@@ -54,6 +54,7 @@
     vips = hasGem "ruby-vips" || hasGem "image_processing";
     imagemagick = hasGem "mini_magick" || hasGem "rmagick";
     libvips = hasGem "ruby-vips" || (hasGem "image_processing" && hasGem "ruby-vips");
+    cairo = hasGem "cairo";
   };
 
   # Testing/browser automation detection
@@ -116,6 +117,7 @@ in {
   # Image processing requirements
   needsImageMagick = imageGems.imagemagick;
   needsLibVips = imageGems.vips || imageGems.libvips;
+  needsCairo = imageGems.cairo;
 
   # Browser testing requirements
   needsBrowserDrivers = testingGems.selenium || testingGems.capybara || testingGems.playwright;
