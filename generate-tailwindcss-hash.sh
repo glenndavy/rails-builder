@@ -9,7 +9,21 @@ set -e
 VERSION="${1:?Usage: $0 <version>}"
 SYSTEM=$(nix eval --raw --impure --expr 'builtins.currentSystem')
 
+# Get the nixpkgs rev from our flake.lock so we use cached binaries
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NIXPKGS_REV=$(nix eval --raw --impure --expr "
+  let lock = builtins.fromJSON (builtins.readFile $SCRIPT_DIR/flake.lock);
+  in lock.nodes.nixpkgs.locked.rev
+" 2>/dev/null) || ""
+
+if [ -z "$NIXPKGS_REV" ]; then
+  NIXPKGS_URL="github:NixOS/nixpkgs/nixos-unstable"
+else
+  NIXPKGS_URL="github:NixOS/nixpkgs/$NIXPKGS_REV"
+fi
+
 echo "Generating tailwindcss hash for version $VERSION on $SYSTEM..."
+echo "Using nixpkgs: $NIXPKGS_URL"
 
 # Create a temporary flake that builds tailwindcss with fake hash
 TMPDIR=$(mktemp -d)
@@ -17,7 +31,7 @@ trap "rm -rf $TMPDIR" EXIT
 
 cat > "$TMPDIR/flake.nix" << 'EOF'
 {
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.nixpkgs.url = "NIXPKGS_URL_PLACEHOLDER";
   outputs = { nixpkgs, ... }: let
     system = builtins.currentSystem;
     pkgs = import nixpkgs { inherit system; };
@@ -41,9 +55,12 @@ cat > "$TMPDIR/flake.nix" << 'EOF'
 }
 EOF
 
+# Substitute the nixpkgs URL into the flake
+sed -i "s|NIXPKGS_URL_PLACEHOLDER|$NIXPKGS_URL|" "$TMPDIR/flake.nix"
+
 # Build and capture the hash from the error
 cd "$TMPDIR"
-OUTPUT=$(TAILWIND_VERSION="$VERSION" nix build .#default 2>&1 || true)
+OUTPUT=$(TAILWIND_VERSION="$VERSION" nix build --impure .#default 2>&1 || true)
 
 # Extract the hash from "got: sha256-..."
 HASH=$(echo "$OUTPUT" | grep -oP 'got:\s+\Ksha256-[A-Za-z0-9+/=]+' | head -1)
