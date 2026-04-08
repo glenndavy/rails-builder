@@ -7,13 +7,20 @@
 #
 {
   "4.1.16" = {
-    npmDeps = {}; # TODO: compute when needed
+    npmDeps = {
+      "x86_64-linux" = "sha256-JWzmgONFpJKEPTnz/s5TOEXd48Q65Ili0rGBkUV9JYg=";
+    };
   };
   "4.1.18" = {
     npmDeps = {
       "x86_64-linux" = "sha256-hRVDPtp3BdPqKIaBOSkBqXix68BHFd4VGGc4kQhUn7A=";
       "aarch64-linux" = "sha256-UABgFF3c029YymHjsazwWUw9BLzR9bP0EX6FN0MojEA=";
       "aarch64-darwin" = "sha256-g9/0IYGR02kiVftd0Zul5HJP2TQSJo4LknmbN8tV4D8=";
+    };
+  };
+  "4.2.2" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-ZGHZ8r0Is/W1mUoDS7MqOMm5F9sPnEnaa2JhWgdqXNs=";
     };
   };
 }
