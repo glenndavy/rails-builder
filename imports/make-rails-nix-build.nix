@@ -551,7 +551,6 @@ ENVEOF
     export GEM_PATH="${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
     export PATH="${gems}/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}${if tailwindcssPackage != null then ":${tailwindcssPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
     export RAILS_ENV="${railsEnv}"
-    export RUBYLIB="${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
     export TZDIR="${tzinfo}/usr/share/zoneinfo"
     export TMPDIR=/app/tmp
     ${if tailwindcssPackage != null then ''export TAILWINDCSS_INSTALL_DIR="${tailwindcssPackage}/bin"'' else ""}
@@ -648,7 +647,6 @@ ENVEOF
       "GEM_HOME=${gems}/lib/ruby/gems/${rubyMajorMinor}.0"
       "GEM_PATH=${gems}/lib/ruby/gems/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
-      "RUBYLIB=${rubyPackage}/lib/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/site_ruby/${rubyMajorMinor}.0"
       "PATH=${gems}/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin"
       "TZDIR=${tzinfo}/usr/share/zoneinfo"
       "TMPDIR=/app/tmp"
