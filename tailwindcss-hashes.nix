@@ -21,6 +21,7 @@
   "4.2.2" = {
     npmDeps = {
       "x86_64-linux" = "sha256-ZGHZ8r0Is/W1mUoDS7MqOMm5F9sPnEnaa2JhWgdqXNs=";
+      "aarch64-linux" = "sha256-V4GuKbWX0+KFn3W8apFoVQNd96L/uXvBhH4S755BDx8=";
     };
   };
   "4.0.0" = {

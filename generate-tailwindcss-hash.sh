@@ -1,15 +1,45 @@
 #!/usr/bin/env bash
 # Generate tailwindcss npm deps hash for a specific version
 # Must be run on each target architecture (x86_64-linux, aarch64-linux)
+# or use --system to cross-generate via QEMU binfmt emulation
 #
-# Usage: ./generate-tailwindcss-hash.sh 4.1.18       # single version
-#        ./generate-tailwindcss-hash.sh --all         # all missing versions from npm
+# Usage: ./generate-tailwindcss-hash.sh 4.1.18                          # single version
+#        ./generate-tailwindcss-hash.sh --all                            # all missing versions
+#        ./generate-tailwindcss-hash.sh --all --system aarch64-linux     # cross-generate
+#        ./generate-tailwindcss-hash.sh 4.2.2 --system aarch64-linux    # single + cross
 #
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HASHES_FILE="$SCRIPT_DIR/tailwindcss-hashes.nix"
-SYSTEM=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+
+# Parse arguments: positional arg (version or --all) and optional --system
+MODE=""
+VERSION=""
+SYSTEM=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --all)
+      MODE="all"
+      shift
+      ;;
+    --system)
+      SYSTEM="$2"
+      shift 2
+      ;;
+    *)
+      VERSION="$1"
+      MODE="single"
+      shift
+      ;;
+  esac
+done
+
+# Default system to current if not specified
+if [ -z "$SYSTEM" ]; then
+  SYSTEM=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+fi
 
 # Get the nixpkgs rev from our flake.lock so we use cached binaries
 NIXPKGS_REV=$(nix eval --raw --impure --expr "
@@ -24,6 +54,7 @@ else
 fi
 
 # Create temp flake directory once — reused across all generate_hash calls
+# Uses TARGET_SYSTEM env var instead of builtins.currentSystem
 FLAKE_TMPDIR=$(mktemp -d)
 trap "rm -rf $FLAKE_TMPDIR" EXIT
 
@@ -31,7 +62,7 @@ cat > "$FLAKE_TMPDIR/flake.nix" << 'FLAKEEOF'
 {
   inputs.nixpkgs.url = "NIXPKGS_URL_PLACEHOLDER";
   outputs = { nixpkgs, ... }: let
-    system = builtins.currentSystem;
+    system = builtins.getEnv "TARGET_SYSTEM";
     pkgs = import nixpkgs { inherit system; };
     version = builtins.getEnv "TAILWIND_VERSION";
   in {
@@ -116,7 +147,7 @@ generate_hash() {
 
   # Build and capture the hash from the error
   local logfile="$FLAKE_TMPDIR/build-output.log"
-  (cd "$FLAKE_TMPDIR" && TAILWIND_VERSION="$version" nix build --impure .#default 2>&1 | tee "$logfile" || true)
+  (cd "$FLAKE_TMPDIR" && TARGET_SYSTEM="$SYSTEM" TAILWIND_VERSION="$version" nix build --impure ".#packages.${SYSTEM}.default" 2>&1 | tee "$logfile" || true)
   local output
   output=$(cat "$logfile")
 
@@ -140,7 +171,7 @@ generate_hash() {
 
 # --- Main ---
 
-if [ "${1:-}" = "--all" ]; then
+if [ "$MODE" = "all" ]; then
   echo "Querying npm for all @tailwindcss/cli versions..."
   ALL_VERSIONS=$(curl -s 'https://registry.npmjs.org/@tailwindcss/cli' | jq -r '.versions | keys[]')
 
@@ -192,9 +223,7 @@ if [ "${1:-}" = "--all" ]; then
   echo "Generated: $generated"
   echo "Failed: $failed"
 
-elif [ -n "${1:-}" ]; then
-  VERSION="$1"
-
+elif [ "$MODE" = "single" ]; then
   echo "Using nixpkgs: $NIXPKGS_URL"
 
   if has_hash "$VERSION" "$SYSTEM"; then
@@ -208,7 +237,10 @@ elif [ -n "${1:-}" ]; then
   echo "Updated tailwindcss-hashes.nix with $VERSION/$SYSTEM"
 
 else
-  echo "Usage: $0 <version>     # generate hash for one version"
-  echo "       $0 --all         # generate hashes for all missing npm versions"
+  echo "Usage: $0 <version> [--system SYSTEM]     # generate hash for one version"
+  echo "       $0 --all [--system SYSTEM]          # generate hashes for all missing npm versions"
+  echo ""
+  echo "SYSTEM defaults to current ($(nix eval --raw --impure --expr 'builtins.currentSystem' 2>/dev/null))"
+  echo "Use --system aarch64-linux to cross-generate via QEMU binfmt emulation"
   exit 1
 fi
