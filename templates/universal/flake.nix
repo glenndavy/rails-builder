@@ -12,6 +12,10 @@
       url = "github:glenndavy/rails-builder"; # Will be renamed
       flake = true;
     };
+    app-src = {
+      url = "path:.";
+      flake = false;
+    };
   };
 
   outputs = {
@@ -20,11 +24,13 @@
     nixpkgs-ruby,
     flake-compat,
     ruby-builder,
+    app-src,
     ...
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
+    appSrc = app-src;
 
     mkPkgsForSystem = system:
       import nixpkgs {
@@ -80,19 +86,19 @@
       pkgs = mkPkgsForSystem system;
       # Use custom bundix from ruby-builder (glenndavy/bundix fork with fixes)
       customBundix = ruby-builder.packages.${system}.bundix;
-      rubyVersion = detectRubyVersion {src = ./.;};
-      bundlerVersion = detectBundlerVersion {src = ./.;};
+      rubyVersion = detectRubyVersion {src = appSrc;};
+      bundlerVersion = detectBundlerVersion {src = appSrc;};
       rubyPackage = pkgs."ruby-${rubyVersion}";
       rubyVersionSplit = builtins.splitVersion rubyVersion;
       rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
 
       # Framework detection
-      frameworkInfo = detectFramework {src = ./.;};
+      frameworkInfo = detectFramework {src = appSrc;};
       framework = frameworkInfo.framework;
 
       # Auto-detect app name from config/application.rb (for Rails apps)
       # Extracts module name and converts CamelCase to kebab-case: OpsCore -> ops-core
-      detectedAppName = appNameDetection.detectAppName { src = ./.; inherit framework; };
+      detectedAppName = appNameDetection.detectAppName { src = appSrc; inherit framework; };
 
       # Resolve app name priority: explicit > auto-detected > framework-based default
       resolvedAppName =
@@ -145,7 +151,7 @@
       # Tailwindcss package - exact version from Gemfile.lock
       # This is needed because bundlerEnv uses generic ruby platform gem
       # which doesn't include the platform-specific binary
-      tailwindVersion = detectTailwindVersion {src = ./.;};
+      tailwindVersion = detectTailwindVersion {src = appSrc;};
       tailwindcssPackage =
         if tailwindVersion != null && frameworkInfo.needsTailwindcss
         then
@@ -282,7 +288,7 @@
             rev = self.rev or self.dirtyRev or null;
           in if rev != null then builtins.replaceStrings ["-dirty"] [""] rev else null;
           railsEnv = "production";
-          src = ./.;
+          src = appSrc;
           buildRailsApp = pkgs.writeShellScriptBin "make-ruby-app" (import (ruby-builder + /imports/make-generic-ruby-app-script.nix) {inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor framework;});
         };
         # Override the app name to include framework if desired
@@ -308,14 +314,14 @@
       customBundlerEnv = ruby-builder.lib.${system}.customBundlerEnv;
 
       bundixBuild =
-        if builtins.pathExists ./gemset.nix
+        if builtins.pathExists (appSrc + "/gemset.nix")
         then let
           # Use custom bundlerEnv that handles vendor/cache path gems
           gems = customBundlerEnv {
             name = "${framework}-gems";
             ruby = rubyPackage;
-            gemdir = ./.;
-            gemset = ./gemset.nix;
+            gemdir = appSrc;
+            gemset = (appSrc + "/gemset.nix");
             gemConfig = pkgs.defaultGemConfig // {
               ruby-vips = attrs: {
                 buildInputs = [ pkgs.vips ];
@@ -396,7 +402,7 @@
             appRevision = let
               rev = self.rev or self.dirtyRev or null;
             in if rev != null then builtins.replaceStrings ["-dirty"] [""] rev else null;
-            src = ./.;
+            src = appSrc;
             defaultShellHook = bundixShellHook;
             nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
             yarnOfflineCache = pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
@@ -425,9 +431,9 @@
           ruby = rubyPackage;
         };
         modeConfig =
-          if builtins.pathExists ./gemset.nix
+          if builtins.pathExists (appSrc + "/gemset.nix")
           then {
-            gemset = ./gemset.nix;
+            gemset = (appSrc + "/gemset.nix");
             gemConfig = pkgs.defaultGemConfig // {
               ruby-vips = attrs: {
                 buildInputs = [ pkgs.vips ];
@@ -442,9 +448,9 @@
           }
           else {
             # Lockfile-only mode - uses Gemfile.lock without hash verification
-            gemfile = ./Gemfile;
-            lockfile = ./Gemfile.lock;
-            gemdir = ./.;
+            gemfile = (appSrc + "/Gemfile");
+            lockfile = (appSrc + "/Gemfile.lock");
+            gemdir = appSrc;
             gemset = pkgs.writeText "empty-gemset.nix" "{ }";
             gemConfig = pkgs.defaultGemConfig // {
               ruby-vips = attrs: {
@@ -550,8 +556,8 @@
             gems-with-bundix = customBundlerEnv {
               name = "${framework}-gems";
               ruby = rubyPackage;
-              gemdir = ./.;
-              gemset = ./gemset.nix;
+              gemdir = appSrc;
+              gemset = (appSrc + "/gemset.nix");
               gemConfig = pkgs.defaultGemConfig // {
                 ruby-vips = attrs: {
                   buildInputs = [ pkgs.vips ];
@@ -1032,7 +1038,7 @@
 
           # Normal bundix shell using bundlerEnv - direct gem access
           with-bundix =
-            if builtins.pathExists ./gemset.nix
+            if builtins.pathExists (appSrc + "/gemset.nix")
             then let
               # Use customBundlerEnv that handles vendor/cache git gems correctly
               # Standard pkgs.bundlerEnv doesn't create bundler/gems/ symlinks needed
@@ -1040,8 +1046,8 @@
               shellGems = customBundlerEnv {
                 name = "${framework}-gems";
                 ruby = rubyPackage;
-                gemdir = ./.;
-                gemset = ./gemset.nix;
+                gemdir = appSrc;
+                gemset = (appSrc + "/gemset.nix");
                 gemConfig = pkgs.defaultGemConfig // {
                   ruby-vips = attrs: {
                     buildInputs = [ pkgs.vips ];
