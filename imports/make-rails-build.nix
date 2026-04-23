@@ -173,6 +173,7 @@ ${
 # Rails-specific environment
 export BUNDLE_PATH="$RAILS_ROOT/vendor/bundle"
 export BUNDLE_GEMFILE="$RAILS_ROOT/Gemfile"
+export RUBYOPT="-rbundler/setup"
 
 # PATH setup: Ruby first, then bundler (if exists), then app bins, then existing PATH
 export PATH="${rubyPackage}/bin${
@@ -335,6 +336,7 @@ ENVEOF
     export BUNDLE_PATH=/app/vendor/bundle
     export BUNDLE_GEMFILE=/app/Gemfile
     export BUNDLE_FROZEN=true
+    export RUBYOPT="-rbundler/setup"
     export GEM_HOME=/app/vendor/bundle/ruby/${rubyMajorMinor}.0
     export GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0
     export PATH=/app/bin:/app/vendor/bundle/ruby/${rubyMajorMinor}.0/bin:${rubyPackage}/bin${if bundlerPackage != null then ":${bundlerPackage}/bin" else ""}:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/usr/bin:/bin
@@ -401,6 +403,7 @@ ENVEOF
       "BUNDLE_PATH=/app/vendor/bundle"
       "BUNDLE_GEMFILE=/app/Gemfile"
       "BUNDLE_FROZEN=true"
+      "RUBYOPT=-rbundler/setup"
       "GEM_HOME=/app/vendor/bundle/ruby/${rubyMajorMinor}.0"
       "GEM_PATH=/app/vendor/bundle/ruby/${rubyMajorMinor}.0"
       "RAILS_ENV=${railsEnv}"
