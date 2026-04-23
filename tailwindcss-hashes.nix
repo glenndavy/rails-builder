@@ -13,7 +13,7 @@
   };
   "4.1.18" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-ENsXOr3oJ2Oa+8CsETCfVh81qBujC5w62DPPul0c0Uw=";
+      "x86_64-linux" = "sha256-ZMyYyAk/KBO8WvEMRZPrWTnQLhLAEKfPnJ5dbzMFvg8=";
     };
   };
   "4.2.2" = {
