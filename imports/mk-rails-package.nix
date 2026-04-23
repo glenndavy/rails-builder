@@ -134,6 +134,7 @@ let
       import ./make-tailwindcss.nix {
         inherit pkgs tailwindcssHashes;
         version = detectedTailwindVersion;
+        lockfilesPath = ../tailwindcss-locks;
       }
     else null;
 

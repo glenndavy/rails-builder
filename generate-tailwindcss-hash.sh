@@ -3,6 +3,9 @@
 # Must be run on each target architecture (x86_64-linux, aarch64-linux)
 # or use --system to cross-generate via QEMU binfmt emulation
 #
+# This script generates a bun.lockb lockfile AND the corresponding npm deps hash
+# as a pair, ensuring transitive dependencies are pinned for reproducibility.
+#
 # Usage: ./generate-tailwindcss-hash.sh 4.1.18                          # single version
 #        ./generate-tailwindcss-hash.sh --all                            # all missing versions
 #        ./generate-tailwindcss-hash.sh --all --system aarch64-linux     # cross-generate
@@ -12,6 +15,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HASHES_FILE="$SCRIPT_DIR/tailwindcss-hashes.nix"
+LOCKS_DIR="$SCRIPT_DIR/tailwindcss-locks"
+
+# Ensure locks directory exists
+mkdir -p "$LOCKS_DIR"
 
 # Parse arguments: positional arg (version or --all) and optional --system
 MODE=""
@@ -58,33 +65,69 @@ fi
 FLAKE_TMPDIR=$(mktemp -d)
 trap "rm -rf $FLAKE_TMPDIR" EXIT
 
-cat > "$FLAKE_TMPDIR/flake.nix" << 'FLAKEEOF'
+# Write the temp flake — it will be updated per-version with lockfile path
+write_temp_flake() {
+  local lockfile_path="$1"  # empty string if no lockfile
+
+  if [ -n "$lockfile_path" ]; then
+    cat > "$FLAKE_TMPDIR/flake.nix" << FLAKEEOF
 {
-  inputs.nixpkgs.url = "NIXPKGS_URL_PLACEHOLDER";
+  inputs.nixpkgs.url = "$NIXPKGS_URL";
+  outputs = { nixpkgs, ... }: let
+    system = builtins.getEnv "TARGET_SYSTEM";
+    pkgs = import nixpkgs { inherit system; };
+    version = builtins.getEnv "TAILWIND_VERSION";
+    lockfile = $lockfile_path;
+  in {
+    packages.\${system}.default = pkgs.runCommand "tailwindcss-npm-deps-\${version}" {
+      outputHashAlgo = "sha256";
+      outputHashMode = "recursive";
+      outputHash = pkgs.lib.fakeHash;
+      nativeBuildInputs = [ pkgs.bun pkgs.cacert ];
+      SSL_CERT_FILE = "\${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    } ''
+      export HOME=\$TMPDIR
+      export BUN_INSTALL_CACHE_DIR=\$TMPDIR/bun-cache
+      mkdir -p \$out && cd \$out
+      echo '{"dependencies":{"@tailwindcss/cli":"\${version}"}}' > package.json
+      cp \${lockfile} bun.lockb
+      \${pkgs.bun}/bin/bun install --frozen-lockfile --production
+      rm -rf \$out/.bun-cache \$out/bun.lockb 2>/dev/null || true
+    '';
+  };
+}
+FLAKEEOF
+  else
+    cat > "$FLAKE_TMPDIR/flake.nix" << FLAKEEOF
+{
+  inputs.nixpkgs.url = "$NIXPKGS_URL";
   outputs = { nixpkgs, ... }: let
     system = builtins.getEnv "TARGET_SYSTEM";
     pkgs = import nixpkgs { inherit system; };
     version = builtins.getEnv "TAILWIND_VERSION";
   in {
-    packages.${system}.default = pkgs.runCommand "tailwindcss-npm-deps-${version}" {
+    packages.\${system}.default = pkgs.runCommand "tailwindcss-npm-deps-\${version}" {
       outputHashAlgo = "sha256";
       outputHashMode = "recursive";
       outputHash = pkgs.lib.fakeHash;
       nativeBuildInputs = [ pkgs.bun pkgs.cacert ];
-      SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+      SSL_CERT_FILE = "\${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     } ''
-      export HOME=$TMPDIR
-      export BUN_INSTALL_CACHE_DIR=$TMPDIR/bun-cache
-      mkdir -p $out && cd $out
-      echo '{"dependencies":{"@tailwindcss/cli":"${version}"}}' > package.json
-      ${pkgs.bun}/bin/bun install --production
-      rm -rf $out/.bun-cache $out/bun.lockb 2>/dev/null || true
+      export HOME=\$TMPDIR
+      export BUN_INSTALL_CACHE_DIR=\$TMPDIR/bun-cache
+      mkdir -p \$out && cd \$out
+      echo '{"dependencies":{"@tailwindcss/cli":"\${version}"}}' > package.json
+      \${pkgs.bun}/bin/bun install --production
+      rm -rf \$out/.bun-cache \$out/bun.lockb 2>/dev/null || true
     '';
   };
 }
 FLAKEEOF
+  fi
 
-sed -i "s|NIXPKGS_URL_PLACEHOLDER|$NIXPKGS_URL|" "$FLAKE_TMPDIR/flake.nix"
+  # Remove old flake.lock so nix re-resolves
+  rm -f "$FLAKE_TMPDIR/flake.lock"
+}
 
 # Check if a version+system already has a hash in tailwindcss-hashes.nix
 has_hash() {
@@ -137,15 +180,59 @@ update_hashes_file() {
   fi
 }
 
+# Generate lockfile for a version using bun install outside Nix
+# This captures the exact transitive dependency resolution
+generate_lockfile() {
+  local version="$1"
+  local lockfile_dest="$LOCKS_DIR/${version}.lockb"
+
+  if [ -f "$lockfile_dest" ]; then
+    echo "  Lockfile already exists at $lockfile_dest, reusing..."
+    return 0
+  fi
+
+  echo "  Generating lockfile for @tailwindcss/cli@${version}..."
+  local lockdir="$FLAKE_TMPDIR/lockgen-${version}"
+  mkdir -p "$lockdir"
+
+  # Create package.json and run bun install to generate bun.lockb
+  echo "{\"dependencies\":{\"@tailwindcss/cli\":\"${version}\"}}" > "$lockdir/package.json"
+
+  # Use nix-shell to get bun, then run bun install
+  # This runs outside the Nix build sandbox so it has network access
+  (cd "$lockdir" && nix shell "nixpkgs#bun" -c bun install --production 2>&1) || {
+    echo "ERROR: bun install failed for version $version"
+    return 1
+  }
+
+  if [ ! -f "$lockdir/bun.lockb" ]; then
+    echo "ERROR: bun.lockb was not generated for version $version"
+    return 1
+  fi
+
+  cp "$lockdir/bun.lockb" "$lockfile_dest"
+  echo "  Saved lockfile to $lockfile_dest"
+}
+
 # Generate hash for a single version, returns hash via GENERATED_HASH variable
-# Reuses the pre-built temp flake in $FLAKE_TMPDIR
+# Generates lockfile first, then uses it in the Nix build for reproducibility
 generate_hash() {
   local version="$1"
   GENERATED_HASH=""
 
-  echo "Generating tailwindcss hash for version $version on $SYSTEM..."
+  echo "Generating tailwindcss lockfile + hash for version $version on $SYSTEM..."
 
-  # Build and capture the hash from the error
+  # Step 1: Generate lockfile (if not already present)
+  generate_lockfile "$version" || return 1
+
+  local lockfile_dest="$LOCKS_DIR/${version}.lockb"
+
+  # Step 2: Write temp flake that uses the lockfile with --frozen-lockfile
+  # Copy lockfile into temp flake dir so Nix can access it
+  cp "$lockfile_dest" "$FLAKE_TMPDIR/bun-lock-${version}.lockb"
+  write_temp_flake "./bun-lock-${version}.lockb"
+
+  # Step 3: Build and capture the hash from the error
   local logfile="$FLAKE_TMPDIR/build-output.log"
   (cd "$FLAKE_TMPDIR" && TARGET_SYSTEM="$SYSTEM" TAILWIND_VERSION="$version" nix build --impure ".#packages.${SYSTEM}.default" 2>&1 | tee "$logfile" || true)
   local output
@@ -164,9 +251,10 @@ generate_hash() {
   GENERATED_HASH="$hash"
   echo ""
   echo "=== Result ==="
-  echo "Version: $version"
-  echo "System:  $SYSTEM"
-  echo "Hash:    $hash"
+  echo "Version:  $version"
+  echo "System:   $SYSTEM"
+  echo "Hash:     $hash"
+  echo "Lockfile: $lockfile_dest"
 }
 
 # --- Main ---
@@ -237,8 +325,12 @@ elif [ "$MODE" = "single" ]; then
   echo "Updated tailwindcss-hashes.nix with $VERSION/$SYSTEM"
 
 else
-  echo "Usage: $0 <version> [--system SYSTEM]     # generate hash for one version"
-  echo "       $0 --all [--system SYSTEM]          # generate hashes for all missing npm versions"
+  echo "Usage: $0 <version> [--system SYSTEM]     # generate lockfile + hash for one version"
+  echo "       $0 --all [--system SYSTEM]          # generate for all missing npm versions"
+  echo ""
+  echo "This script generates a bun.lockb lockfile (in tailwindcss-locks/) and the"
+  echo "corresponding npm deps hash (in tailwindcss-hashes.nix) as a pair."
+  echo "The lockfile pins transitive dependencies for reproducible builds."
   echo ""
   echo "SYSTEM defaults to current ($(nix eval --raw --impure --expr 'builtins.currentSystem' 2>/dev/null))"
   echo "Use --system aarch64-linux to cross-generate via QEMU binfmt emulation"

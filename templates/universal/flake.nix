@@ -158,6 +158,7 @@
           import (ruby-builder + "/imports/make-tailwindcss.nix") {
             inherit pkgs tailwindcssHashes;
             version = tailwindVersion;
+            lockfilesPath = ruby-builder + "/tailwindcss-locks";
           }
         else null;
 
