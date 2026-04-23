@@ -3,7 +3,7 @@
 # Must be run on each target architecture (x86_64-linux, aarch64-linux)
 # or use --system to cross-generate via QEMU binfmt emulation
 #
-# This script generates a bun.lockb lockfile AND the corresponding npm deps hash
+# This script generates a bun.lock lockfile AND the corresponding npm deps hash
 # as a pair, ensuring transitive dependencies are pinned for reproducibility.
 #
 # Usage: ./generate-tailwindcss-hash.sh 4.1.18                          # single version
@@ -90,9 +90,9 @@ write_temp_flake() {
       export BUN_INSTALL_CACHE_DIR=\$TMPDIR/bun-cache
       mkdir -p \$out && cd \$out
       echo '{"dependencies":{"@tailwindcss/cli":"\${version}"}}' > package.json
-      cp \${lockfile} bun.lockb
+      cp \${lockfile} bun.lock
       \${pkgs.bun}/bin/bun install --frozen-lockfile --production
-      rm -rf \$out/.bun-cache \$out/bun.lockb 2>/dev/null || true
+      rm -rf \$out/.bun-cache \$out/bun.lock 2>/dev/null || true
     '';
   };
 }
@@ -118,7 +118,7 @@ FLAKEEOF
       mkdir -p \$out && cd \$out
       echo '{"dependencies":{"@tailwindcss/cli":"\${version}"}}' > package.json
       \${pkgs.bun}/bin/bun install --production
-      rm -rf \$out/.bun-cache \$out/bun.lockb 2>/dev/null || true
+      rm -rf \$out/.bun-cache \$out/bun.lock 2>/dev/null || true
     '';
   };
 }
@@ -184,7 +184,7 @@ update_hashes_file() {
 # This captures the exact transitive dependency resolution
 generate_lockfile() {
   local version="$1"
-  local lockfile_dest="$LOCKS_DIR/${version}.lockb"
+  local lockfile_dest="$LOCKS_DIR/${version}.lock"
 
   if [ -f "$lockfile_dest" ]; then
     echo "  Lockfile already exists at $lockfile_dest, reusing..."
@@ -195,7 +195,7 @@ generate_lockfile() {
   local lockdir="$FLAKE_TMPDIR/lockgen-${version}"
   mkdir -p "$lockdir"
 
-  # Create package.json and run bun install to generate bun.lockb
+  # Create package.json and run bun install to generate bun.lock
   echo "{\"dependencies\":{\"@tailwindcss/cli\":\"${version}\"}}" > "$lockdir/package.json"
 
   # Use nix-shell to get bun, then run bun install
@@ -205,12 +205,12 @@ generate_lockfile() {
     return 1
   }
 
-  if [ ! -f "$lockdir/bun.lockb" ]; then
-    echo "ERROR: bun.lockb was not generated for version $version"
+  if [ ! -f "$lockdir/bun.lock" ]; then
+    echo "ERROR: bun.lock was not generated for version $version"
     return 1
   fi
 
-  cp "$lockdir/bun.lockb" "$lockfile_dest"
+  cp "$lockdir/bun.lock" "$lockfile_dest"
   echo "  Saved lockfile to $lockfile_dest"
 }
 
@@ -225,12 +225,12 @@ generate_hash() {
   # Step 1: Generate lockfile (if not already present)
   generate_lockfile "$version" || return 1
 
-  local lockfile_dest="$LOCKS_DIR/${version}.lockb"
+  local lockfile_dest="$LOCKS_DIR/${version}.lock"
 
   # Step 2: Write temp flake that uses the lockfile with --frozen-lockfile
   # Copy lockfile into temp flake dir so Nix can access it
-  cp "$lockfile_dest" "$FLAKE_TMPDIR/bun-lock-${version}.lockb"
-  write_temp_flake "./bun-lock-${version}.lockb"
+  cp "$lockfile_dest" "$FLAKE_TMPDIR/bun-lock-${version}.lock"
+  write_temp_flake "./bun-lock-${version}.lock"
 
   # Step 3: Build and capture the hash from the error
   local logfile="$FLAKE_TMPDIR/build-output.log"
@@ -328,7 +328,7 @@ else
   echo "Usage: $0 <version> [--system SYSTEM]     # generate lockfile + hash for one version"
   echo "       $0 --all [--system SYSTEM]          # generate for all missing npm versions"
   echo ""
-  echo "This script generates a bun.lockb lockfile (in tailwindcss-locks/) and the"
+  echo "This script generates a bun.lock lockfile (in tailwindcss-locks/) and the"
   echo "corresponding npm deps hash (in tailwindcss-hashes.nix) as a pair."
   echo "The lockfile pins transitive dependencies for reproducible builds."
   echo ""

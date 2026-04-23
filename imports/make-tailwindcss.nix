@@ -5,7 +5,7 @@
   pkgs,
   version,  # e.g., "4.1.18"
   tailwindcssHashes,  # import ../tailwindcss-hashes.nix
-  lockfilesPath ? null,  # path to directory containing <version>.lockb files
+  lockfilesPath ? null,  # path to directory containing <version>.lock files
 }: let
   system = pkgs.system;
   # Get the hash for this version and system (hashes are architecture-specific)
@@ -14,9 +14,9 @@
     then versionInfo.npmDeps.${system}
     else pkgs.lib.fakeHash;
 
-  # Check if a lockfile exists for this version
-  lockfile = if lockfilesPath != null && builtins.pathExists (lockfilesPath + "/${version}.lockb")
-    then lockfilesPath + "/${version}.lockb"
+  # Check if a lockfile exists for this version (bun.lock text format, bun 1.2+)
+  lockfile = if lockfilesPath != null && builtins.pathExists (lockfilesPath + "/${version}.lock")
+    then lockfilesPath + "/${version}.lock"
     else null;
 
 in pkgs.stdenv.mkDerivation {
@@ -45,14 +45,14 @@ in pkgs.stdenv.mkDerivation {
 
     # Install with bun - use frozen lockfile if available for reproducibility
     ${if lockfile != null then ''
-      cp ${lockfile} bun.lockb
+      cp ${lockfile} bun.lock
       ${pkgs.bun}/bin/bun install --frozen-lockfile --production
     '' else ''
       ${pkgs.bun}/bin/bun install --production
     ''}
 
     # Remove cache files that may vary (lockfile not needed at runtime)
-    rm -rf $out/.bun-cache $out/bun.lockb 2>/dev/null || true
+    rm -rf $out/.bun-cache $out/bun.lock $out/bun.lockb 2>/dev/null || true
   '';
 
   dontUnpack = true;
