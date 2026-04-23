@@ -147,7 +147,7 @@
       echo "${railsBuilderVersion}" > $out/.rails-builder-version
 
       # Write app git revision if available
-      echo "${if appRevision != null then appRevision else if src ? rev then src.rev else "unknown"}" > $out/REVISION
+      echo "${if appRevision != null then appRevision else if src ? rev then src.rev else if src ? dirtyRev then builtins.replaceStrings ["-dirty"] [""] src.dirtyRev else "unknown"}" > $out/REVISION
 
       # Create comprehensive environment setup script with all build-time facts
       mkdir -p $out/bin
