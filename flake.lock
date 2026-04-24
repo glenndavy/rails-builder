@@ -92,21 +92,8 @@
       "inputs": {
         "bundix-src": "bundix-src",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-ruby": "nixpkgs-ruby",
-        "src": "src"
+        "nixpkgs-ruby": "nixpkgs-ruby"
       }
-    },
-    "src": {
-      "flake": false,
-      "locked": {
-        "path": ".",
-        "type": "path"
-      },
-      "original": {
-        "path": ".",
-        "type": "path"
-      },
-      "parent": []
     },
     "systems": {
       "locked": {

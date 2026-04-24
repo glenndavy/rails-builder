@@ -8,16 +8,12 @@
     # Custom bundix fork with fixes
     bundix-src.url = "github:glenndavy/bundix";
     bundix-src.flake = false;
-    # Optional: override with --override-input src path:/path/to/your/project
-    src.url = "path:.";
-    src.flake = false;
   };
   outputs = {
     self,
     nixpkgs,
     nixpkgs-ruby,
     bundix-src,
-    src,
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
@@ -385,20 +381,19 @@
     };
 
     # DevShells for direct access (useful for CI/CD and quick bootstrapping)
-    # Usage: nix develop github:glenndavy/rails-builder#with-bundix-bootstrap \
-    #          --override-input src path:.
+    # Usage: nix develop github:glenndavy/rails-builder#with-bundix-bootstrap
     devShells = forAllSystems (system: let
       pkgs = mkPkgsForSystem system;
       versionDetection = import ./imports/detect-versions.nix;
       customBundix = mkBundixForSystem system;
 
-      # Detect Ruby version from src input, with fallback for CI/when no .ruby-version exists
-      rubyVersionFile = src + "/.ruby-version";
+      # Detect Ruby version from flake source, with fallback when no .ruby-version exists
+      rubyVersionFile = self + "/.ruby-version";
       hasRubyVersion = builtins.pathExists rubyVersionFile;
       rubyVersion =
         if hasRubyVersion
-        then versionDetection.detectRubyVersion {inherit src;}
-        else "3.3.0"; # Fallback version for CI and when no .ruby-version
+        then versionDetection.detectRubyVersion {src = self;}
+        else "3.3.0"; # Fallback version when no .ruby-version
       rubyPackage = pkgs."ruby-${rubyVersion}";
     in {
       # Bootstrap shell with bundix for generating gemset.nix

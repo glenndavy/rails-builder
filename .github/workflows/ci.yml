@@ -25,8 +25,6 @@ jobs:
           skipPush: true
         continue-on-error: true
 
-      - name: Lock src input
-        run: nix flake lock --update-input src
 
       - name: Run version detection tests
         run: nix build .#checks.x86_64-linux.testVersionDetection --print-build-logs
@@ -48,8 +46,6 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Lock src input
-        run: nix flake lock --update-input src
 
       - name: Run version detection tests
         run: nix build .#checks.aarch64-darwin.testVersionDetection --print-build-logs
@@ -75,8 +71,6 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Lock src input
-        run: nix flake lock --update-input src
 
       - name: Test universal template init
         run: |
