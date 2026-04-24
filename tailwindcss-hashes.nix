@@ -18,7 +18,7 @@
   };
   "4.2.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-ZGHZ8r0Is/W1mUoDS7MqOMm5F9sPnEnaa2JhWgdqXNs=";
+      "x86_64-linux" = "sha256-CLlwydSvbyzA3fNNs9U7BG8wwBuKG2WqhnX1GDmOOHQ=";
       "aarch64-linux" = "sha256-V4GuKbWX0+KFn3W8apFoVQNd96L/uXvBhH4S755BDx8=";
     };
   };
@@ -189,7 +189,7 @@
   };
   "4.1.8" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-zYXOCCWaf3vPjLQGOFRYkQIF8SXJSc7RUQ8RXMvHMvM=";
+      "x86_64-linux" = "sha256-E3qfXsIMt1U6QvDY0zInB23bLZ13ghoQG5fMkJ7uPqw=";
     };
   };
   "4.1.9" = {
