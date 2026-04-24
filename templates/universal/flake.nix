@@ -426,10 +426,12 @@
 
       # BundlerEnv approach - auto-detects gemset.nix vs lockfile-only mode
       # This provides direct gem access without bundle exec
+      # Uses customBundlerEnv for consistent path gem handling across all shells
       bundlerEnvPackage = let
         baseConfig = {
           name = "${framework}-gems";
           ruby = rubyPackage;
+          gemdir = appSrc;
         };
         modeConfig =
           if builtins.pathExists (appSrc + "/gemset.nix")
@@ -449,9 +451,6 @@
           }
           else {
             # Lockfile-only mode - uses Gemfile.lock without hash verification
-            gemfile = (appSrc + "/Gemfile");
-            lockfile = (appSrc + "/Gemfile.lock");
-            gemdir = appSrc;
             gemset = pkgs.writeText "empty-gemset.nix" "{ }";
             gemConfig = pkgs.defaultGemConfig // {
               ruby-vips = attrs: {
@@ -466,7 +465,7 @@
             };
           };
       in
-        pkgs.bundlerEnv (baseConfig // modeConfig);
+        customBundlerEnv (baseConfig // modeConfig);
 
       # Shared shell hook
       defaultShellHook = ''
