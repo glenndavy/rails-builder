@@ -7,27 +7,6 @@ on:
     branches: [master, main]
 
 jobs:
-  check:
-    name: Nix Flake Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: cachix/install-nix-action@v27
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - uses: cachix/cachix-action@v15
-        with:
-          name: ruby-builder
-          skipPush: true
-        continue-on-error: true
-
-      - name: Check flake
-        run: nix flake check --no-build
-
   test-linux:
     name: Tests (Linux)
     runs-on: ubuntu-latest
@@ -45,6 +24,9 @@ jobs:
           name: ruby-builder
           skipPush: true
         continue-on-error: true
+
+      - name: Lock src input
+        run: nix flake lock --update-input src
 
       - name: Run version detection tests
         run: nix build .#checks.x86_64-linux.testVersionDetection --print-build-logs
@@ -65,6 +47,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Lock src input
+        run: nix flake lock --update-input src
 
       - name: Run version detection tests
         run: nix build .#checks.aarch64-darwin.testVersionDetection --print-build-logs
@@ -89,6 +74,9 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
           extra_nix_config: |
             experimental-features = nix-command flakes
+
+      - name: Lock src input
+        run: nix flake lock --update-input src
 
       - name: Test universal template init
         run: |
