@@ -56,121 +56,205 @@
       version = version;
     };
 
-    # Create test apps for each system
+    # Create tests for each system
     mkTestsForSystem = system: let
       pkgs = mkPkgsForSystem system;
       lib = mkLibForSystem system;
-      customBundix = mkBundixForSystem system;
+      versionDetection = import ./imports/detect-versions.nix;
+      detectFramework = import ./imports/detect-framework.nix;
 
-      # Mock Rails app source for testing
-      mockRailsApp = pkgs.stdenv.mkDerivation {
-        name = "mock-rails-app";
-        dontUnpack = true;
-        installPhase = ''
-          mkdir -p $out
-          cat > $out/Gemfile <<EOF
-          source 'https://rubygems.org'
-          gem 'rails', '~> 7.0'
-          EOF
-          cat > $out/.ruby-version <<EOF
-          3.2.0
-          EOF
-          cat > $out/Gemfile.lock <<EOF
-          GEM
-            remote: https://rubygems.org/
-            specs:
-              rails (7.0.0)
+      # Fixtures as plain paths (required for builtins.readFile/pathExists)
+      railsFixture = ./tests/fixtures/rails-app;
+      sinatraFixture = ./tests/fixtures/sinatra-app;
+      rackFixture = ./tests/fixtures/rack-app;
+      plainRubyFixture = ./tests/fixtures/plain-ruby;
 
-          PLATFORMS
-            ruby
+      # Test version detection against fixtures
+      testVersionDetection = let
+        railsRuby = versionDetection.detectRubyVersion {src = railsFixture;};
+        railsBundler = versionDetection.detectBundlerVersion {src = railsFixture;};
+        railsTailwind = versionDetection.detectTailwindVersion {src = railsFixture;};
+        plainRuby = versionDetection.detectRubyVersion {src = plainRubyFixture;};
+        plainBundler = versionDetection.detectBundlerVersion {src = plainRubyFixture;};
+        plainTailwind = versionDetection.detectTailwindVersion {src = plainRubyFixture;};
+      in
+        pkgs.stdenv.mkDerivation {
+          name = "test-version-detection";
+          dontUnpack = true;
+          buildPhase = ''
+            echo "Testing version detection..."
 
-          DEPENDENCIES
-            rails (~> 7.0)
+            test "${railsRuby}" = "3.3.0" || { echo "FAIL: rails ruby expected 3.3.0, got ${railsRuby}"; exit 1; }
+            echo "ok - Rails ruby version: ${railsRuby}"
 
-          BUNDLED WITH
-             2.4.0
-          EOF
-        '';
-      };
+            test "${railsBundler}" = "2.5.22" || { echo "FAIL: rails bundler expected 2.5.22, got ${railsBundler}"; exit 1; }
+            echo "ok - Rails bundler version: ${railsBundler}"
 
-      # Test basic Rails build functionality
-      testBasicBuild = pkgs.stdenv.mkDerivation {
-        name = "test-basic-rails-build";
-        dontUnpack = true;
-        buildInputs = [pkgs.ruby customBundix];
-        buildPhase = ''
-          echo "Testing basic Rails build creation..."
-          echo "✓ mkRailsBuild function available"
-          echo "✓ mkRailsNixBuild function available"
-          echo "✓ bundix available: $(bundix --version)"
-        '';
-        installPhase = ''
-          mkdir -p $out
-          echo "Basic build test passed" > $out/result
-        '';
-      };
+            test "${railsTailwind}" = "4.1.18" || { echo "FAIL: rails tailwind expected 4.1.18, got ${railsTailwind}"; exit 1; }
+            echo "ok - Rails tailwind version: ${railsTailwind}"
 
-      # Test template validation
-      testTemplates = pkgs.stdenv.mkDerivation {
-        name = "test-templates";
+            test "${plainRuby}" = "3.1.0" || { echo "FAIL: plain ruby expected 3.1.0, got ${plainRuby}"; exit 1; }
+            echo "ok - Plain ruby version: ${plainRuby}"
+
+            test "${plainBundler}" = "2.4.0" || { echo "FAIL: plain bundler expected 2.4.0, got ${plainBundler}"; exit 1; }
+            echo "ok - Plain bundler version: ${plainBundler}"
+
+            test "${builtins.toJSON plainTailwind}" = "null" || { echo "FAIL: plain tailwind expected null"; exit 1; }
+            echo "ok - Plain tailwind version: null"
+          '';
+          installPhase = ''
+            mkdir -p $out
+            echo "Version detection tests passed" > $out/result
+          '';
+        };
+
+      # Test framework and dependency detection against fixtures
+      testFrameworkDetection = let
+        railsInfo = detectFramework {src = railsFixture;};
+        sinatraInfo = detectFramework {src = sinatraFixture;};
+        rackInfo = detectFramework {src = rackFixture;};
+        plainInfo = detectFramework {src = plainRubyFixture;};
+      in
+        pkgs.stdenv.mkDerivation {
+          name = "test-framework-detection";
+          dontUnpack = true;
+          buildPhase = ''
+            echo "Testing framework detection..."
+
+            test "${railsInfo.framework}" = "rails" || { echo "FAIL: expected rails, got ${railsInfo.framework}"; exit 1; }
+            echo "ok - Rails framework detected"
+
+            test "${builtins.toJSON railsInfo.needsPostgresql}" = "true" || { echo "FAIL: rails should need postgresql"; exit 1; }
+            echo "ok - Rails needs PostgreSQL"
+
+            test "${builtins.toJSON railsInfo.needsRedis}" = "true" || { echo "FAIL: rails should need redis"; exit 1; }
+            echo "ok - Rails needs Redis"
+
+            test "${builtins.toJSON railsInfo.needsTailwindcss}" = "true" || { echo "FAIL: rails should need tailwindcss"; exit 1; }
+            echo "ok - Rails needs Tailwind CSS"
+
+            test "${sinatraInfo.framework}" = "sinatra" || { echo "FAIL: expected sinatra, got ${sinatraInfo.framework}"; exit 1; }
+            echo "ok - Sinatra framework detected"
+
+            test "${builtins.toJSON sinatraInfo.needsSqlite}" = "true" || { echo "FAIL: sinatra should need sqlite"; exit 1; }
+            echo "ok - Sinatra needs SQLite"
+
+            test "${rackInfo.framework}" = "rack" || { echo "FAIL: expected rack, got ${rackInfo.framework}"; exit 1; }
+            echo "ok - Rack framework detected"
+
+            test "${plainInfo.framework}" = "ruby" || { echo "FAIL: expected ruby, got ${plainInfo.framework}"; exit 1; }
+            echo "ok - Plain Ruby detected"
+          '';
+          installPhase = ''
+            mkdir -p $out
+            echo "Framework detection tests passed" > $out/result
+          '';
+        };
+
+      # Test template is valid and has required structure
+      testTemplateEval = pkgs.stdenv.mkDerivation {
+        name = "test-template-eval";
         src = ./.;
         buildPhase = ''
           echo "Testing template validity..."
 
-          if [ -f templates/universal/flake.nix ]; then
-            echo "✓ universal template exists"
+          if [ ! -f templates/universal/flake.nix ]; then
+            echo "FAIL: universal template missing"
+            exit 1
+          fi
+          echo "ok - Universal template exists"
+
+          if grep -q 'description' templates/universal/flake.nix && \
+             grep -q 'inputs' templates/universal/flake.nix && \
+             grep -q 'outputs' templates/universal/flake.nix; then
+            echo "ok - Template has required structure (description, inputs, outputs)"
           else
-            echo "✗ universal template missing"
+            echo "FAIL: template missing required structure"
             exit 1
           fi
         '';
         installPhase = ''
           mkdir -p $out
-          echo "Template tests passed" > $out/result
+          echo "Template evaluation tests passed" > $out/result
         '';
       };
 
-      # Test cross-platform compatibility
-      testCrossPlatform = pkgs.stdenv.mkDerivation {
-        name = "test-cross-platform";
-        dontUnpack = true;
-        buildPhase = ''
-          echo "Testing cross-platform compatibility for ${system}..."
+      # Test mkRailsPackage evaluation (evaluation-only, no build)
+      testMkRailsPackage = let
+        railsBuild = lib.mkRailsPackage {
+          inherit pkgs;
+          src = railsFixture;
+        };
+      in
+        pkgs.stdenv.mkDerivation {
+          name = "test-mk-rails-package";
+          dontUnpack = true;
+          buildPhase = ''
+            echo "Testing mkRailsPackage evaluation..."
 
-          if [ "${system}" = "x86_64-darwin" ] || [ "${system}" = "aarch64-darwin" ]; then
-            echo "✓ Running on Darwin (${system})"
-          else
-            echo "✓ Running on Linux (${system})"
-          fi
+            test "${railsBuild.detected.rubyVersion}" = "3.3.0" || { echo "FAIL: rubyVersion expected 3.3.0"; exit 1; }
+            echo "ok - detected.rubyVersion = 3.3.0"
 
-          echo "✓ System packages available for ${system}"
-        '';
-        installPhase = ''
-          mkdir -p $out
-          echo "Cross-platform test passed for ${system}" > $out/result
-        '';
-      };
+            test "${railsBuild.detected.bundlerVersion}" = "2.5.22" || { echo "FAIL: bundlerVersion expected 2.5.22"; exit 1; }
+            echo "ok - detected.bundlerVersion = 2.5.22"
+
+            test "${railsBuild.detected.tailwindVersion}" = "4.1.18" || { echo "FAIL: tailwindVersion expected 4.1.18"; exit 1; }
+            echo "ok - detected.tailwindVersion = 4.1.18"
+
+            test "${railsBuild.detected.framework}" = "rails" || { echo "FAIL: framework expected rails"; exit 1; }
+            echo "ok - detected.framework = rails"
+
+            test "${builtins.toJSON railsBuild.detected.needsPostgresql}" = "true" || { echo "FAIL: needsPostgresql expected true"; exit 1; }
+            echo "ok - detected.needsPostgresql = true"
+
+            test "${builtins.toJSON railsBuild.detected.needsRedis}" = "true" || { echo "FAIL: needsRedis expected true"; exit 1; }
+            echo "ok - detected.needsRedis = true"
+
+            test "${builtins.toJSON (builtins.hasAttr "app" railsBuild)}" = "true" || { echo "FAIL: missing app attr"; exit 1; }
+            echo "ok - railsBuild has 'app' attribute"
+
+            test "${builtins.toJSON (builtins.hasAttr "detected" railsBuild)}" = "true" || { echo "FAIL: missing detected attr"; exit 1; }
+            echo "ok - railsBuild has 'detected' attribute"
+
+            test "${builtins.toJSON (builtins.hasAttr "gems" railsBuild)}" = "true" || { echo "FAIL: missing gems attr"; exit 1; }
+            echo "ok - railsBuild has 'gems' attribute"
+
+            test "${builtins.toJSON (builtins.hasAttr "rubyPackage" railsBuild)}" = "true" || { echo "FAIL: missing rubyPackage attr"; exit 1; }
+            echo "ok - railsBuild has 'rubyPackage' attribute"
+
+            test "${builtins.toJSON (builtins.hasAttr "bundlerPackage" railsBuild)}" = "true" || { echo "FAIL: missing bundlerPackage attr"; exit 1; }
+            echo "ok - railsBuild has 'bundlerPackage' attribute"
+          '';
+          installPhase = ''
+            mkdir -p $out
+            echo "mkRailsPackage evaluation tests passed" > $out/result
+          '';
+        };
 
       # Combined test runner
       runAllTests = pkgs.stdenv.mkDerivation {
         name = "run-all-tests";
         dontUnpack = true;
         buildInputs = [
-          testBasicBuild
-          testTemplates
-          testCrossPlatform
+          testVersionDetection
+          testFrameworkDetection
+          testTemplateEval
+          testMkRailsPackage
         ];
         buildPhase = ''
           echo "Running all tests for ${system}..."
 
-          echo "1. Basic build tests..."
-          cat ${testBasicBuild}/result
+          echo "1. Version detection tests..."
+          cat ${testVersionDetection}/result
 
-          echo "2. Template tests..."
-          cat ${testTemplates}/result
+          echo "2. Framework detection tests..."
+          cat ${testFrameworkDetection}/result
 
-          echo "3. Cross-platform tests..."
-          cat ${testCrossPlatform}/result
+          echo "3. Template evaluation tests..."
+          cat ${testTemplateEval}/result
+
+          echo "4. mkRailsPackage evaluation tests..."
+          cat ${testMkRailsPackage}/result
 
           echo "All tests completed successfully!"
         '';
@@ -180,7 +264,7 @@
         '';
       };
     in {
-      inherit testBasicBuild testTemplates testCrossPlatform runAllTests;
+      inherit testVersionDetection testFrameworkDetection testTemplateEval testMkRailsPackage runAllTests;
     };
   in {
     # Export version at top level for easy access from templates

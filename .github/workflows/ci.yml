@@ -46,14 +46,17 @@ jobs:
           skipPush: true
         continue-on-error: true
 
-      - name: Run basic tests
-        run: nix build .#checks.x86_64-linux.testBasicBuild --print-build-logs
+      - name: Run version detection tests
+        run: nix build .#checks.x86_64-linux.testVersionDetection --print-build-logs
+
+      - name: Run framework detection tests
+        run: nix build .#checks.x86_64-linux.testFrameworkDetection --print-build-logs
 
       - name: Run template tests
-        run: nix build .#checks.x86_64-linux.testTemplates --print-build-logs
+        run: nix build .#checks.x86_64-linux.testTemplateEval --print-build-logs
 
-      - name: Run cross-platform tests
-        run: nix build .#checks.x86_64-linux.testCrossPlatform --print-build-logs
+      - name: Run mkRailsPackage tests
+        run: nix build .#checks.x86_64-linux.testMkRailsPackage --print-build-logs
 
   test-darwin:
     name: Tests (macOS)
@@ -63,14 +66,17 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Run basic tests
-        run: nix build .#checks.aarch64-darwin.testBasicBuild --print-build-logs
+      - name: Run version detection tests
+        run: nix build .#checks.aarch64-darwin.testVersionDetection --print-build-logs
+
+      - name: Run framework detection tests
+        run: nix build .#checks.aarch64-darwin.testFrameworkDetection --print-build-logs
 
       - name: Run template tests
-        run: nix build .#checks.aarch64-darwin.testTemplates --print-build-logs
+        run: nix build .#checks.aarch64-darwin.testTemplateEval --print-build-logs
 
-      - name: Run cross-platform tests
-        run: nix build .#checks.aarch64-darwin.testCrossPlatform --print-build-logs
+      - name: Run mkRailsPackage tests
+        run: nix build .#checks.aarch64-darwin.testMkRailsPackage --print-build-logs
 
   template-init:
     name: Template Initialization Test

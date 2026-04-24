@@ -1,0 +1,14 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    sinatra (3.0.0)
+    sqlite3 (1.6.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  sinatra (~> 3.0)
+
+BUNDLED WITH
+   2.4.0
