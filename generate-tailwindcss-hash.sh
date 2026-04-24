@@ -195,23 +195,29 @@ generate_lockfile() {
   local lockdir="$FLAKE_TMPDIR/lockgen-${version}"
   mkdir -p "$lockdir"
 
-  # Create package.json and run bun install to generate bun.lock
+  # Create package.json and run bun install to generate lockfile
   echo "{\"dependencies\":{\"@tailwindcss/cli\":\"${version}\"}}" > "$lockdir/package.json"
 
-  # Use nix-shell to get bun, then run bun install
-  # This runs outside the Nix build sandbox so it has network access
-  (cd "$lockdir" && nix shell "nixpkgs#bun" -c bun install --production 2>&1) || {
+  # Run bun install WITHOUT --production — production mode skips lockfile creation
+  # when no lockfile exists yet. We only need the lockfile from this step.
+  (cd "$lockdir" && nix shell "nixpkgs#bun" -c bun install 2>&1) || {
     echo "ERROR: bun install failed for version $version"
     return 1
   }
 
-  if [ ! -f "$lockdir/bun.lock" ]; then
-    echo "ERROR: bun.lock was not generated for version $version"
+  # Bun 1.2+ generates bun.lock (text), older versions generate bun.lockb (binary)
+  if [ -f "$lockdir/bun.lock" ]; then
+    cp "$lockdir/bun.lock" "$lockfile_dest"
+    echo "  Saved lockfile to $lockfile_dest (text format)"
+  elif [ -f "$lockdir/bun.lockb" ]; then
+    cp "$lockdir/bun.lockb" "$lockfile_dest"
+    echo "  Saved lockfile to $lockfile_dest (binary format, from older bun)"
+  else
+    echo "ERROR: no lockfile generated for version $version"
+    echo "  Files in $lockdir:"
+    ls -la "$lockdir"
     return 1
   fi
-
-  cp "$lockdir/bun.lock" "$lockfile_dest"
-  echo "  Saved lockfile to $lockfile_dest"
 }
 
 # Generate hash for a single version, returns hash via GENERATED_HASH variable
