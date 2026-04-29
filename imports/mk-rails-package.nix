@@ -79,6 +79,40 @@ let
 
   detectedTailwindVersion = versionDetection.detectTailwindVersion { inherit src; };
 
+  # Detect git revision from source tree (for path: inputs that include .git)
+  resolvedAppRevision = let
+    gitHeadFile = src + "/.git/HEAD";
+    hasGitHead = builtins.pathExists gitHeadFile;
+    headContent =
+      if hasGitHead
+      then builtins.replaceStrings ["\n" "\r"] ["" ""] (builtins.readFile gitHeadFile)
+      else null;
+    # Detached HEAD: file contains raw 40-char hex SHA
+    isDetachedHead = headContent != null
+      && builtins.match "[0-9a-f]{40}" headContent != null;
+    # Branch ref: file contains "ref: refs/heads/..."
+    isRef = headContent != null
+      && builtins.substring 0 5 headContent == "ref: ";
+    refRelPath =
+      if isRef
+      then builtins.substring 5 (builtins.stringLength headContent - 5) headContent
+      else null;
+    refFile =
+      if refRelPath != null
+      then src + "/.git/${refRelPath}"
+      else null;
+    refContent =
+      if refFile != null && builtins.pathExists refFile
+      then builtins.replaceStrings ["\n" "\r"] ["" ""] (builtins.readFile refFile)
+      else null;
+  in
+    if appRevision != null then appRevision
+    else if src ? rev then src.rev
+    else if src ? dirtyRev then builtins.replaceStrings ["-dirty"] [""] src.dirtyRev
+    else if isDetachedHead then headContent
+    else if refContent != null then refContent
+    else null;
+
   # Framework detection
   frameworkInfo = detectFramework { inherit src; };
   framework = frameworkInfo.framework;
@@ -270,7 +304,8 @@ let
         inherit pkgs universalBuildInputs rubyPackage rubyMajorMinor gems
                 gccPackage opensslPackage usrBinDerivation tzinfo
                 tailwindcssPackage bundlerPackage buildRailsApp defaultShellHook
-                railsEnv railsBuilderVersion appRevision;
+                railsEnv railsBuilderVersion;
+        appRevision = resolvedAppRevision;
         rubyVersion = detectedRubyVersion;
         inherit gccVersion opensslVersion;
         inherit src;
@@ -289,7 +324,8 @@ let
         );
       in (import ./make-rails-build.nix { inherit pkgs; }) {
         rubyVersion = detectedRubyVersion;
-        inherit src railsEnv railsBuilderVersion appRevision;
+        inherit src railsEnv railsBuilderVersion;
+        appRevision = resolvedAppRevision;
         buildRailsApp = buildRailsAppFallback;
         appName = finalAppName;
         inherit bundlerPackage;
@@ -316,5 +352,6 @@ in {
     needsPostgresql = frameworkInfo.needsPostgresql;
     needsRedis = frameworkInfo.needsRedis;
     hasAssets = frameworkInfo.hasAssets;
+    appRevision = resolvedAppRevision;
   };
 }
