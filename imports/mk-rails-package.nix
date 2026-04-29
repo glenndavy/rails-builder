@@ -49,6 +49,7 @@
   gccVersion ? "latest",  # GCC version
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
+  appRevision ? null,     # Optional: Git revision (falls back to src.rev / src.dirtyRev)
   nixpkgsRubyOverlay ? null, # Internal: nixpkgs-ruby overlay (passed by rails-builder)
   railsBuilderVersion ? "unknown", # Internal: version for debugging (passed by rails-builder)
 }:
@@ -269,7 +270,7 @@ let
         inherit pkgs universalBuildInputs rubyPackage rubyMajorMinor gems
                 gccPackage opensslPackage usrBinDerivation tzinfo
                 tailwindcssPackage bundlerPackage buildRailsApp defaultShellHook
-                railsEnv railsBuilderVersion;
+                railsEnv railsBuilderVersion appRevision;
         rubyVersion = detectedRubyVersion;
         inherit gccVersion opensslVersion;
         inherit src;
@@ -288,7 +289,7 @@ let
         );
       in (import ./make-rails-build.nix { inherit pkgs; }) {
         rubyVersion = detectedRubyVersion;
-        inherit src railsEnv railsBuilderVersion;
+        inherit src railsEnv railsBuilderVersion appRevision;
         buildRailsApp = buildRailsAppFallback;
         appName = finalAppName;
         inherit bundlerPackage;
