@@ -381,27 +381,163 @@
     };
 
     # DevShells for direct access (useful for CI/CD and quick bootstrapping)
+    # Usage: nix develop --impure github:glenndavy/rails-builder  (auto-detects from CWD)
+    # Usage: nix develop github:glenndavy/rails-builder            (uses defaults)
     # Usage: nix develop github:glenndavy/rails-builder#with-bundix-bootstrap
     devShells = forAllSystems (system: let
       pkgs = mkPkgsForSystem system;
       versionDetection = import ./imports/detect-versions.nix;
+      detectFramework = import ./imports/detect-framework.nix;
       customBundix = mkBundixForSystem system;
 
-      # Detect Ruby version from flake source, with fallback when no .ruby-version exists
-      rubyVersionFile = self + "/.ruby-version";
-      hasRubyVersion = builtins.pathExists rubyVersionFile;
+      # Default Ruby for bootstrap shell (no project detection needed)
+      defaultRubyVersion = "3.3.0";
+      defaultRubyPackage = pkgs."ruby-${defaultRubyVersion}";
+
+      # Impure CWD detection for the default devShell
+      # builtins.getEnv returns "" in pure mode, so this is safe
+      pwd = builtins.getEnv "PWD";
+      isImpure = pwd != "";
+      cwdPath =
+        if isImpure
+        then /. + pwd
+        else null;
+
+      # Detect Ruby version from CWD (impure) or fall back to default
+      detectedRubyVersion = let
+        result =
+          if isImpure
+          then builtins.tryEval (versionDetection.detectRubyVersion {src = cwdPath;})
+          else {
+            success = false;
+            value = null;
+          };
+      in
+        if result.success
+        then result.value
+        else null;
+
       rubyVersion =
-        if hasRubyVersion
-        then versionDetection.detectRubyVersion {src = self;}
-        else "3.3.0"; # Fallback version when no .ruby-version
+        if detectedRubyVersion != null
+        then detectedRubyVersion
+        else defaultRubyVersion;
       rubyPackage = pkgs."ruby-${rubyVersion}";
+
+      # Detect bundler version from CWD
+      detectedBundlerVersion = let
+        result =
+          if isImpure
+          then builtins.tryEval (versionDetection.detectBundlerVersion {src = cwdPath;})
+          else {
+            success = false;
+            value = null;
+          };
+      in
+        if result.success
+        then result.value
+        else null;
+
+      # Detect framework and dependencies from CWD
+      detectedFramework = let
+        result =
+          if isImpure && cwdPath != null && builtins.pathExists (cwdPath + "/Gemfile.lock")
+          then builtins.tryEval (detectFramework {src = cwdPath;})
+          else {
+            success = false;
+            value = null;
+          };
+      in
+        if result.success
+        then result.value
+        else null;
+
+      hasFramework = detectedFramework != null;
+
+      # Build inputs based on detected dependencies
+      baseInputs = [
+        rubyPackage
+        pkgs.bundler
+        pkgs.git
+        pkgs.gnumake
+        pkgs.gcc
+        pkgs.pkg-config
+        pkgs.openssl
+        pkgs.libyaml
+        pkgs.zlib
+        pkgs.libffi
+        pkgs.readline
+        pkgs.ncurses
+      ];
+
+      detectedInputs =
+        pkgs.lib.optionals hasFramework (
+          pkgs.lib.optional detectedFramework.needsPostgresql pkgs.postgresql
+          ++ pkgs.lib.optional detectedFramework.needsSqlite pkgs.sqlite
+          ++ pkgs.lib.optional detectedFramework.needsMysql pkgs.libmysqlclient
+          ++ pkgs.lib.optional detectedFramework.needsLibVips pkgs.vips
+          ++ pkgs.lib.optional detectedFramework.needsImageMagick pkgs.imagemagick
+        );
+
+      linuxInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+        pkgs.libxml2
+        pkgs.libxslt
+      ];
+
+      # Shell hook messages
+      rubySource =
+        if detectedRubyVersion != null
+        then "from .ruby-version"
+        else "default";
+      bundlerMsg =
+        if detectedBundlerVersion != null
+        then ''echo "  Bundler:   ${detectedBundlerVersion} (from Gemfile.lock)"''
+        else "";
+      frameworkMsg =
+        if hasFramework
+        then ''echo "  Framework: ${detectedFramework.framework}"''
+        else "";
+      databaseMsgs =
+        (
+          if hasFramework && detectedFramework.needsPostgresql
+          then ''echo "  Database:  postgresql"''
+          else ""
+        )
+        + (
+          if hasFramework && detectedFramework.needsMysql
+          then ''echo "  Database:  mysql"''
+          else ""
+        )
+        + (
+          if hasFramework && detectedFramework.needsSqlite
+          then ''echo "  Database:  sqlite"''
+          else ""
+        );
+      cacheMsgs =
+        (
+          if hasFramework && detectedFramework.needsRedis
+          then ''echo "  Cache:     redis"''
+          else ""
+        )
+        + (
+          if hasFramework && detectedFramework.needsMemcached
+          then ''echo "  Cache:     memcached"''
+          else ""
+        );
+      impureTip =
+        if !isImpure
+        then ''
+          echo ""
+          echo "Tip: Run with --impure to auto-detect from your project:"
+          echo "  nix develop --impure github:glenndavy/rails-builder"
+        ''
+        else "";
     in {
       # Bootstrap shell with bundix for generating gemset.nix
       with-bundix-bootstrap = pkgs.mkShell {
         name = "rails-builder-bootstrap";
         buildInputs =
           [
-            rubyPackage
+            defaultRubyPackage
             customBundix
             pkgs.bundler
             pkgs.git
@@ -433,20 +569,21 @@
         '';
       };
 
-      # Alias for convenience
+      # Auto-detecting dev shell
+      # With --impure: detects Ruby version, framework, and dependencies from CWD
+      # Without --impure: provides a generic Ruby dev shell with sensible defaults
       default = pkgs.mkShell {
-        name = "rails-builder-default";
-        buildInputs = [
-          rubyPackage
-          pkgs.bundler
-          pkgs.git
-        ];
+        name = "rails-builder-dev";
+        buildInputs = baseInputs ++ detectedInputs ++ linuxInputs;
         shellHook = ''
-          echo "Rails Builder Default Shell (${system})"
-          echo "Ruby: $(ruby --version)"
+          echo "Rails Builder Dev Shell (${system})"
+          echo "  Ruby:      ${rubyVersion} (${rubySource})"
+          ${bundlerMsg}
+          ${frameworkMsg}
+          ${databaseMsgs}
+          ${cacheMsgs}
+          ${impureTip}
           echo ""
-          echo "For full development, initialize a project with:"
-          echo "  nix flake init -t github:glenndavy/rails-builder#universal"
         '';
       };
     });
