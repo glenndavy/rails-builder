@@ -322,7 +322,7 @@ let
             inherit framework;
           }
         );
-      in (import ./make-rails-build.nix { inherit pkgs; }) {
+      in (import ./make-rails-build.nix { pkgs = pkgsWithRuby; }) {
         rubyVersion = detectedRubyVersion;
         inherit src railsEnv railsBuilderVersion;
         appRevision = resolvedAppRevision;
