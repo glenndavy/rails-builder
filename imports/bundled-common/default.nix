@@ -131,6 +131,13 @@ let
       in
       if gemAttrs.type == "path" then
         pathDerivation (gemAttrs.source // gemAttrs // { gemdir = gemFiles.gemdir; })
+      else if gemAttrs.source ? path then
+        # Vendored .gem archive — pass as src so buildRubyGem skips rubygems.org fetch.
+        let
+          path = gemAttrs.source.path;
+          resolved = if builtins.isString path then gemFiles.gemdir + ("/" + path) else path;
+        in
+        buildRubyGem (gemAttrs // { src = resolved; })
       else
         buildRubyGem gemAttrs
     );
