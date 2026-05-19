@@ -84,8 +84,6 @@
   if [ -d "vendor/cache" ]; then
     echo "📦 Found vendor/cache - rewriting gemset to source from vendored .gem files..."
 
-    PROBLEM_GEMS="nokogiri json bootsnap msgpack bcrypt nio4r websocket-driver ffi racc sassc pg mysql2"
-
     # Current platform — used as fallback if the source-platform .gem isn't vendored
     CURRENT_PLATFORM=""
     case "$(uname -s)" in
@@ -103,13 +101,13 @@
         ;;
     esac
 
-    for gem in $PROBLEM_GEMS; do
-      # Match the gem's own block (e.g. "  pg = {"), not a mention of "pg" in
-      # another gem's dependencies list.
-      if ! grep -q "^  $gem = {" gemset.nix; then
-        continue
-      fi
+    # Every gem in gemset.nix — if any has a matching vendored .gem, rewrite
+    # its source to point at it. Avoids a hardcoded safelist and catches every
+    # gem whose bundix-resolved SHA might disagree with what was bundle-packaged
+    # (typically gems with precompiled platform variants).
+    ALL_GEMS=$(${pkgs.gnugrep}/bin/grep -E '^  [a-zA-Z_][a-zA-Z0-9_-]* = \{' gemset.nix | ${pkgs.gnused}/bin/sed 's/^  //;s/ = {.*//')
 
+    for gem in $ALL_GEMS; do
       VERSION=$(${pkgs.gawk}/bin/awk -v g="$gem" '
         $0 ~ "^  " g " = \\{" { in_block=1; next }
         in_block && /^  \};$/ { exit }
