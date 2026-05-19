@@ -76,40 +76,86 @@
     done
   fi
 
-  # If vendor/cache exists, fix SHAs from vendored gems automatically
+  # If vendor/cache exists, rewrite gemset entries for problem gems to use the
+  # vendored .gem file directly as their source. This makes the build hermetic
+  # from vendor/cache (no rubygems.org fetch at build time) and removes the
+  # whole class of SHA mismatches between bundix-resolved and bundle-packaged
+  # gem variants.
   if [ -d "vendor/cache" ]; then
-    echo "📦 Found vendor/cache - fixing SHAs from vendored gems..."
+    echo "📦 Found vendor/cache - rewriting gemset to source from vendored .gem files..."
 
-    # Common gems that often have SHA mismatches
     PROBLEM_GEMS="nokogiri json bootsnap msgpack bcrypt nio4r websocket-driver ffi racc sassc pg mysql2"
 
+    # Current platform — used as fallback if the source-platform .gem isn't vendored
+    CURRENT_PLATFORM=""
+    case "$(uname -s)" in
+      Linux)
+        case "$(uname -m)" in
+          x86_64) CURRENT_PLATFORM="x86_64-linux" ;;
+          aarch64) CURRENT_PLATFORM="aarch64-linux" ;;
+        esac
+        ;;
+      Darwin)
+        case "$(uname -m)" in
+          x86_64) CURRENT_PLATFORM="x86_64-darwin" ;;
+          arm64) CURRENT_PLATFORM="arm64-darwin" ;;
+        esac
+        ;;
+    esac
+
     for gem in $PROBLEM_GEMS; do
-      if grep -q "\"$gem\"" gemset.nix; then
-        VERSION=$(grep -A 10 "^  $gem = {" gemset.nix | grep "version =" | head -1 | sed 's/.*version = "\([^"]*\)".*/\1/')
-
-        if [ -n "$VERSION" ]; then
-          # Try to find vendored gem (platform-specific or generic)
-          VENDORED_GEM=""
-          for gem_file in vendor/cache/$gem-$VERSION*.gem; do
-            if [ -f "$gem_file" ]; then
-              VENDORED_GEM="$gem_file"
-              break
-            fi
-          done
-
-          if [ -n "$VENDORED_GEM" ]; then
-            CORRECT_SHA=$(${pkgs.nix}/bin/nix hash file "$VENDORED_GEM" 2>/dev/null || echo "")
-            if [ -n "$CORRECT_SHA" ]; then
-              echo "  ✅ Fixing $gem-$VERSION from vendored gem"
-              # Use | as delimiter instead of / to avoid conflicts with base64 chars
-              ${pkgs.gnused}/bin/sed -i "/\"$gem\" = {/,/};/s|sha256 = \"[^\"]*\"|sha256 = \"$CORRECT_SHA\"|" gemset.nix
-            fi
-          fi
-        fi
+      # Match the gem's own block (e.g. "  pg = {"), not a mention of "pg" in
+      # another gem's dependencies list.
+      if ! grep -q "^  $gem = {" gemset.nix; then
+        continue
       fi
+
+      VERSION=$(${pkgs.gawk}/bin/awk -v g="$gem" '
+        $0 ~ "^  " g " = \\{" { in_block=1; next }
+        in_block && /^  \};$/ { exit }
+        in_block && /version = / {
+          gsub(/.*version = "/, "")
+          gsub(/".*/, "")
+          print
+          exit
+        }
+      ' gemset.nix)
+
+      if [ -z "$VERSION" ]; then continue; fi
+
+      # Prefer source variant (no platform suffix) so Nix compiles against its
+      # own libs; fall back to a precompiled .gem matching the current platform.
+      VENDORED_GEM=""
+      if [ -f "vendor/cache/$gem-$VERSION.gem" ]; then
+        VENDORED_GEM="vendor/cache/$gem-$VERSION.gem"
+      elif [ -n "$CURRENT_PLATFORM" ] && [ -f "vendor/cache/$gem-$VERSION-$CURRENT_PLATFORM.gem" ]; then
+        VENDORED_GEM="vendor/cache/$gem-$VERSION-$CURRENT_PLATFORM.gem"
+      fi
+
+      if [ -z "$VENDORED_GEM" ]; then
+        continue
+      fi
+
+      echo "  ✅ Pointing $gem-$VERSION source at $VENDORED_GEM"
+
+      ${pkgs.gawk}/bin/awk -v g="$gem" -v p="./$VENDORED_GEM" '
+        $0 ~ "^  " g " = \\{" { in_block=1; print; next }
+        in_block && /^  \};$/ { in_block=0; in_source=0; print; next }
+        in_block && !in_source && /source = \{/ {
+          print "    source = {"
+          print "      path = \"" p "\";"
+          print "      type = \"gem\";"
+          print "    };"
+          in_source=1
+          next
+        }
+        in_source && /^    \};$/ { in_source=0; next }
+        in_source { next }
+        { print }
+      ' gemset.nix > gemset.nix.tmp && mv gemset.nix.tmp gemset.nix
     done
 
-    echo "✅ SHAs fixed from vendored gems"
+    echo "✅ Vendored gem rewrites complete"
   fi
   if [ -f yarn.lock ]; then
     echo "Computing Yarn hash..."
