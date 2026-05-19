@@ -318,7 +318,8 @@ let
       let
         buildRailsAppFallback = pkgs.writeShellScriptBin "make-ruby-app" (
           import ./make-generic-ruby-app-script.nix {
-            inherit pkgs rubyPackage bundlerPackage bundlerVersion rubyMajorMinor;
+            inherit pkgs rubyPackage bundlerPackage rubyMajorMinor;
+            bundlerVersion = detectedBundlerVersion;
             inherit framework;
           }
         );
