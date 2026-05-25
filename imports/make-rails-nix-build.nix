@@ -25,6 +25,21 @@
   appRevision ? null, # Optional: Git revision of the app (falls back to src.rev)
   ...
 }: let
+  # Normalize src — Nix flake inputs of the form `path:...` (especially when
+  # injected via --override-input) sometimes yield an outPath ending in "/.".
+  # Passing that to mkDerivation breaks stdenv's unpackPhase because stripHash
+  # on a trailing "/." returns ".", which always exists in the build dir →
+  # "destination already exists" failure. builtins.path re-binds to a clean
+  # store path (same hash, no suffix).
+  srcStr = toString src;
+  srcClean =
+    if pkgs.lib.hasSuffix "/." srcStr
+    then builtins.path {
+      path = pkgs.lib.removeSuffix "/." srcStr;
+      name = "source";
+    }
+    else src;
+
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
   # Simply append /lib to each input path - the directory may not exist but that's OK
   # FFI will just skip non-existent paths
@@ -49,7 +64,7 @@
   app = pkgs.stdenv.mkDerivation {
     pname = appName;
     version = railsBuilderVersion;
-    inherit src;
+    src = srcClean;
 
     phases = [
       "unpackPhase" # optional, but harmless

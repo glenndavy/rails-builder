@@ -11,6 +11,18 @@
   railsEnv ? "production", # Rails environment
   tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
 }: let
+  # Normalize src — see make-rails-nix-build.nix for the full explanation.
+  # Flake inputs with `path:...` (especially via --override-input) sometimes
+  # produce an outPath ending in "/.", which breaks stdenv's unpackPhase.
+  srcStr = toString src;
+  srcClean =
+    if pkgs.lib.hasSuffix "/." srcStr
+    then builtins.path {
+      path = pkgs.lib.removeSuffix "/." srcStr;
+      name = "source";
+    }
+    else src;
+
   rubyPackage = pkgs."ruby-${rubyVersion}";
   rubyVersionSplit = builtins.splitVersion rubyVersion;
   rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
@@ -63,7 +75,7 @@
   app = pkgs.stdenv.mkDerivation {
     pname = appName;
     version = railsBuilderVersion;
-    inherit src;
+    src = srcClean;
     nativeBuildInputs = [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp]
       ++ pkgs.lib.optionals pkgs.stdenv.isLinux [pkgs.nix-ld];
     buildInputs = universalBuildInputs
