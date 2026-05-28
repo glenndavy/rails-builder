@@ -84,19 +84,22 @@
   if [ -d "vendor/cache" ]; then
     echo "📦 Found vendor/cache - rewriting gemset to source from vendored .gem files..."
 
-    # Current platform — used as fallback if the source-platform .gem isn't vendored
-    CURRENT_PLATFORM=""
+    # Platform candidates — tried in order as fallback when no source-variant
+    # .gem is vendored. Newer Linux gems use the explicit "<arch>-linux-gnu"
+    # platform tag; older ones use just "<arch>-linux". List both so either
+    # vendored variant gets picked up.
+    PLATFORM_CANDIDATES=()
     case "$(uname -s)" in
       Linux)
         case "$(uname -m)" in
-          x86_64) CURRENT_PLATFORM="x86_64-linux" ;;
-          aarch64) CURRENT_PLATFORM="aarch64-linux" ;;
+          x86_64)  PLATFORM_CANDIDATES=("x86_64-linux-gnu" "x86_64-linux") ;;
+          aarch64) PLATFORM_CANDIDATES=("aarch64-linux-gnu" "aarch64-linux") ;;
         esac
         ;;
       Darwin)
         case "$(uname -m)" in
-          x86_64) CURRENT_PLATFORM="x86_64-darwin" ;;
-          arm64) CURRENT_PLATFORM="arm64-darwin" ;;
+          x86_64) PLATFORM_CANDIDATES=("x86_64-darwin") ;;
+          arm64)  PLATFORM_CANDIDATES=("arm64-darwin") ;;
         esac
         ;;
     esac
@@ -126,8 +129,13 @@
       VENDORED_GEM=""
       if [ -f "vendor/cache/$gem-$VERSION.gem" ]; then
         VENDORED_GEM="vendor/cache/$gem-$VERSION.gem"
-      elif [ -n "$CURRENT_PLATFORM" ] && [ -f "vendor/cache/$gem-$VERSION-$CURRENT_PLATFORM.gem" ]; then
-        VENDORED_GEM="vendor/cache/$gem-$VERSION-$CURRENT_PLATFORM.gem"
+      else
+        for plat in "''${PLATFORM_CANDIDATES[@]}"; do
+          if [ -f "vendor/cache/$gem-$VERSION-$plat.gem" ]; then
+            VENDORED_GEM="vendor/cache/$gem-$VERSION-$plat.gem"
+            break
+          fi
+        done
       fi
 
       if [ -z "$VENDORED_GEM" ]; then
