@@ -132,10 +132,22 @@ let
       if gemAttrs.type == "path" then
         pathDerivation (gemAttrs.source // gemAttrs // { gemdir = gemFiles.gemdir; })
       else if gemAttrs.source ? path then
-        # Vendored .gem archive — pass as src so buildRubyGem skips rubygems.org fetch.
+        # Vendored .gem archive — pass as src so buildRubyGem skips rubygems.org
+        # fetch. builtins.path coerces the resolved path to a Nix path value so
+        # mkDerivation registers it as a build input (a bare string concat
+        # would leave the .gem file outside the build sandbox, causing
+        # buildRubyGem's `[[ -f $src ]]` test to fail and the build to fall
+        # through to stdenv's generic unpackFile which can't handle .gem).
         let
-          path = gemAttrs.source.path;
-          resolved = if builtins.isString path then gemFiles.gemdir + ("/" + path) else path;
+          p = gemAttrs.source.path;
+          # Strip trailing "/." from gemdir (path: flake-input quirk) and
+          # leading "./" from p (generate-dependencies writes "./vendor/...").
+          gemdirStr = lib.removeSuffix "/." (toString gemFiles.gemdir);
+          pStr = lib.removePrefix "./" (if builtins.isString p then p else toString p);
+          resolved = builtins.path {
+            path = gemdirStr + "/" + pStr;
+            name = "${name}-gem";
+          };
         in
         buildRubyGem (gemAttrs // { src = resolved; })
       else
