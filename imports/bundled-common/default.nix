@@ -123,6 +123,23 @@ let
     ${lib.concatMapStringsSep "\n" (path: "cp -r ${path} $out/") extraConfigPaths}
   '';
 
+  # Strip bundler's git-source bookkeeping from each gem's output. When
+  # multiple gems originate from the same git source (e.g. the Rails
+  # monorepo: railties + activerecord + actionmailer + ... all from
+  # github:rails/rails), every constituent gem ends up carrying its own
+  # copy of `lib/ruby/gems/X.Y.Z/cache/bundler/git/<repo>-<sha>/index`
+  # at the same logical path. buildEnv then refuses to merge them with
+  # "two given paths contain a conflicting subpath".
+  #
+  # The cache files are bundler's local bookkeeping — irrelevant in a
+  # pre-resolved Nix env where bundle won't be re-fetching from git.
+  stripBundlerGitCachePostInstall = ''
+    find $out -type d -path '*/cache/bundler/git' -exec rm -rf {} + 2>/dev/null || true
+  '';
+  appendStripCache = a: a // {
+    postInstall = (a.postInstall or "") + "\n" + stripBundlerGitCachePostInstall;
+  };
+
   buildGem =
     name: attrs:
     (
@@ -152,9 +169,9 @@ let
             name = "${name}-${attrs.version}.gem";
           };
         in
-        buildRubyGem (gemAttrs // { src = resolved; })
+        buildRubyGem (appendStripCache (gemAttrs // { src = resolved; }))
       else
-        buildRubyGem gemAttrs
+        buildRubyGem (appendStripCache gemAttrs)
     );
 
   envPaths = lib.attrValues gems ++ lib.optional (!hasBundler) bundler;
