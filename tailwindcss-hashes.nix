@@ -22,6 +22,21 @@
       "aarch64-linux" = "sha256-V4GuKbWX0+KFn3W8apFoVQNd96L/uXvBhH4S755BDx8=";
     };
   };
+  "4.2.3" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-GwYswRWG+saPQMOoEAD9n48heK5CqUkXqjdzmKTveBY=";
+    };
+  };
+  "4.2.4" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-+HAw8HVcWvnaKj9RjT2jwklsbx3L+wm4hB39LyRXprE=";
+    };
+  };
+  "4.3.0" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-/3MAWiQIIAKnho9pbI/NMItOmsf9PLpbcaioTGEch9k=";
+    };
+  };
   "4.0.0" = {
     npmDeps = {
       "x86_64-linux" = "sha256-z6WcBvWVr5afHw8RzmJNBv4fsiDr/sYO35IKNxh/A34=";
