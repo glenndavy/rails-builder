@@ -122,6 +122,7 @@ When building Rails apps from another flake (like a deployment config repo), use
         # opensslVersion = "3_2";    # or "1_1" for legacy
         # extraBuildInputs = [ pkgs.imagemagick ];
         # extraGemConfig = { my-gem = attrs: { ... }; };
+        # yarnDepsHash = "sha256-...";  # required if app has yarn.lock; compute with `prefetch-yarn-deps yarn.lock`
       };
     in {
       packages.${system} = {

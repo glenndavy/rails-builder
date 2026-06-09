@@ -50,6 +50,9 @@
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
   appRevision ? null,     # Optional: Git revision (falls back to src.rev / src.dirtyRev)
+  yarnDepsHash ? null,    # Optional: SHA256 of fetchYarnDeps output (required if app has yarn.lock)
+                          #   Compute with: prefetch-yarn-deps yarn.lock
+                          #   Or set to lib.fakeHash and read the correct hash off the build error.
   nixpkgsRubyOverlay ? null, # Internal: nixpkgs-ruby overlay (passed by rails-builder)
   railsBuilderVersion ? "unknown", # Internal: version for debugging (passed by rails-builder)
 }:
@@ -172,6 +175,36 @@ let
         lockfilesPath = ../tailwindcss-locks;
       }
     else null;
+
+  # Yarn offline cache. If the app has a yarn.lock, make-rails-nix-build.nix
+  # runs `yarn install --offline`, which fails unless the cache is populated
+  # with every tarball the lockfile references. fetchYarnDeps does the
+  # populate step, but as a fixed-output derivation it needs the SHA256 of
+  # the produced cache declared up-front.
+  #
+  # Caller workflow:
+  #   1. First build: leave yarnDepsHash unset and read the error — the
+  #      build will fail with "do not know how to unpack" or similar before
+  #      we get here. Alternatively pass pkgs.lib.fakeHash to get a clean
+  #      hash-mismatch error directly from fetchYarnDeps.
+  #   2. Copy the `got:` SHA from the error into yarnDepsHash.
+  hasYarnLock = builtins.pathExists (src + "/yarn.lock");
+  yarnOfflineCache =
+    if hasYarnLock && yarnDepsHash != null
+    then pkgs.fetchYarnDeps {
+      yarnLock = src + "/yarn.lock";
+      hash = yarnDepsHash;
+    }
+    else if hasYarnLock
+    then builtins.trace
+      ("rails-builder: yarn.lock detected at ${toString src}/yarn.lock but "
+       + "yarnDepsHash was not provided. Yarn install will fail offline. "
+       + "Compute the hash with `nix-shell -p prefetch-yarn-deps "
+       + "--run 'prefetch-yarn-deps yarn.lock'` and pass it as "
+       + "`mkRailsPackage { ...; yarnDepsHash = \"sha256-...\"; }`. "
+       + "For a first-run discovery, pass `pkgs.lib.fakeHash`.")
+      (pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out")
+    else pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
 
   # Use customBundlerEnv from rails-builder (handles vendor/cache path gems)
   # Must use callPackage to provide lib, callPackage, defaultGemConfig, etc.
@@ -311,7 +344,7 @@ let
         inherit src;
         appName = finalAppName;
         nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
-        yarnOfflineCache = pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
+        inherit yarnOfflineCache;
       }
     else
       # Fallback to bundler approach if no gemset.nix
