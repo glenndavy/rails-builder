@@ -76,6 +76,68 @@ nix run .#generate-dependencies
 nix develop .#with-bundix
 ```
 
+### Recommended bundle config for Nix builds
+
+For builds that go through rails-builder (especially the `with-bundix` path),
+configure bundler **before** running `bundle install` / `bundle cache` so the
+right gem variants get vendored:
+
+```bash
+# In your app root
+bundle config set --local force_ruby_platform true
+bundle config set --local path 'vendor/bundle'
+bundle config set --local frozen true
+bundle config set --local without 'development:test'   # production builds
+
+bundle install
+bundle cache --all                                      # populates vendor/cache/
+git add vendor/cache vendor/bundle .bundle/config       # see flake-purity note below
+```
+
+Why each setting matters:
+
+| setting | effect | why for Nix |
+|---|---|---|
+| `force_ruby_platform true` | Picks the source `.gem` (no platform suffix) over precompiled binaries | Nix compiles native extensions against its own libpq/libffi/libssl. Precompiled `*-x86_64-linux-gnu.gem` archives link against the publisher's libs, which won't match the Nix store. |
+| `path vendor/bundle` | Installs gems under the project tree | Keeps the install local and inspectable. `bundlerEnv` uses its own location at build time, but matching layouts simplifies hybrid `bundle exec` workflows. |
+| `frozen true` | Refuses to mutate `Gemfile.lock` during install | Reproducibility — the lockfile is the source of truth that `generate-dependencies` reads. |
+| `without development:test` | Skips dev/test groups | Smaller production closure; faster Nix builds. Drop for full dev shells. |
+| `bundle cache --all` | Copies `.gem` archives into `vendor/cache/` | `generate-dependencies` source-rewrites gemset entries to point at these local files — making the build hermetic from rubygems.org and pinning exact bytes. |
+
+### Flake-purity note
+
+When `nix develop` or `nix build` evaluates the flake from a git working
+tree, Nix only sees **git-tracked** files. Anything in `vendor/cache/` or
+`vendor/bundle/` that isn't staged or committed is invisible — including
+the `.gem` archives that `customBundlerEnv` reads via `builtins.path`.
+
+The fix is `git add vendor/cache/` (you don't have to commit — the index
+is enough). If your repo has these directories in `.gitignore`, remove the
+rule or use `git add -f`. For deploy-targeted Rails apps these are part
+of the source of truth and worth versioning; if you'd rather not track
+them, `nix develop --impure .` is an escape hatch but breaks reproducibility.
+
+### Picking which variants to vendor
+
+`bundle cache --all-platforms` is tempting but bites — it tries to fetch
+every platform variant, and any single missing one (e.g. `bcrypt_pbkdf-1.1.2-arm64-darwin`,
+which predates Apple Silicon) aborts the whole package step. For Nix builds
+you only need the source variants (because `force_ruby_platform true` makes
+bundler prefer them and Nix compiles natively anyway). Stick with the plain
+`bundle cache`.
+
+If a particular gem only ships precompiled binaries (no source variant on
+rubygems), the `generate-dependencies` fallback will pick the matching
+platform `.gem` from `vendor/cache/` instead. Add the deploy-target
+platforms to `Gemfile.lock` if you need them resolved:
+
+```bash
+bundle lock --add-platform x86_64-linux
+bundle lock --add-platform aarch64-linux
+```
+
+(Skip darwin platforms unless you're also deploying onto a Mac.)
+
 ## Database Services
 
 Rails Builder includes PostgreSQL and Redis management for local development.
