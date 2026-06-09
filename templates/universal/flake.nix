@@ -82,6 +82,18 @@
     # ============================================================================
     appName = null;  # Auto-detect from config/application.rb
 
+    # ============================================================================
+    # JavaScript dependencies (set if your app has package.json / yarn.lock)
+    # ============================================================================
+    # First run: set to `pkgs.lib.fakeHash` and read the correct hash off the
+    # build error from the `rails-app-node-modules` derivation. Then paste it
+    # in below. bun handles git URLs / scoped / aliased deps that
+    # fetchYarnDeps trips on, which is why this is the recommended path.
+    #
+    # Leave null if your app has no JS dependencies.
+    # ============================================================================
+    bunDepsHash = null;
+
     mkOutputsForSystem = system: let
       pkgs = mkPkgsForSystem system;
       # Use custom bundix from ruby-builder (glenndavy/bundix fork with fixes)
@@ -95,6 +107,32 @@
       # Framework detection
       frameworkInfo = detectFramework {src = appSrc;};
       framework = frameworkInfo.framework;
+
+      # JS dependencies: if the app has package.json (and optionally yarn.lock),
+      # build node_modules via bun in a fixed-output derivation. Hands the
+      # populated tree to make-rails-nix-build.nix, which symlinks it instead
+      # of running `yarn install --offline`. Bun handles git URLs / scoped /
+      # aliased deps that fetchYarnDeps can't.
+      hasYarnLock = builtins.pathExists (appSrc + "/yarn.lock");
+      hasPackageJson = builtins.pathExists (appSrc + "/package.json");
+      bunNodeModules =
+        if (hasYarnLock || hasPackageJson) && bunDepsHash != null
+        then pkgs.runCommand "rails-app-node-modules" {
+          outputHashAlgo = "sha256";
+          outputHashMode = "recursive";
+          outputHash = bunDepsHash;
+          nativeBuildInputs = [ pkgs.bun pkgs.cacert pkgs.git ];
+          SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+        } ''
+          export HOME=$TMPDIR
+          mkdir -p $TMPDIR/build && cd $TMPDIR/build
+          cp ${appSrc + "/package.json"} package.json
+          ${pkgs.lib.optionalString hasYarnLock "cp ${appSrc + "/yarn.lock"} yarn.lock"}
+          ${pkgs.bun}/bin/bun install --production --no-progress
+          mkdir -p $out
+          cp -r node_modules $out/
+        ''
+        else pkgs.runCommand "empty-node-modules" {} "mkdir -p $out";
 
       # Auto-detect app name from config/application.rb (for Rails apps)
       # Extracts module name and converts CamelCase to kebab-case: OpsCore -> ops-core
@@ -405,7 +443,7 @@
             in if rev != null then builtins.replaceStrings ["-dirty"] [""] rev else null;
             src = appSrc;
             defaultShellHook = bundixShellHook;
-            nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
+            nodeModules = bunNodeModules;
             yarnOfflineCache = pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
             buildRailsApp =
               if framework == "rails"
