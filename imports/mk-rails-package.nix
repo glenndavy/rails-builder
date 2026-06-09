@@ -53,6 +53,11 @@
   yarnDepsHash ? null,    # Optional: SHA256 of fetchYarnDeps output (required if app has yarn.lock)
                           #   Compute with: prefetch-yarn-deps yarn.lock
                           #   Or set to lib.fakeHash and read the correct hash off the build error.
+                          #   Has gaps for git URLs / scoped / aliased deps — see bunDepsHash.
+  bunDepsHash ? null,     # Optional: SHA256 of bun-installed node_modules (preferred when fetchYarnDeps
+                          #   can't handle your lockfile — git URLs, scoped registries, aliased deps).
+                          #   First run: pass pkgs.lib.fakeHash and copy the `got:` line.
+                          #   Takes precedence over yarnDepsHash when both are set.
   nixpkgsRubyOverlay ? null, # Internal: nixpkgs-ruby overlay (passed by rails-builder)
   railsBuilderVersion ? "unknown", # Internal: version for debugging (passed by rails-builder)
 }:
@@ -189,8 +194,38 @@ let
   #      hash-mismatch error directly from fetchYarnDeps.
   #   2. Copy the `got:` SHA from the error into yarnDepsHash.
   hasYarnLock = builtins.pathExists (src + "/yarn.lock");
+  hasPackageJson = builtins.pathExists (src + "/package.json");
+  hasJsDeps = hasYarnLock || hasPackageJson;
+
+  # Preferred path: build node_modules via bun. Bun handles yarn.lock
+  # natively and copes with git URLs, scoped registries, aliased deps —
+  # all the cases fetchYarnDeps trips on. The output is a populated
+  # node_modules tree that make-rails-nix-build.nix symlinks into the
+  # build dir, bypassing the yarn install step entirely.
+  bunNodeModules =
+    if hasJsDeps && bunDepsHash != null
+    then pkgs.runCommand "rails-app-node-modules" {
+      outputHashAlgo = "sha256";
+      outputHashMode = "recursive";
+      outputHash = bunDepsHash;
+      nativeBuildInputs = [ pkgs.bun pkgs.cacert pkgs.git ];
+      SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    } ''
+      export HOME=$TMPDIR
+      mkdir -p $TMPDIR/build && cd $TMPDIR/build
+      cp ${src + "/package.json"} package.json
+      ${pkgs.lib.optionalString hasYarnLock "cp ${src + "/yarn.lock"} yarn.lock"}
+      ${pkgs.bun}/bin/bun install --production --no-progress
+      mkdir -p $out
+      cp -r node_modules $out/
+    ''
+    else null;
+
+  # Fallback path: fetchYarnDeps. Only consulted when bun path isn't active.
   yarnOfflineCache =
-    if hasYarnLock && yarnDepsHash != null
+    if bunNodeModules != null
+    then pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out"  # bypassed
+    else if hasYarnLock && yarnDepsHash != null
     then pkgs.fetchYarnDeps {
       yarnLock = src + "/yarn.lock";
       hash = yarnDepsHash;
@@ -198,13 +233,19 @@ let
     else if hasYarnLock
     then builtins.trace
       ("rails-builder: yarn.lock detected at ${toString src}/yarn.lock but "
-       + "yarnDepsHash was not provided. Yarn install will fail offline. "
-       + "Compute the hash with `nix-shell -p prefetch-yarn-deps "
-       + "--run 'prefetch-yarn-deps yarn.lock'` and pass it as "
-       + "`mkRailsPackage { ...; yarnDepsHash = \"sha256-...\"; }`. "
-       + "For a first-run discovery, pass `pkgs.lib.fakeHash`.")
+       + "neither bunDepsHash nor yarnDepsHash was provided. Yarn install "
+       + "will fail offline. Recommended: pass `bunDepsHash = \"sha256-...\"` "
+       + "(or pkgs.lib.fakeHash for first-run discovery). bun handles git "
+       + "URLs / scoped / aliased deps that fetchYarnDeps cannot.")
       (pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out")
     else pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
+
+  # nodeModules: either the bun-populated tree or an empty placeholder.
+  # make-rails-nix-build.nix detects which by checking if node_modules/ exists.
+  resolvedNodeModules =
+    if bunNodeModules != null
+    then bunNodeModules
+    else pkgs.runCommand "empty-node-modules" {} "mkdir -p $out";
 
   # Use customBundlerEnv from rails-builder (handles vendor/cache path gems)
   # Must use callPackage to provide lib, callPackage, defaultGemConfig, etc.
@@ -343,7 +384,7 @@ let
         inherit gccVersion opensslVersion;
         inherit src;
         appName = finalAppName;
-        nodeModules = pkgs.runCommand "empty-node-modules" {} "mkdir -p $out/lib/node_modules";
+        nodeModules = resolvedNodeModules;
         inherit yarnOfflineCache;
       }
     else

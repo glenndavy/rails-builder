@@ -176,13 +176,20 @@
 
       echo ""
       echo "┌──────────────────────────────────────────────────────────────────┐"
-      echo "│ STAGE 2: Yarn Install (if yarn.lock exists)                      │"
+      echo "│ STAGE 2: JS dependencies                                         │"
       echo "└──────────────────────────────────────────────────────────────────┘"
-      if [ -f ./yarn.lock ]; then
-        echo "  Found yarn.lock, running yarn install..."
+      # Prefer a pre-built node_modules tree (bun-populated, handles git URLs
+      # etc. that fetchYarnDeps doesn't). Fall back to `yarn install --offline`
+      # using yarnOfflineCache if no pre-built tree was provided.
+      if [ -d "${nodeModules}/node_modules" ] && [ -n "$(ls -A ${nodeModules}/node_modules 2>/dev/null)" ]; then
+        echo "  Using pre-built node_modules: ${nodeModules}/node_modules"
+        rm -rf ./node_modules 2>/dev/null || true
+        ln -sfn ${nodeModules}/node_modules ./node_modules
+      elif [ -f ./yarn.lock ]; then
+        echo "  Found yarn.lock, running yarn install --offline..."
         yarn install --offline --frozen-lockfile
       else
-        echo "  No yarn.lock found, skipping yarn install"
+        echo "  No yarn.lock found and no pre-built node_modules, skipping JS install"
       fi
 
       echo ""
