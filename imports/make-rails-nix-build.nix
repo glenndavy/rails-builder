@@ -7,11 +7,9 @@
   src ? ./.,
   buildRailsApp,
   gems,
-  nodeModules,
   universalBuildInputs,
   rubyPackage,
   rubyMajorMinor,
-  yarnOfflineCache,
   gccPackage,
   opensslPackage,
   usrBinDerivation,
@@ -23,6 +21,18 @@
   railsEnv ? "production", # Rails environment for asset precompilation
   railsBuilderVersion ? "unknown", # Version of rails-builder for debugging
   appRevision ? null, # Optional: Git revision of the app (falls back to src.rev)
+
+  # JavaScript deps. Resolution order:
+  #   1. Explicit `nodeModules` override (legacy / power user)
+  #   2. bunDepsHash set + JS deps detected → build via bun (recommended)
+  #   3. Explicit `yarnOfflineCache` override (legacy)
+  #   4. yarnDepsHash set + yarn.lock detected → fetchYarnDeps (legacy fallback)
+  #   5. None of the above → empty placeholders; yarn install will fail if
+  #      yarn.lock exists, but apps with no JS deps build fine.
+  bunDepsHash ? null,
+  yarnDepsHash ? null,
+  nodeModules ? null,
+  yarnOfflineCache ? null,
   ...
 }: let
   # Normalize src — Nix flake inputs of the form `path:...` (especially when
@@ -39,6 +49,44 @@
       name = "source";
     }
     else src;
+
+  # JS deps resolution (see parameter docs above for resolution order).
+  hasYarnLock = builtins.pathExists (src + "/yarn.lock");
+  hasPackageJson = builtins.pathExists (src + "/package.json");
+  hasJsDeps = hasYarnLock || hasPackageJson;
+
+  bunNodeModules =
+    if hasJsDeps && bunDepsHash != null
+    then pkgs.runCommand "rails-app-node-modules" {
+      outputHashAlgo = "sha256";
+      outputHashMode = "recursive";
+      outputHash = bunDepsHash;
+      nativeBuildInputs = [ pkgs.bun pkgs.cacert pkgs.git ];
+      SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    } ''
+      export HOME=$TMPDIR
+      mkdir -p $TMPDIR/build && cd $TMPDIR/build
+      cp ${src + "/package.json"} package.json
+      ${pkgs.lib.optionalString hasYarnLock "cp ${src + "/yarn.lock"} yarn.lock"}
+      ${pkgs.bun}/bin/bun install --production --no-progress
+      mkdir -p $out
+      cp -r node_modules $out/
+    ''
+    else null;
+
+  resolvedNodeModules =
+    if nodeModules != null then nodeModules
+    else if bunNodeModules != null then bunNodeModules
+    else pkgs.runCommand "empty-node-modules" {} "mkdir -p $out";
+
+  resolvedYarnOfflineCache =
+    if yarnOfflineCache != null then yarnOfflineCache
+    else if hasYarnLock && yarnDepsHash != null && bunNodeModules == null
+    then pkgs.fetchYarnDeps {
+      yarnLock = src + "/yarn.lock";
+      hash = yarnDepsHash;
+    }
+    else pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
 
   # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
   # Simply append /lib to each input path - the directory may not exist but that's OK
@@ -114,7 +162,7 @@
       export PKG_CONFIG_PATH="${fullPkgConfigPath}''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
       export HOME=$PWD
       if [ -f ./yarn.lock ]; then
-       yarn config --offline set yarn-offline-mirror ${yarnOfflineCache}
+       yarn config --offline set yarn-offline-mirror ${resolvedYarnOfflineCache}
       fi
     '';
 
@@ -180,11 +228,11 @@
       echo "└──────────────────────────────────────────────────────────────────┘"
       # Prefer a pre-built node_modules tree (bun-populated, handles git URLs
       # etc. that fetchYarnDeps doesn't). Fall back to `yarn install --offline`
-      # using yarnOfflineCache if no pre-built tree was provided.
-      if [ -d "${nodeModules}/node_modules" ] && [ -n "$(ls -A ${nodeModules}/node_modules 2>/dev/null)" ]; then
-        echo "  Using pre-built node_modules: ${nodeModules}/node_modules"
+      # using resolvedYarnOfflineCache if no pre-built tree was provided.
+      if [ -d "${resolvedNodeModules}/node_modules" ] && [ -n "$(ls -A ${resolvedNodeModules}/node_modules 2>/dev/null)" ]; then
+        echo "  Using pre-built node_modules: ${resolvedNodeModules}/node_modules"
         rm -rf ./node_modules 2>/dev/null || true
-        ln -sfn ${nodeModules}/node_modules ./node_modules
+        ln -sfn ${resolvedNodeModules}/node_modules ./node_modules
       elif [ -f ./yarn.lock ]; then
         echo "  Found yarn.lock, running yarn install --offline..."
         yarn install --offline --frozen-lockfile
