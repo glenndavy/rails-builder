@@ -212,14 +212,30 @@
         # Transient redis for apps whose initializers open a connection at
         # boot. Bound to localhost:6379 in the sandbox; killed when the
         # build exits. Apps that respect $REDIS_URL also get pointed at it.
-        ${pkgs.redis}/bin/redis-server --port 6379 --bind 127.0.0.1 \
-          --daemonize yes --pidfile $TMPDIR/redis.pid --logfile /dev/null \
+        echo "▶ Starting transient redis-server for build..."
+        ${pkgs.redis}/bin/redis-server \
+          --port 6379 --bind 127.0.0.1 \
+          --daemonize yes \
+          --pidfile $TMPDIR/redis.pid \
+          --logfile $TMPDIR/redis.log \
           --save "" --appendonly no
         export REDIS_URL="redis://localhost:6379/0"
-        for i in 1 2 3 4 5; do
-          ${pkgs.redis}/bin/redis-cli -p 6379 ping 2>/dev/null | grep -q PONG && break
+        # Wait for redis to be reachable. If it never comes up, surface the
+        # log and abort the build rather than letting Rails fail later with
+        # an opaque ECONNREFUSED.
+        redis_ready=0
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+          if ${pkgs.redis}/bin/redis-cli -p 6379 ping 2>/dev/null | grep -q PONG; then
+            redis_ready=1; break
+          fi
           sleep 1
         done
+        if [ "$redis_ready" != "1" ]; then
+          echo "✗ redis-server failed to become ready. Log:"
+          ${pkgs.coreutils}/bin/cat $TMPDIR/redis.log || true
+          exit 1
+        fi
+        echo "  redis-server ready at $REDIS_URL"
         trap '${pkgs.coreutils}/bin/kill $(cat $TMPDIR/redis.pid) 2>/dev/null || true' EXIT
       ''}
 
