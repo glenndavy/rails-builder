@@ -218,6 +218,25 @@
       # otherwise fails in the sandbox.
       export SECRET_KEY_BASE_DUMMY=1
 
+      # Yarn shim: cssbundling-rails v1.3 (and similar) hardcode `yarn install`
+      # / `yarn build:css` in their rake tasks. We've already pre-built
+      # node_modules via bun, so `install` is a no-op; other invocations
+      # (notably `yarn run <script>`) get forwarded to `bun run` which can
+      # execute any package.json script identically. Apps on cssbundling
+      # v1.4+ that detect bun.lock natively will skip this shim entirely.
+      mkdir -p $TMPDIR/shim-bin
+      cat > $TMPDIR/shim-bin/yarn <<SHIM
+      #!/bin/sh
+      case "\$1" in
+        install) exit 0 ;;
+        run)     shift; exec ${pkgs.bun}/bin/bun run "\$@" ;;
+        *:*)     exec ${pkgs.bun}/bin/bun run "\$@" ;;
+        *)       exec ${pkgs.bun}/bin/bun "\$@" ;;
+      esac
+      SHIM
+      chmod +x $TMPDIR/shim-bin/yarn
+      export PATH="$TMPDIR/shim-bin:$PATH"
+
       ${pkgs.lib.optionalString resolvedNeedsRedis ''
         # Transient redis for apps whose initializers open a connection at
         # boot. Bound to localhost:6379 in the sandbox; killed when the
