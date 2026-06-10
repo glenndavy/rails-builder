@@ -177,24 +177,39 @@
   if [ -f package.json ] || [ -f yarn.lock ]; then
     echo "🧩 Generating bun.lock and .bun-deps.sha..."
     bun_home=$(${pkgs.coreutils}/bin/mktemp -d)
-    bun_build=$(${pkgs.coreutils}/bin/mktemp -d)
-    cp package.json "$bun_build/"
-    [ -f yarn.lock ] && cp yarn.lock "$bun_build/"
-    [ -f bun.lock ] && cp bun.lock "$bun_build/"
+    # Pass 1: full install with --save-text-lockfile to emit bun.lock. bun
+    # only writes a lockfile during a non-production install, so the
+    # --production filter applies in pass 2.
+    bun_genlock=$(${pkgs.coreutils}/bin/mktemp -d)
+    cp package.json "$bun_genlock/"
+    [ -f yarn.lock ] && cp yarn.lock "$bun_genlock/"
+    [ -f bun.lock ] && cp bun.lock "$bun_genlock/"
     (
-      cd "$bun_build"
+      cd "$bun_genlock"
       export HOME="$bun_home"
       export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-      # --save-text-lockfile writes bun.lock; --production drops dev deps.
-      ${pkgs.bun}/bin/bun install --production --no-progress --save-text-lockfile 2>&1 | tail -3
+      ${pkgs.bun}/bin/bun install --no-progress --save-text-lockfile 2>&1 | tail -3
     )
-    cp "$bun_build/bun.lock" bun.lock
+    cp "$bun_genlock/bun.lock" bun.lock
+
+    # Pass 2: production install with --frozen-lockfile using the lockfile
+    # we just wrote. Matches what the FOD does so the hash agrees.
+    bun_prod=$(${pkgs.coreutils}/bin/mktemp -d)
+    cp package.json "$bun_prod/"
+    [ -f yarn.lock ] && cp yarn.lock "$bun_prod/"
+    cp bun.lock "$bun_prod/"
+    (
+      cd "$bun_prod"
+      export HOME="$bun_home"
+      export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+      ${pkgs.bun}/bin/bun install --production --no-progress --frozen-lockfile 2>&1 | tail -3
+    )
     bun_out=$(${pkgs.coreutils}/bin/mktemp -d)
-    cp -r "$bun_build/node_modules" "$bun_out/"
+    cp -r "$bun_prod/node_modules" "$bun_out/"
     bun_hash=$(${pkgs.nix}/bin/nix hash path --type sha256 --sri "$bun_out")
     echo "$bun_hash" > .bun-deps.sha
     echo "  ✅ Written bun.lock + .bun-deps.sha = $bun_hash"
-    rm -rf "$bun_home" "$bun_build" "$bun_out"
+    rm -rf "$bun_home" "$bun_genlock" "$bun_prod" "$bun_out"
     ${pkgs.git}/bin/git add bun.lock .bun-deps.sha 2>/dev/null || true
   fi
 
