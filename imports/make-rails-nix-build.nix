@@ -68,6 +68,7 @@
   resolvedBunDepsHash =
     if bunDepsHash != null then bunDepsHash else bunDepsHashFromFile;
 
+  hasBunLock = builtins.pathExists (src + "/bun.lock");
   bunNodeModules =
     if hasJsDeps && resolvedBunDepsHash != null
     then pkgs.runCommand "rails-app-node-modules" {
@@ -81,7 +82,9 @@
       mkdir -p $TMPDIR/build && cd $TMPDIR/build
       cp ${src + "/package.json"} package.json
       ${pkgs.lib.optionalString hasYarnLock "cp ${src + "/yarn.lock"} yarn.lock"}
-      ${pkgs.bun}/bin/bun install --production --no-progress
+      ${pkgs.lib.optionalString hasBunLock "cp ${src + "/bun.lock"} bun.lock"}
+      ${pkgs.bun}/bin/bun install --production --no-progress \
+        ${pkgs.lib.optionalString hasBunLock "--frozen-lockfile"}
       mkdir -p $out
       cp -r node_modules $out/
     ''

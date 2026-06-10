@@ -169,24 +169,33 @@
     echo "Yarn hash (for fetchYarnDeps sha256): $YARN_HASH"
   fi
 
-  # Generate bun-built node_modules hash if the app has JS deps. Writes
-  # `.bun-deps.sha` next to the lockfile — make-rails-nix-build.nix reads
-  # this automatically (no flake.nix edit required). Mirrors the FOD recipe
-  # in make-rails-nix-build.nix so the computed hash matches what nix-build
-  # produces.
+  # Generate bun.lock + .bun-deps.sha if the app has JS deps. The lockfile
+  # pins transitive deps so `bun install --frozen-lockfile` in the FOD is
+  # deterministic across bun versions and runs (otherwise transitive
+  # resolution drift makes the hash flutter). Both files commit alongside
+  # yarn.lock — make-rails-nix-build.nix reads them automatically.
   if [ -f package.json ] || [ -f yarn.lock ]; then
-    echo "🧩 Computing bun-built node_modules hash (.bun-deps.sha)..."
+    echo "🧩 Generating bun.lock and .bun-deps.sha..."
+    bun_home=$(${pkgs.coreutils}/bin/mktemp -d)
     bun_build=$(${pkgs.coreutils}/bin/mktemp -d)
     cp package.json "$bun_build/"
     [ -f yarn.lock ] && cp yarn.lock "$bun_build/"
-    (cd "$bun_build" && ${pkgs.bun}/bin/bun install --production --no-progress 2>&1 | tail -3)
+    [ -f bun.lock ] && cp bun.lock "$bun_build/"
+    (
+      cd "$bun_build"
+      export HOME="$bun_home"
+      export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+      # --save-text-lockfile writes bun.lock; --production drops dev deps.
+      ${pkgs.bun}/bin/bun install --production --no-progress --save-text-lockfile 2>&1 | tail -3
+    )
+    cp "$bun_build/bun.lock" bun.lock
     bun_out=$(${pkgs.coreutils}/bin/mktemp -d)
     cp -r "$bun_build/node_modules" "$bun_out/"
     bun_hash=$(${pkgs.nix}/bin/nix hash path --type sha256 --sri "$bun_out")
     echo "$bun_hash" > .bun-deps.sha
-    echo "  ✅ Written .bun-deps.sha = $bun_hash"
-    rm -rf "$bun_build" "$bun_out"
-    ${pkgs.git}/bin/git add .bun-deps.sha 2>/dev/null || true
+    echo "  ✅ Written bun.lock + .bun-deps.sha = $bun_hash"
+    rm -rf "$bun_home" "$bun_build" "$bun_out"
+    ${pkgs.git}/bin/git add bun.lock .bun-deps.sha 2>/dev/null || true
   fi
 
   ${pkgs.git}/bin/git add gemset.nix 2>/dev/null || true
