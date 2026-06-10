@@ -335,8 +335,15 @@
       # using resolvedYarnOfflineCache if no pre-built tree was provided.
       if [ -d "${resolvedNodeModules}/node_modules" ] && [ -n "$(ls -A ${resolvedNodeModules}/node_modules 2>/dev/null)" ]; then
         echo "  Using pre-built node_modules: ${resolvedNodeModules}/node_modules"
+        # Copy out of the read-only store and patch shebangs. FODs don't run
+        # patchShebangs (it'd change the hash), so node_modules ships with
+        # raw "#!/usr/bin/env node" — which the Nix sandbox can't exec because
+        # /usr/bin/env doesn't exist inside the chroot. Copy + patch gives us
+        # working binaries without invalidating the FOD's hash.
         rm -rf ./node_modules 2>/dev/null || true
-        ln -sfn ${resolvedNodeModules}/node_modules ./node_modules
+        cp -r --no-preserve=mode ${resolvedNodeModules}/node_modules ./node_modules
+        chmod -R u+w ./node_modules
+        patchShebangs ./node_modules
       elif [ -f ./yarn.lock ]; then
         echo "  Found yarn.lock, running yarn install --offline..."
         yarn install --offline --frozen-lockfile
