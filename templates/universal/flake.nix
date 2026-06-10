@@ -98,8 +98,19 @@
       pkgs = mkPkgsForSystem system;
       # Use custom bundix from ruby-builder (glenndavy/bundix fork with fixes)
       customBundix = ruby-builder.packages.${system}.bundix;
-      rubyVersion = detectRubyVersion {src = appSrc;};
-      bundlerVersion = detectBundlerVersion {src = appSrc;};
+
+      # Version detection. The strict detectors throw if .ruby-version /
+      # Gemfile.lock are missing — which is exactly the bootstrap case for
+      # an empty app (you can't enter `nix develop` to even run `bundle init`
+      # because eval blows up first). Wrap in tryEval so eval succeeds, and
+      # fall back to sane defaults. Real builds will fail with a clearer
+      # error later if the files are still missing, but `nix develop`
+      # always works.
+      tryDetect = fn: default:
+        let r = builtins.tryEval (fn {src = appSrc;});
+        in if r.success then r.value else default;
+      rubyVersion = tryDetect detectRubyVersion "3.4.4";
+      bundlerVersion = tryDetect detectBundlerVersion "2.5.22";
       rubyPackage = pkgs."ruby-${rubyVersion}";
       rubyVersionSplit = builtins.splitVersion rubyVersion;
       rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
