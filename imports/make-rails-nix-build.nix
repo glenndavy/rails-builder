@@ -102,7 +102,12 @@
       cp ${src + "/package.json"} package.json
       ${pkgs.lib.optionalString hasYarnLock "cp ${src + "/yarn.lock"} yarn.lock"}
       ${pkgs.lib.optionalString hasBunLock "cp ${src + "/bun.lock"} bun.lock"}
-      ${pkgs.bun}/bin/bun install --production --no-progress \
+      # --ignore-scripts: postinstalls that download binaries (node-sass et
+      # al.) are non-reproducible and break in sandboxes. Well-behaved packages
+      # ship their binaries inside the npm tarball; ones that don't (e.g.
+      # node-sass) should be replaced with Nix-friendly alternatives like
+      # dartsass-rails.
+      ${pkgs.bun}/bin/bun install --production --no-progress --ignore-scripts \
         ${pkgs.lib.optionalString hasBunLock "--frozen-lockfile"}
       mkdir -p $out
       cp -r node_modules $out/

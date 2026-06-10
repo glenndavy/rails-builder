@@ -188,7 +188,7 @@
       cd "$bun_genlock"
       export HOME="$bun_home"
       export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-      ${pkgs.bun}/bin/bun install --no-progress --save-text-lockfile 2>&1 | tail -3
+      ${pkgs.bun}/bin/bun install --no-progress --save-text-lockfile --ignore-scripts 2>&1 | tail -3
     )
     cp "$bun_genlock/bun.lock" bun.lock
 
@@ -202,7 +202,7 @@
       cd "$bun_prod"
       export HOME="$bun_home"
       export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-      ${pkgs.bun}/bin/bun install --production --no-progress --frozen-lockfile 2>&1 | tail -3
+      ${pkgs.bun}/bin/bun install --production --no-progress --frozen-lockfile --ignore-scripts 2>&1 | tail -3
     )
     bun_out=$(${pkgs.coreutils}/bin/mktemp -d)
     cp -r "$bun_prod/node_modules" "$bun_out/"
