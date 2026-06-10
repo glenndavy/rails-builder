@@ -217,6 +217,11 @@
       # SECRET_KEY_BASE being unset) will skip the connect-at-boot path that
       # otherwise fails in the sandbox.
       export SECRET_KEY_BASE_DUMMY=1
+      # Same shape: tell common "do real stuff during precompile" gems to
+      # skip — they need cloud creds / network that the sandbox lacks. Each
+      # gem honors its own env var; we set the common ones up-front.
+      export ASSET_SYNC_DISABLE=true            # asset_sync (S3/GCS uploads)
+      export SKIP_ASSET_COMPILE_HOOK=true       # various deploy-hook gems
 
       # Package-manager shims (yarn / npm / pnpm) → bun. Covers the Rails 5-8
       # range:
