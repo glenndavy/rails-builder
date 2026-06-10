@@ -55,12 +55,25 @@
   hasPackageJson = builtins.pathExists (src + "/package.json");
   hasJsDeps = hasYarnLock || hasPackageJson;
 
+  # Auto-discover bunDepsHash from `.bun-deps.sha` next to the lockfile if
+  # the caller didn't pass one explicitly. The file is written by
+  # `nix run .#generate-dependencies` and committed alongside yarn.lock —
+  # same workflow as gemset.nix, no flake.nix edits needed when JS deps
+  # change.
+  bunDepsHashFile = src + "/.bun-deps.sha";
+  bunDepsHashFromFile =
+    if builtins.pathExists bunDepsHashFile
+    then pkgs.lib.removeSuffix "\n" (builtins.readFile bunDepsHashFile)
+    else null;
+  resolvedBunDepsHash =
+    if bunDepsHash != null then bunDepsHash else bunDepsHashFromFile;
+
   bunNodeModules =
-    if hasJsDeps && bunDepsHash != null
+    if hasJsDeps && resolvedBunDepsHash != null
     then pkgs.runCommand "rails-app-node-modules" {
       outputHashAlgo = "sha256";
       outputHashMode = "recursive";
-      outputHash = bunDepsHash;
+      outputHash = resolvedBunDepsHash;
       nativeBuildInputs = [ pkgs.bun pkgs.cacert pkgs.git ];
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     } ''

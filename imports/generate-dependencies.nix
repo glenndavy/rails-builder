@@ -164,10 +164,31 @@
     echo "✅ Vendored gem rewrites complete"
   fi
   if [ -f yarn.lock ]; then
-    echo "Computing Yarn hash..."
+    echo "Computing Yarn hash (fetchYarnDeps fallback path)..."
     YARN_HASH=$(${pkgs.prefetch-yarn-deps}/bin/prefetch-yarn-deps yarn.lock | grep sha256 | cut -d '"' -f2)
     echo "Yarn hash (for fetchYarnDeps sha256): $YARN_HASH"
   fi
-  git add gemset.nix
+
+  # Generate bun-built node_modules hash if the app has JS deps. Writes
+  # `.bun-deps.sha` next to the lockfile — make-rails-nix-build.nix reads
+  # this automatically (no flake.nix edit required). Mirrors the FOD recipe
+  # in make-rails-nix-build.nix so the computed hash matches what nix-build
+  # produces.
+  if [ -f package.json ] || [ -f yarn.lock ]; then
+    echo "🧩 Computing bun-built node_modules hash (.bun-deps.sha)..."
+    bun_build=$(${pkgs.coreutils}/bin/mktemp -d)
+    cp package.json "$bun_build/"
+    [ -f yarn.lock ] && cp yarn.lock "$bun_build/"
+    (cd "$bun_build" && ${pkgs.bun}/bin/bun install --production --no-progress 2>&1 | tail -3)
+    bun_out=$(${pkgs.coreutils}/bin/mktemp -d)
+    cp -r "$bun_build/node_modules" "$bun_out/"
+    bun_hash=$(${pkgs.nix}/bin/nix hash path --type sha256 --sri "$bun_out")
+    echo "$bun_hash" > .bun-deps.sha
+    echo "  ✅ Written .bun-deps.sha = $bun_hash"
+    rm -rf "$bun_build" "$bun_out"
+    ${pkgs.git}/bin/git add .bun-deps.sha 2>/dev/null || true
+  fi
+
+  ${pkgs.git}/bin/git add gemset.nix 2>/dev/null || true
   echo "Done."
 ''
