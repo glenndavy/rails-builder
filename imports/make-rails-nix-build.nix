@@ -33,6 +33,15 @@
   yarnDepsHash ? null,
   nodeModules ? null,
   yarnOfflineCache ? null,
+
+  # Spin up a transient redis-server in the buildPhase so Rails initializers
+  # that connect at boot don't barf with ECONNREFUSED during
+  # assets:precompile / env-loading rake tasks. Bound to localhost:6379 — Nix
+  # sandboxes have private loopback so this doesn't conflict with anything
+  # outside (including your dev-time manage-redis). Pass true when the app's
+  # Gemfile pulls in redis / sidekiq / resque — framework detection in
+  # mk-rails-package.nix sets this automatically.
+  needsRedis ? false,
   ...
 }: let
   # Normalize src — Nix flake inputs of the form `path:...` (especially when
@@ -199,6 +208,21 @@
       # otherwise fails in the sandbox.
       export SECRET_KEY_BASE_DUMMY=1
 
+      ${pkgs.lib.optionalString needsRedis ''
+        # Transient redis for apps whose initializers open a connection at
+        # boot. Bound to localhost:6379 in the sandbox; killed when the
+        # build exits. Apps that respect $REDIS_URL also get pointed at it.
+        ${pkgs.redis}/bin/redis-server --port 6379 --bind 127.0.0.1 \
+          --daemonize yes --pidfile $TMPDIR/redis.pid --logfile /dev/null \
+          --save "" --appendonly no
+        export REDIS_URL="redis://localhost:6379/0"
+        for i in 1 2 3 4 5; do
+          ${pkgs.redis}/bin/redis-cli -p 6379 ping 2>/dev/null | grep -q PONG && break
+          sleep 1
+        done
+        trap '${pkgs.coreutils}/bin/kill $(cat $TMPDIR/redis.pid) 2>/dev/null || true' EXIT
+      ''}
+
       # Configure nix-ld for running unpatched binaries (Linux only)
       ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
         export NIX_LD="${pkgs.stdenv.cc.bintools.dynamicLinker}"
@@ -220,6 +244,9 @@
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
       echo "  DATABASE_URL: $DATABASE_URL"
       echo "  SECRET_KEY_BASE_DUMMY: $SECRET_KEY_BASE_DUMMY"
+      ${pkgs.lib.optionalString needsRedis ''
+        echo "  REDIS_URL: $REDIS_URL (transient redis-server in sandbox)"
+      ''}
       ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
         echo "  NIX_LD: $NIX_LD"
         echo "  NIX_LD_LIBRARY_PATH: $NIX_LD_LIBRARY_PATH"

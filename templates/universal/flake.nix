@@ -418,6 +418,7 @@
             src = appSrc;
             defaultShellHook = bundixShellHook;
             inherit bunDepsHash;
+            inherit (frameworkInfo) needsRedis;
             buildRailsApp =
               if framework == "rails"
               then pkgs.writeShellScriptBin "make-rails-app-with-nix" (import (ruby-builder + /imports/make-rails-app-script.nix) {inherit pkgs rubyPackage bundlerVersion rubyMajorMinor;})

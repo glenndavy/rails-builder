@@ -336,6 +336,7 @@ let
         inherit src;
         appName = finalAppName;
         inherit bunDepsHash yarnDepsHash;
+        inherit (frameworkInfo) needsRedis;
       }
     else
       # Fallback to bundler approach if no gemset.nix
