@@ -189,6 +189,12 @@
       export HOME=$PWD
       export source=$PWD
       export DATABASE_URL="postgresql://localhost/dummy_build_db"
+      # Tells Rails 7.1+ (and many sidekiq/redis initializers in the wild) to
+      # treat this as a dummy boot — typically used for assets:precompile.
+      # Apps that gate side-effecting initializers on this env var (or on
+      # SECRET_KEY_BASE being unset) will skip the connect-at-boot path that
+      # otherwise fails in the sandbox.
+      export SECRET_KEY_BASE_DUMMY=1
 
       # Configure nix-ld for running unpatched binaries (Linux only)
       ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
@@ -210,6 +216,7 @@
       echo "  Gems: ${gems}"
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
       echo "  DATABASE_URL: $DATABASE_URL"
+      echo "  SECRET_KEY_BASE_DUMMY: $SECRET_KEY_BASE_DUMMY"
       ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
         echo "  NIX_LD: $NIX_LD"
         echo "  NIX_LD_LIBRARY_PATH: $NIX_LD_LIBRARY_PATH"
