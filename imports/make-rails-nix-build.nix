@@ -452,7 +452,9 @@
             # gem dir names like `restforce-ruby-2.6-faraday-2.5-<sha>` — shell
             # env var names allow only [a-zA-Z0-9_], so dots would make
             # `export FOO.BAR=...` fail with "not a valid identifier".
-            gem_name_env=$(echo "$gem_name_raw" | tr '-.' '__' | tr '[:lower:]' '[:upper:]')
+            # Quote with '.-' (dot first) so tr doesn't parse the leading
+            # '-' as an option flag.
+            gem_name_env=$(echo "$gem_name_raw" | tr '.-' '__' | tr '[:lower:]' '[:upper:]')
 
             echo "    Setting BUNDLE_LOCAL__$gem_name_env=$PWD/$cached_gem"
             export "BUNDLE_LOCAL__$gem_name_env=$PWD/$cached_gem"
