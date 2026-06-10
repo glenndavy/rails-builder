@@ -447,8 +447,12 @@
             gem_name_with_revision="$gem_basename"
             # Remove the revision suffix (last segment after final hyphen, if it looks like a hash)
             gem_name_raw=$(echo "$gem_name_with_revision" | sed 's/-[a-f0-9]\{7,\}$//')
-            # Convert hyphens to underscores for bundler env var (BUNDLE_LOCAL__GEM_NAME)
-            gem_name_env=$(echo "$gem_name_raw" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+            # Convert hyphens AND dots to underscores for bundler env var
+            # (BUNDLE_LOCAL__GEM_NAME). Dots come from version-string-bearing
+            # gem dir names like `restforce-ruby-2.6-faraday-2.5-<sha>` — shell
+            # env var names allow only [a-zA-Z0-9_], so dots would make
+            # `export FOO.BAR=...` fail with "not a valid identifier".
+            gem_name_env=$(echo "$gem_name_raw" | tr '-.' '__' | tr '[:lower:]' '[:upper:]')
 
             echo "    Setting BUNDLE_LOCAL__$gem_name_env=$PWD/$cached_gem"
             export "BUNDLE_LOCAL__$gem_name_env=$PWD/$cached_gem"
