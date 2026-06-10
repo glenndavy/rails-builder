@@ -341,7 +341,9 @@
         # /usr/bin/env doesn't exist inside the chroot. Copy + patch gives us
         # working binaries without invalidating the FOD's hash.
         rm -rf ./node_modules 2>/dev/null || true
-        cp -r --no-preserve=mode ${resolvedNodeModules}/node_modules ./node_modules
+        # cp -rp preserves the +x bit (store files are 0555); chmod -R u+w
+        # adds write so patchShebangs / cssbundling can rewrite scripts.
+        cp -rp ${resolvedNodeModules}/node_modules ./node_modules
         chmod -R u+w ./node_modules
         patchShebangs ./node_modules
       elif [ -f ./yarn.lock ]; then
