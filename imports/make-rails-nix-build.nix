@@ -241,6 +241,7 @@
       #!/bin/sh
       case "\$1" in
         install|ci)         exit 0 ;;
+        bin)                echo "\$PWD/node_modules/.bin" ;;
         run)                shift; exec ${pkgs.bun}/bin/bun run "\$@" ;;
         exec)               shift; exec ${pkgs.bun}/bin/bun x "\$@" ;;
         *:*)                exec ${pkgs.bun}/bin/bun run "\$@" ;;
