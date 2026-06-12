@@ -17,17 +17,42 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.17.99";
+    version = "3.17.100";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
     mkPkgsForSystem = system: import nixpkgs {inherit system overlays;};
 
-    # Build custom bundix from glenndavy/bundix
+    # Build custom bundix from glenndavy/bundix.
+    #
+    # Bundix's bin/bundix has `#!/usr/bin/env ruby` and its makeWrapper-built
+    # wrapper sets GEM_PATH to a pinned bundler 2.7+ — but neither pins the
+    # Ruby. Without one in PATH, the shebang finds whatever Ruby the caller
+    # has first (in generate-dependencies, that's the project's Ruby, which
+    # for older Rails apps can be 2.5 / 2.6). Bundler 2.7+ uses Ruby 3.0+
+    # APIs (Module#method_defined? with two args, etc.) and crashes at
+    # require-time on the older interpreter.
+    #
+    # Pin bundix to a modern Ruby + matching bundler so it runs reliably
+    # regardless of the project's Ruby version. See issue #1.
     mkBundixForSystem = system: let
       pkgs = mkPkgsForSystem system;
+      bundixRuby = pkgs.ruby_3_3;
+      bundixBundler = pkgs.bundler.override { ruby = bundixRuby; };
+      base = pkgs.callPackage bundix-src {
+        ruby = bundixRuby;
+        bundler = bundixBundler;
+      };
     in
-      pkgs.callPackage bundix-src {};
+      pkgs.symlinkJoin {
+        name = "bundix-pinned-ruby";
+        paths = [ base ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram $out/bin/bundix \
+            --prefix PATH : "${bundixRuby}/bin"
+        '';
+      };
     mkLibForSystem = system: let
       pkgs = mkPkgsForSystem system;
       mkRailsBuild = import ./imports/make-rails-build.nix {inherit pkgs;};
