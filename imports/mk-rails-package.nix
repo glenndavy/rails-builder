@@ -200,7 +200,13 @@ let
 
   # Use customBundlerEnv from rails-builder (handles vendor/cache path gems)
   # Must use callPackage to provide lib, callPackage, defaultGemConfig, etc.
-  customBundlerEnv = pkgs.callPackage ./bundler-env {};
+  # Pass our version-matched bundlerPackage in so customBundlerEnv's fallback
+  # (when gemset.nix doesn't include `bundler`) doesn't pull nixpkgs's
+  # current bundler — which may be too new for older Rubies. For Ruby <3.0
+  # apps, nixpkgs bundler 2.7+ uses Module#method_defined?(name, inherit)
+  # and crashes the bin/rails invocation at require-time. Same issue as
+  # bundix #1, different consumer.
+  customBundlerEnv = pkgs.callPackage ./bundler-env { bundler = bundlerPackage; };
 
   # Check if gemset.nix exists - either explicitly provided or in src
   # Priority: explicit gemset parameter > src + "/gemset.nix"
