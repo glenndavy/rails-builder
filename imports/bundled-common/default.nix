@@ -134,7 +134,13 @@ let
   # The cache files are bundler's local bookkeeping — irrelevant in a
   # pre-resolved Nix env where bundle won't be re-fetching from git.
   stripBundlerGitCachePostInstall = ''
+    # 1. Bundler's per-repo cache index — colliding sibling for multi-gem
+    #    git sources (Rails monorepo: railties + activerecord + …).
     find $out -type d -path '*/cache/bundler/git' -exec rm -rf {} + 2>/dev/null || true
+    # 2. The cloned source tree's own .git/ dir under bundler/gems/<repo>/.
+    #    Same multi-gem-from-one-git collision at .git/index, .git/HEAD, etc.
+    #    The Nix store gem dir doesn't need git metadata at runtime.
+    find $out -type d -path '*/bundler/gems/*/.git' -exec rm -rf {} + 2>/dev/null || true
   '';
   appendStripCache = a: a // {
     postInstall = (a.postInstall or "") + "\n" + stripBundlerGitCachePostInstall;
