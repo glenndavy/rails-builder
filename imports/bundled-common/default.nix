@@ -69,13 +69,35 @@ let
 
   hasBundler = builtins.hasAttr "bundler" filteredGemset;
 
+  # Fallback bundler when gemset.nix doesn't include `bundler`. The naive
+  # `defs.bundler.override { inherit ruby; }` uses nixpkgs' current bundler
+  # (2.7+), which calls `Module#method_defined?(name, inherit)` — a Ruby 3.0+
+  # API. Older Rails apps pinning Ruby <3.0 crash at require-time. Pin to
+  # bundler 2.3.26 (last 2.x that supports Ruby 2.5+) when the project's
+  # Ruby is too old for the modern default. Callers can still override via
+  # the `bundler` callPackage arg if they need a specific version.
+  bundlerForRuby =
+    let
+      rubyVer = ruby.version;
+      isOldRuby = lib.versionOlder rubyVer "3.0";
+    in
+      if isOldRuby
+      then defs.buildRubyGem {
+        inherit ruby;
+        gemName = "bundler";
+        version = "2.3.26";
+        source.sha256 = "02cyk6pfknz2y01n5s485r1dalc5rp7hdzyvqs1asa77c7gkrr8y";
+        sha256 = "02cyk6pfknz2y01n5s485r1dalc5rp7hdzyvqs1asa77c7gkrr8y";
+      }
+      else defs.bundler.override (attrs: {
+        inherit ruby;
+      });
+
   bundler =
     if hasBundler then
       gems.bundler
     else
-      defs.bundler.override (attrs: {
-        inherit ruby;
-      });
+      bundlerForRuby;
 
   gems = lib.flip lib.mapAttrs configuredGemset (name: attrs: buildGem name attrs);
 
