@@ -17,7 +17,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.17.102";
+    version = "3.17.103";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -59,8 +59,24 @@
       mkRailsNixBuild = import ./imports/make-rails-nix-build.nix {inherit pkgs;};
       versionDetection = import ./imports/detect-versions.nix;
 
-      # Custom bundlerEnv that supports vendor/cache gems
+      # Custom bundlerEnv that supports vendor/cache gems.
+      #
+      # The bundler fallback (used when gemset.nix has no `bundler` entry)
+      # comes from callPackage's `bundler` arg. Without an override that
+      # defaults to `pkgs.bundler` (currently 2.7+), which uses Ruby 3.0+
+      # APIs and crashes when loaded under Ruby <3.0 — fatal for older
+      # Rails apps. Two flavours exposed:
+      #
+      #   customBundlerEnv      — back-compat, no bundler override (current
+      #                            nixpkgs default; fine for Ruby 3+ apps)
+      #   mkCustomBundlerEnv    — accepts a bundler override; callers should
+      #                            prefer this and pass their version-matched
+      #                            bundlerPackage so it works across the
+      #                            Rails 5-8 / Ruby 2.5-3.x range.
       customBundlerEnv = pkgs.callPackage ./imports/bundler-env {};
+      mkCustomBundlerEnv = { bundler ? null }:
+        pkgs.callPackage ./imports/bundler-env
+          (if bundler != null then { inherit bundler; } else {});
 
       # High-level helper to build Rails packages with all correct configuration
       # Usage: rails-builder.lib.${system}.mkRailsPackage { inherit pkgs; src = ./.; }
@@ -72,7 +88,7 @@
             railsBuilderVersion = version;
           });
     in {
-      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkRailsPackage;
+      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkCustomBundlerEnv mkRailsPackage;
       inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion detectTailwindVersion;
       version = version;
     };

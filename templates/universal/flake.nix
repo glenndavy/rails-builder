@@ -335,7 +335,13 @@
       # Use bootstrap shell and manual package building after fixing hashes
       # Bundix approach (Nix bundlerEnv) - only if gemset.nix exists
       # Use custom bundlerEnv from ruby-builder that handles path gems correctly
-      customBundlerEnv = ruby-builder.lib.${system}.customBundlerEnv;
+      # Use mkCustomBundlerEnv with the version-matched bundlerPackage so the
+      # bundler fallback (when gemset.nix has no bundler entry) gets the
+      # Bundler matching this app's Ruby, not nixpkgs' current 2.7+ (which
+      # would crash on Ruby <3.0).
+      customBundlerEnv = ruby-builder.lib.${system}.mkCustomBundlerEnv {
+        bundler = bundlerPackage;
+      };
 
       bundixBuild =
         if builtins.pathExists (appSrc + "/gemset.nix")
