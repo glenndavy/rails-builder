@@ -78,7 +78,10 @@ let
   # the `bundler` callPackage arg if they need a specific version.
   bundlerForRuby =
     let
-      rubyVer = ruby.version;
+      # ruby.version is an attrset (from nixpkgs-ruby) with __toString and
+      # nested fields like .major/.minor/.tiny. Coerce to a plain string
+      # for lib.versionOlder.
+      rubyVer = toString ruby.version;
       isOldRuby = lib.versionOlder rubyVer "3.0";
     in
       if isOldRuby
