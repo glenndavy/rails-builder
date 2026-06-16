@@ -17,7 +17,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.17.110";
+    version = "3.17.111";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -87,8 +87,14 @@
             nixpkgsRubyOverlay = nixpkgs-ruby.overlays.default;
             railsBuilderVersion = version;
           });
+
+      # Minimal break-glass devShell — see imports/make-safe-shell.nix.
+      # Use when your normal shells (with-bundix / with-bundler / default)
+      # won't enter because a SHA, gemset.nix, or tailwindcss hash is broken.
+      mkSafeShell = args:
+        import ./imports/make-safe-shell.nix args;
     in {
-      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkCustomBundlerEnv mkRailsPackage;
+      inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkCustomBundlerEnv mkRailsPackage mkSafeShell;
       inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion detectTailwindVersion;
       version = version;
     };
@@ -626,6 +632,17 @@
           ${impureTip}
           echo ""
         '';
+      };
+
+      # Break-glass shell — minimal ruby + bundler, no bundlerEnv / gemset.nix
+      # / tailwindcss. Always entry-able, even when the project's normal shells
+      # won't eval. Use --impure to pick up the project's ruby version.
+      safe = import ./imports/make-safe-shell.nix {
+        inherit pkgs;
+        src =
+          if isImpure
+          then cwdPath
+          else null;
       };
     });
 

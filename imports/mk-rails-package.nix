@@ -141,37 +141,13 @@ let
     then pkgs.gcc
     else pkgs."gcc${gccVersion}";
 
-  # Bundler package with correct version from Gemfile.lock
-  bundlerHashes = import ../bundler-hashes.nix;
-  bundlerPackageBase = let
-    hashInfo = bundlerHashes.${detectedBundlerVersion} or null;
-  in
-    if hashInfo != null
-    then
-      pkgs.buildRubyGem {
-        inherit (hashInfo) sha256;
-        ruby = rubyPackage;
-        gemName = "bundler";
-        version = detectedBundlerVersion;
-        source.sha256 = hashInfo.sha256;
-      }
-    else
-      pkgs.bundler.override { ruby = rubyPackage; };
-
-  # Ensure both `bundle` and `bundler` are present (some older bundler
-  # versions ship only one). overrideAttrs preserves the underlying gem's
-  # attributes (.version, .override, .ruby, .gemPath, ...) so downstream
-  # consumers like bundled-common/functions.nix can read them. Previously
-  # we wrapped via symlinkJoin which produces a fresh derivation with no
-  # inherited attributes — that caused a chain of "attribute X missing"
-  # errors as different call sites read different attrs.
-  bundlerPackage = bundlerPackageBase.overrideAttrs (old: {
-    postInstall = (old.postInstall or "") + ''
-      if [ -f $out/bin/bundler ] && [ ! -f $out/bin/bundle ]; then
-        ln -s bundler $out/bin/bundle
-      fi
-    '';
-  });
+  # Bundler package — extracted to imports/make-bundler-package.nix so the
+  # template and mk-rails-package share one implementation.
+  bundlerPackage = import ./make-bundler-package.nix {
+    inherit pkgs;
+    ruby = rubyPackage;
+    version = detectedBundlerVersion;
+  };
 
   # Tailwindcss package (if needed)
   tailwindcssHashes = import ../tailwindcss-hashes.nix;
@@ -275,51 +251,17 @@ let
   };
 
   # Universal build inputs
-  universalBuildInputs = [
-    rubyPackage
-    opensslPackage
-    pkgs.libxml2
-    pkgs.libxslt
-    pkgs.zlib
-    pkgs.libyaml
-    pkgs.curl
-    pkgs.pkg-config
-  ]
-  ++ (if frameworkInfo.needsPostgresql then [ pkgs.libpqxx pkgs.postgresql ] else [])
-  ++ (if frameworkInfo.needsMysql then [ pkgs.libmysqlclient pkgs.mysql80 ] else [])
-  ++ (if frameworkInfo.needsSqlite then [ pkgs.sqlite ] else [])
-  ++ (if frameworkInfo.hasAssets then [ pkgs.nodejs ] else [])
-  ++ (if frameworkInfo.needsRedis then [ pkgs.redis ] else [])
-  ++ (if frameworkInfo.needsImageMagick then [ pkgs.imagemagick ] else [])
-  ++ (if frameworkInfo.needsLibVips then [ pkgs.vips ] else [])
-  ++ (if frameworkInfo.needsCairo then [ pkgs.cairo ] else [])
-  ++ (if tailwindcssPackage != null then [ tailwindcssPackage ] else [])
-  ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-    pkgs.nix-ld
-    pkgs.stdenv.cc.cc.lib
-  ]
-  ++ extraBuildInputs;
+  universalBuildInputs = import ./make-universal-build-inputs.nix {
+    inherit pkgs frameworkInfo rubyPackage opensslPackage tailwindcssPackage extraBuildInputs;
+  };
 
   # Shell hook
+  shellPaths = import ./make-shell-paths.nix {
+    inherit pkgs frameworkInfo opensslPackage;
+  };
+
   defaultShellHook = ''
-    export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
-      if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib/pkgconfig" else ""
-    }${
-      if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib/pkgconfig" else ""
-    }${
-      if frameworkInfo.needsImageMagick then ":${pkgs.imagemagick.dev}/lib/pkgconfig" else ""
-    }${
-      if frameworkInfo.needsCairo then ":${pkgs.cairo.dev}/lib/pkgconfig" else ""
-    }"
-    export LD_LIBRARY_PATH="${pkgs.curl}/lib${
-      if frameworkInfo.needsPostgresql then ":${pkgs.postgresql}/lib" else ""
-    }${
-      if frameworkInfo.needsMysql then ":${pkgs.mysql80}/lib" else ""
-    }${
-      if frameworkInfo.needsImageMagick then ":${pkgs.imagemagick}/lib" else ""
-    }${
-      if frameworkInfo.needsCairo then ":${pkgs.cairo}/lib" else ""
-    }:${opensslPackage}/lib"
+    ${shellPaths}
     export DATABASE_URL="postgresql://localhost/dummy_build_db"
   '';
 

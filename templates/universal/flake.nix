@@ -141,34 +141,13 @@
 
       # Bundler package with exact version from Gemfile.lock
       # Uses precomputed hashes from bundler-hashes.nix for reproducible builds
-      bundlerHashes = import (ruby-builder + "/bundler-hashes.nix");
-      bundlerPackageBase = let
-        hashInfo = bundlerHashes.${bundlerVersion} or null;
-      in
-        if hashInfo != null
-        then
-          pkgs.buildRubyGem {
-            inherit (hashInfo) sha256;
-            ruby = rubyPackage;
-            gemName = "bundler";
-            version = bundlerVersion;
-            source.sha256 = hashInfo.sha256;
-          }
-        else
-          # Fallback to nixpkgs bundler if version not in hashes
-          pkgs.bundler.override {ruby = rubyPackage;};
-
-      # Wrapper that provides both 'bundle' and 'bundler' commands
-      # buildRubyGem only creates 'bundler', but we need 'bundle' too
-      bundlerPackage = pkgs.symlinkJoin {
-        name = "bundler-${bundlerVersion}-wrapped";
-        paths = [ bundlerPackageBase ];
-        postBuild = ''
-          # Create 'bundle' symlink to 'bundler' if it doesn't exist
-          if [ -f $out/bin/bundler ] && [ ! -f $out/bin/bundle ]; then
-            ln -s bundler $out/bin/bundle
-          fi
-        '';
+      # Bundler package — delegated to the rails-builder lib helper so
+      # this app picks up bundler-related fixes via `nix flake update
+      # rails-builder` without flake.nix edits.
+      bundlerPackage = import (ruby-builder + "/imports/make-bundler-package.nix") {
+        inherit pkgs;
+        ruby = rubyPackage;
+        version = bundlerVersion;
       };
 
       # Tailwindcss package - exact version from Gemfile.lock
@@ -186,98 +165,9 @@
         else null;
 
       # Shared build inputs for all Ruby apps
-      universalBuildInputs =
-        [
-          rubyPackage
-          opensslPackage
-          pkgs.libxml2
-          pkgs.libxslt
-          pkgs.zlib
-          pkgs.libyaml
-          pkgs.curl
-          pkgs.pkg-config
-        ]
-        ++ (
-          if frameworkInfo.needsPostgresql
-          then [
-            pkgs.libpqxx # PostgreSQL client library
-            pkgs.postgresql # PostgreSQL tools
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.needsMysql
-          then [
-            pkgs.libmysqlclient # MySQL client library
-            pkgs.mysql80 # MySQL tools
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.needsSqlite
-          then [
-            pkgs.sqlite # SQLite library
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.hasAssets
-          then [
-            pkgs.nodejs # Node.js for asset compilation
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.needsRedis
-          then [
-            pkgs.redis # Redis server and tools
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.needsImageMagick
-          then [
-            pkgs.imagemagick # ImageMagick for image processing
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.needsCairo
-          then [
-            pkgs.cairo # Cairo graphics library
-          ]
-          else []
-        )
-        ++ (
-          if frameworkInfo.needsLibVips
-          then [
-            pkgs.vips # libvips for fast image processing
-          ]
-          else []
-        )
-        ++ (
-          # Browser drivers only on Linux - Darwin doesn't support driverLink
-          if frameworkInfo.needsBrowserDrivers && pkgs.stdenv.isLinux
-          then [
-            pkgs.chromium # Browser for testing (headless mode)
-            pkgs.chromedriver # WebDriver for Selenium
-          ]
-          else []
-        )
-        ++ (
-          # Tailwindcss CLI - exact version from Gemfile.lock
-          # Needed because bundlerEnv uses generic ruby platform gem
-          # which doesn't include the platform-specific binary
-          if tailwindcssPackage != null
-          then [
-            tailwindcssPackage # Tailwind CSS CLI (version-matched to gem)
-          ]
-          else []
-        )
-        ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-          pkgs.nix-ld  # For running unpatched binaries (Linux only)
-          pkgs.stdenv.cc.cc.lib  # Provides dynamic linker libraries for nix-ld
-        ];
+      universalBuildInputs = import (ruby-builder + "/imports/make-universal-build-inputs.nix") {
+        inherit pkgs frameworkInfo rubyPackage opensslPackage tailwindcssPackage;
+      };
 
       builderExtraInputs = [
         gccPackage
@@ -386,40 +276,9 @@
 
           bundixShellHook = ''
             echo "Bundix Shell Hook"
-            export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
-              if frameworkInfo.needsPostgresql
-              then ":${pkgs.postgresql}/lib/pkgconfig"
-              else ""
-            }${
-              if frameworkInfo.needsMysql
-              then ":${pkgs.mysql80}/lib/pkgconfig"
-              else ""
-            }${
-              if frameworkInfo.needsImageMagick
-              then ":${pkgs.imagemagick.dev}/lib/pkgconfig"
-              else ""
-            }${
-              if frameworkInfo.needsCairo
-              then ":${pkgs.cairo.dev}/lib/pkgconfig"
-              else ""
-            }"
-            export LD_LIBRARY_PATH="${pkgs.curl}/lib${
-              if frameworkInfo.needsPostgresql
-              then ":${pkgs.postgresql}/lib"
-              else ""
-            }${
-              if frameworkInfo.needsMysql
-              then ":${pkgs.mysql80}/lib"
-              else ""
-            }${
-              if frameworkInfo.needsImageMagick
-              then ":${pkgs.imagemagick}/lib"
-              else ""
-            }${
-              if frameworkInfo.needsCairo
-              then ":${pkgs.cairo}/lib"
-              else ""
-            }:${opensslPackage}/lib"
+            ${import (ruby-builder + "/imports/make-shell-paths.nix") {
+              inherit pkgs frameworkInfo opensslPackage;
+            }}
             export DATABASE_URL="postgresql://localhost/dummy_build_db"
           '';
         in
@@ -503,40 +362,9 @@
         ORIGINAL_PATH="$PATH"
 
         export PS1="${framework}-shell:>"
-        export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
-          if frameworkInfo.needsPostgresql
-          then ":${pkgs.postgresql}/lib/pkgconfig"
-          else ""
-        }${
-          if frameworkInfo.needsMysql
-          then ":${pkgs.mysql80}/lib/pkgconfig"
-          else ""
-        }${
-          if frameworkInfo.needsImageMagick
-          then ":${pkgs.imagemagick.dev}/lib/pkgconfig"
-          else ""
-        }${
-          if frameworkInfo.needsCairo
-          then ":${pkgs.cairo.dev}/lib/pkgconfig"
-          else ""
-        }"
-        export LD_LIBRARY_PATH="${pkgs.curl}/lib${
-          if frameworkInfo.needsPostgresql
-          then ":${pkgs.postgresql}/lib"
-          else ""
-        }${
-          if frameworkInfo.needsMysql
-          then ":${pkgs.mysql80}/lib"
-          else ""
-        }${
-          if frameworkInfo.needsImageMagick
-          then ":${pkgs.imagemagick}/lib"
-          else ""
-        }${
-          if frameworkInfo.needsCairo
-          then ":${pkgs.cairo}/lib"
-          else ""
-        }:${opensslPackage}/lib"
+        ${import (ruby-builder + "/imports/make-shell-paths.nix") {
+          inherit pkgs frameworkInfo opensslPackage;
+        }}
         export DATABASE_URL="postgresql://localhost/dummy_build_db"
 
         # Configure nix-ld for running unpatched binaries (Linux only)

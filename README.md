@@ -62,6 +62,20 @@ nix develop .#with-bundler
 
 # Pure Nix approach (Linux optimized, requires gemset.nix)
 nix develop .#with-bundix
+
+# Minimal break-glass shell — ruby + bundler only, no gemset/JS/tailwind
+# Use when the shells above won't enter (bad SHA, missing gemset.nix, etc.)
+nix develop .#safe              # rails-builder's own safe shell
+nix develop --impure .#safe     # picks up the project's .ruby-version
+```
+
+Apps that consume rails-builder via `mkRailsPackage` can expose their own:
+
+```nix
+devShells.${system}.safe = rails-builder.lib.${system}.mkSafeShell {
+  inherit pkgs;
+  src = ./.;
+};
 ```
 
 ### Enabling Bundix Support
