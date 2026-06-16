@@ -158,16 +158,20 @@ let
     else
       pkgs.bundler.override { ruby = rubyPackage; };
 
-  # Wrapper that provides both 'bundle' and 'bundler' commands
-  bundlerPackage = pkgs.symlinkJoin {
-    name = "bundler-${detectedBundlerVersion}-wrapped";
-    paths = [ bundlerPackageBase ];
-    postBuild = ''
+  # Ensure both `bundle` and `bundler` are present (some older bundler
+  # versions ship only one). overrideAttrs preserves the underlying gem's
+  # attributes (.version, .override, .ruby, .gemPath, ...) so downstream
+  # consumers like bundled-common/functions.nix can read them. Previously
+  # we wrapped via symlinkJoin which produces a fresh derivation with no
+  # inherited attributes — that caused a chain of "attribute X missing"
+  # errors as different call sites read different attrs.
+  bundlerPackage = bundlerPackageBase.overrideAttrs (old: {
+    postInstall = (old.postInstall or "") + ''
       if [ -f $out/bin/bundler ] && [ ! -f $out/bin/bundle ]; then
         ln -s bundler $out/bin/bundle
       fi
     '';
-  };
+  });
 
   # Tailwindcss package (if needed)
   tailwindcssHashes = import ../tailwindcss-hashes.nix;
