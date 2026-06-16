@@ -1,0 +1,134 @@
+name: tailwindcss hashes
+
+on:
+  pull_request:
+    paths:
+      - 'tailwindcss-hashes.nix'
+      - 'tailwindcss-locks/**'
+      - 'imports/make-tailwindcss.nix'
+      - 'scripts/refresh-tailwindcss-hashes.sh'
+      - '.github/workflows/refresh-tailwindcss-hashes.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly, Monday 06:00 UTC
+
+permissions:
+  contents: write          # required for refresh job to push branch
+  pull-requests: write     # required for refresh job to open PR
+
+jobs:
+  # Assert hashes match what `bun install` actually produces on each
+  # supported platform. Runs on PR/push touching the hash registry; fails
+  # the PR if anything drifted.
+  check:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Verify hashes for ${{ matrix.runner }}
+        run: nix shell nixpkgs#bun nixpkgs#jq -c bash scripts/refresh-tailwindcss-hashes.sh --check
+
+  # Walk both platforms sequentially, updating tailwindcss-hashes.nix on a
+  # dedicated branch. Open (or update) a PR when anything changed. Runs
+  # weekly on schedule + on demand via workflow_dispatch.
+  refresh-x86_64:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.commit.outputs.branch }}
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Refresh x86_64-linux hashes
+        run: nix shell nixpkgs#bun nixpkgs#jq -c bash scripts/refresh-tailwindcss-hashes.sh
+      - id: commit
+        name: Commit any changes
+        run: |
+          branch="bot/refresh-tailwindcss-hashes"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions (tailwindcss-hashes bot)"
+          git checkout -B "$branch"
+          if git diff --quiet tailwindcss-hashes.nix; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No x86_64-linux drift; skipping commit."
+          else
+            git add tailwindcss-hashes.nix
+            git commit -m "Refresh tailwindcss x86_64-linux hashes"
+            git push --force-with-lease origin "$branch"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  refresh-aarch64:
+    needs: refresh-x86_64
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Pull the branch x86_64 just pushed (if any) so this commit
+          # stacks on top of it. Falls back to master if x86_64 was a no-op.
+          ref: ${{ needs.refresh-x86_64.outputs.branch }}
+      - uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: Refresh aarch64-linux hashes
+        run: nix shell nixpkgs#bun nixpkgs#jq -c bash scripts/refresh-tailwindcss-hashes.sh
+      - id: commit
+        name: Commit any changes
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions (tailwindcss-hashes bot)"
+          if git diff --quiet tailwindcss-hashes.nix; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No aarch64-linux drift; skipping commit."
+          else
+            git add tailwindcss-hashes.nix
+            git commit -m "Refresh tailwindcss aarch64-linux hashes"
+            git push origin HEAD:bot/refresh-tailwindcss-hashes
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  open-pr:
+    needs: [refresh-x86_64, refresh-aarch64]
+    if: |
+      always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+      && (needs.refresh-x86_64.outputs.changed == 'true' || needs.refresh-aarch64.outputs.changed == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open or update PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Reuse an existing PR from the bot branch if one's already open.
+          existing=$(gh pr list --head bot/refresh-tailwindcss-hashes --json number --jq '.[0].number // ""')
+          if [ -n "$existing" ]; then
+            echo "PR #$existing already open; the new commits will appear on it."
+          else
+            gh pr create \
+              --base master --head bot/refresh-tailwindcss-hashes \
+              --title "Refresh tailwindcss hashes" \
+              --body "Automated refresh from refresh-tailwindcss-hashes workflow. Verify the hashes match what bun produces on each platform; if they do, merge."
+          fi
