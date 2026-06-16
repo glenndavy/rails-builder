@@ -228,6 +228,22 @@
       export ASSET_SYNC_DISABLE=true            # asset_sync (S3/GCS uploads)
       export SKIP_ASSET_COMPILE_HOOK=true       # various deploy-hook gems
 
+      # Bundled-gems compatibility shim. Ruby 3.3+ demoted logger / mutex_m /
+      # ostruct / bigdecimal / drb from stdlib to "bundled gems" — they no
+      # longer auto-load on `require`. Older Rails (5.x, 6.0.x pre-patch,
+      # 6.1.x pre-7.6) doesn't require them explicitly, so activesupport
+      # crashes with:
+      #
+      #   uninitialized constant ActiveSupport::LoggerThreadSafeLevel::Logger
+      #
+      # Pre-load them via RUBYOPT before any app code runs. The gems still
+      # ship with Ruby in 3.3 (deprecated but present), so `-r` works without
+      # Gemfile entries. Apps on Ruby <3.3 don't need this; the `-r` flag is
+      # safe but redundant. Apps on Ruby 3.4+ that exercise these gems at
+      # runtime still need proper Gemfile entries — this fixes the *build*
+      # only, since assets:precompile triggers the require chain.
+      export RUBYOPT="-rlogger -rmutex_m -rostruct -rbigdecimal -rdrb -rbase64 ''${RUBYOPT:-}"
+
       # Package-manager shims (yarn / npm / pnpm) → bun. Covers the Rails 5-8
       # range:
       #   - Rails 6 webpacker invokes `yarn` via bin/webpack
@@ -309,6 +325,7 @@
       echo "  LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
       echo "  DATABASE_URL: $DATABASE_URL"
       echo "  SECRET_KEY_BASE_DUMMY: $SECRET_KEY_BASE_DUMMY"
+      echo "  RUBYOPT: $RUBYOPT"
       ${pkgs.lib.optionalString resolvedNeedsRedis ''
         echo "  REDIS_URL: $REDIS_URL (transient redis-server in sandbox)"
       ''}
