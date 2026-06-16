@@ -35,6 +35,7 @@
   "4.3.0" = {
     npmDeps = {
       "x86_64-linux" = "sha256-zovIIqJOnRiaAaxKt/tniKlM+QWqAzBkk8CMJ00KRvE=";
+      "aarch64-linux" = "sha256-CcWOsgK1M5Nkxwqnzgbz3uGOmcUpyYYlM7TBDM0EdJ8=";
     };
   };
   "4.0.0" = {
