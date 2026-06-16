@@ -92,9 +92,14 @@ let
         source.sha256 = "02cyk6pfknz2y01n5s485r1dalc5rp7hdzyvqs1asa77c7gkrr8y";
         sha256 = "02cyk6pfknz2y01n5s485r1dalc5rp7hdzyvqs1asa77c7gkrr8y";
       }
-      else defs.bundler.override (attrs: {
-        inherit ruby;
-      });
+      # Callers that thread a pre-built, version-matched bundler in via
+      # callPackage hand us a symlinkJoin wrapper (mk-rails-package.nix does
+      # this since 72bfe7d). symlinkJoin outputs don't carry .override —
+      # check first and use the bundler as-is when it doesn't. The caller
+      # already built it against the right ruby, so no override is needed.
+      else if defs.bundler ? override
+        then defs.bundler.override (attrs: { inherit ruby; })
+        else defs.bundler;
 
   bundler =
     if hasBundler then
