@@ -45,13 +45,20 @@
   railsEnv ? "production", # Rails environment for asset precompilation
   rubyVersion ? null,     # Optional: Override Ruby version (auto-detected from .ruby-version)
   bundlerVersion ? null,  # Optional: Override Bundler version (auto-detected from Gemfile.lock)
-  opensslVersion ? "3_0", # OpenSSL version. Controls both Ruby's openssl and the
-                          # Rails build-phase openssl (for native gem extensions and
-                          # runtime LD_LIBRARY_PATH).
-                          # "3_0" (default, LTS, compatible with all supported Rubies)
-                          # "3_2" — legacy alias meaning "latest 3.x" (pkgs.openssl_3)
-                          # "1_1" — for very old Rubies / gems; insecure-flagged
-                          # Any other "X_Y" — resolves to pkgs."openssl_X_Y"
+  opensslVersion ? null,  # OpenSSL version. Controls both Ruby's openssl and the
+                          # Rails build-phase openssl (LD_LIBRARY_PATH, PKG_CONFIG,
+                          # native gem extensions).
+                          #
+                          # null (default) — use `pkgs.openssl`, which is what
+                          #     nixpkgs-ruby compiles Ruby against. Guarantees the
+                          #     versioned-symbol ABI matches at runtime.
+                          # "1_1" / "3_0" / "3_4" / etc. — resolves to
+                          #     pkgs."openssl_X_Y" and also rebuilds Ruby against
+                          #     it so Ruby's ext/openssl matches what's loaded.
+                          #
+                          # NOTE: on nixos-25.05 `pkgs.openssl_3` is an alias for
+                          # openssl_3_0 (NOT "latest 3.x"). Don't rely on it as a
+                          # synonym for the default.
   gccVersion ? "latest",  # GCC version
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
@@ -134,19 +141,24 @@ let
   rubyVersionSplit = builtins.splitVersion detectedRubyVersion;
   rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
 
-  # OpenSSL and GCC packages
+  # OpenSSL package — when opensslVersion is null, use pkgs.openssl (what
+  # nixpkgs-ruby uses to build Ruby). When set, resolve to pkgs."openssl_X_Y".
   opensslPackage =
-    if opensslVersion == "3_2"
-    then pkgs.openssl_3
+    if opensslVersion == null
+    then pkgs.openssl
     else pkgs."openssl_${opensslVersion}";
 
-  # Ruby package (from nixpkgs-ruby overlay), with openssl override so the
-  # Ruby derivation itself links against the chosen openssl. Without this
-  # override Ruby would track nixpkgs' default pkgs.openssl, which on
-  # nixos-25.05 is 3.4 and fails to compile against older ext/openssl.
-  rubyPackage = (pkgsWithRuby."ruby-${detectedRubyVersion}").override {
-    openssl = opensslPackage;
-  };
+  # Ruby package (from nixpkgs-ruby overlay). When the caller explicitly
+  # picks a non-default openssl, override Ruby's openssl too so its
+  # ext/openssl loads against the same libcrypto that's on the runtime
+  # LD_LIBRARY_PATH (otherwise we get versioned-symbol mismatches like
+  # `OPENSSL_3.4.0 not found`).
+  rubyPackage =
+    if opensslVersion == null
+    then pkgsWithRuby."ruby-${detectedRubyVersion}"
+    else (pkgsWithRuby."ruby-${detectedRubyVersion}").override {
+      openssl = opensslPackage;
+    };
 
   gccPackage =
     if gccVersion == "latest"
