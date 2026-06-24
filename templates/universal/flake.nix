@@ -46,9 +46,13 @@
     # Version inherited from rails-builder (single source of truth)
     version = ruby-builder.version or "unknown";
     gccVersion = "latest";
-    # Default OpenSSL version for builds. Change to "1_1" if you encounter
-    # compatibility issues with older gems or Ruby versions.
-    opensslVersion = "3_2";
+    # OpenSSL version. Controls both Ruby's openssl and the Rails build-phase
+    # openssl (for native gem extensions and runtime LD_LIBRARY_PATH).
+    #   "3_0" — LTS, compatible with all supported Rubies (default)
+    #   "3_2" — legacy alias meaning "latest 3.x" (pkgs.openssl_3, today 3.4)
+    #   "1_1" — for very old Rubies / gems; insecure-flagged
+    #   Any "X_Y" — resolves to pkgs."openssl_X_Y"
+    opensslVersion = "3_0";
 
     # Import framework detection
     detectFramework = import (ruby-builder + "/imports/detect-framework.nix");
@@ -111,7 +115,19 @@
         in if r.success then r.value else default;
       rubyVersion = tryDetect detectRubyVersion "3.4.4";
       bundlerVersion = tryDetect detectBundlerVersion "2.5.22";
-      rubyPackage = pkgs."ruby-${rubyVersion}";
+
+      opensslPackage =
+        if opensslVersion == "3_2"
+        then pkgs.openssl_3
+        else pkgs."openssl_${opensslVersion}";
+
+      # Override Ruby's openssl so the Ruby derivation itself links against
+      # the chosen openssl. Without this Ruby would track nixpkgs' default
+      # pkgs.openssl (3.4 on nixos-25.05), which fails to compile against
+      # older ext/openssl in earlier Rubies.
+      rubyPackage = (pkgs."ruby-${rubyVersion}").override {
+        openssl = opensslPackage;
+      };
       rubyVersionSplit = builtins.splitVersion rubyVersion;
       rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
 
@@ -133,11 +149,6 @@
         if gccVersion == "latest"
         then pkgs.gcc
         else pkgs."gcc${gccVersion}";
-
-      opensslPackage =
-        if opensslVersion == "3_2"
-        then pkgs.openssl_3
-        else pkgs."openssl_${opensslVersion}";
 
       # Bundler package with exact version from Gemfile.lock
       # Uses precomputed hashes from bundler-hashes.nix for reproducible builds

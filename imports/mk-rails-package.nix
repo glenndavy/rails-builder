@@ -45,7 +45,13 @@
   railsEnv ? "production", # Rails environment for asset precompilation
   rubyVersion ? null,     # Optional: Override Ruby version (auto-detected from .ruby-version)
   bundlerVersion ? null,  # Optional: Override Bundler version (auto-detected from Gemfile.lock)
-  opensslVersion ? "3_2", # OpenSSL version: "3_2" (default) or "1_1" for legacy
+  opensslVersion ? "3_0", # OpenSSL version. Controls both Ruby's openssl and the
+                          # Rails build-phase openssl (for native gem extensions and
+                          # runtime LD_LIBRARY_PATH).
+                          # "3_0" (default, LTS, compatible with all supported Rubies)
+                          # "3_2" — legacy alias meaning "latest 3.x" (pkgs.openssl_3)
+                          # "1_1" — for very old Rubies / gems; insecure-flagged
+                          # Any other "X_Y" — resolves to pkgs."openssl_X_Y"
   gccVersion ? "latest",  # GCC version
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
@@ -125,8 +131,6 @@ let
   frameworkInfo = detectFramework { inherit src; };
   framework = frameworkInfo.framework;
 
-  # Ruby package (from nixpkgs-ruby overlay)
-  rubyPackage = pkgsWithRuby."ruby-${detectedRubyVersion}";
   rubyVersionSplit = builtins.splitVersion detectedRubyVersion;
   rubyMajorMinor = "${builtins.elemAt rubyVersionSplit 0}.${builtins.elemAt rubyVersionSplit 1}";
 
@@ -135,6 +139,14 @@ let
     if opensslVersion == "3_2"
     then pkgs.openssl_3
     else pkgs."openssl_${opensslVersion}";
+
+  # Ruby package (from nixpkgs-ruby overlay), with openssl override so the
+  # Ruby derivation itself links against the chosen openssl. Without this
+  # override Ruby would track nixpkgs' default pkgs.openssl, which on
+  # nixos-25.05 is 3.4 and fails to compile against older ext/openssl.
+  rubyPackage = (pkgsWithRuby."ruby-${detectedRubyVersion}").override {
+    openssl = opensslPackage;
+  };
 
   gccPackage =
     if gccVersion == "latest"
