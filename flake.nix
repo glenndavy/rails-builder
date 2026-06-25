@@ -17,7 +17,7 @@
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info
-    version = "3.17.113";
+    version = "3.17.114";
     forAllSystems = nixpkgs.lib.genAttrs systems;
     overlays = [nixpkgs-ruby.overlays.default];
 
@@ -111,6 +111,8 @@
       sinatraFixture = ./tests/fixtures/sinatra-app;
       rackFixture = ./tests/fixtures/rack-app;
       plainRubyFixture = ./tests/fixtures/plain-ruby;
+      hanami2Fixture = ./tests/fixtures/hanami-2-app;
+      hanami1Fixture = ./tests/fixtures/hanami-1-app;
 
       # Test version detection against fixtures
       testVersionDetection = let
@@ -157,6 +159,11 @@
         sinatraInfo = detectFramework {src = sinatraFixture;};
         rackInfo = detectFramework {src = rackFixture;};
         plainInfo = detectFramework {src = plainRubyFixture;};
+        hanami2Info = detectFramework {src = hanami2Fixture;};
+        hanami1Info = detectFramework {src = hanami1Fixture;};
+
+        detectAppName = (import ./imports/detect-app-name.nix).detectAppName;
+        hanami2AppName = detectAppName { src = hanami2Fixture; framework = "hanami"; };
       in
         pkgs.stdenv.mkDerivation {
           name = "test-framework-detection";
@@ -187,6 +194,27 @@
 
             test "${plainInfo.framework}" = "ruby" || { echo "FAIL: expected ruby, got ${plainInfo.framework}"; exit 1; }
             echo "ok - Plain Ruby detected"
+
+            test "${hanami2Info.framework}" = "hanami" || { echo "FAIL: expected hanami, got ${hanami2Info.framework}"; exit 1; }
+            echo "ok - Hanami 2.x framework detected"
+
+            test "${builtins.toJSON hanami2Info.hanamiVersion}" = "2" || { echo "FAIL: hanami 2 fixture should yield hanamiVersion=2, got ${builtins.toJSON hanami2Info.hanamiVersion}"; exit 1; }
+            echo "ok - Hanami 2.x hanamiVersion=2"
+
+            test "${builtins.toJSON hanami2Info.needsPostgresql}" = "true" || { echo "FAIL: hanami 2 fixture should need postgresql"; exit 1; }
+            echo "ok - Hanami 2.x needs PostgreSQL"
+
+            test "${hanami2AppName}" = "my-hanami-app" || { echo "FAIL: hanami 2 app name expected 'my-hanami-app', got '${hanami2AppName}'"; exit 1; }
+            echo "ok - Hanami 2.x app name parsed from config/app.rb"
+
+            test "${hanami1Info.framework}" = "hanami" || { echo "FAIL: expected hanami, got ${hanami1Info.framework}"; exit 1; }
+            echo "ok - Hanami 1.x framework detected"
+
+            test "${builtins.toJSON hanami1Info.hanamiVersion}" = "1" || { echo "FAIL: hanami 1 fixture should yield hanamiVersion=1, got ${builtins.toJSON hanami1Info.hanamiVersion}"; exit 1; }
+            echo "ok - Hanami 1.x hanamiVersion=1"
+
+            test "${builtins.toJSON hanami1Info.needsSqlite}" = "true" || { echo "FAIL: hanami 1 fixture should need sqlite"; exit 1; }
+            echo "ok - Hanami 1.x needs SQLite"
           '';
           installPhase = ''
             mkdir -p $out

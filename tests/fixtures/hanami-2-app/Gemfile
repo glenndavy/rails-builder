@@ -1,0 +1,6 @@
+source "https://rubygems.org"
+
+gem "hanami", "~> 2.2"
+gem "hanami-router", "~> 2.2"
+gem "puma"
+gem "pg"

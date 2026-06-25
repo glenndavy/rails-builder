@@ -312,7 +312,7 @@
 
       echo ""
       echo "╔══════════════════════════════════════════════════════════════════╗"
-      echo "║  bundix build: rails application (bundlerenv)                    ║"
+      echo "║  bundix build: ${autoFrameworkInfo.framework} application (bundlerenv)"
       echo "╚══════════════════════════════════════════════════════════════════╝"
       echo ""
 
@@ -538,8 +538,11 @@
       echo "│ STAGE 4: Asset Precompilation                                    │"
       echo "└──────────────────────────────────────────────────────────────────┘"
 
-      # Set Rails environment for asset precompilation
+      # Set Rails environment for asset precompilation. Also set HANAMI_ENV
+      # to the same value so Hanami apps see the equivalent flag during their
+      # asset compile step (harmless for Rails apps).
       export RAILS_ENV="${railsEnv}"
+      export HANAMI_ENV="${railsEnv}"
       export SECRET_KEY_BASE="dummy_secret_for_asset_precompilation"
 
       echo "  RAILS_ENV: $RAILS_ENV"
@@ -559,8 +562,31 @@
         echo "  $line"
       done || true
 
-      echo "  Running: rails assets:precompile"
-      rails assets:precompile
+      ${
+        if autoFrameworkInfo.framework == "rails"
+        then ''
+          echo "  Running: rails assets:precompile"
+          rails assets:precompile
+        ''
+        else if autoFrameworkInfo.framework == "hanami"
+        then
+          if autoFrameworkInfo.hanamiVersion == 2
+          then ''
+            echo "  Running: bundle exec hanami assets compile (Hanami 2.x)"
+            bundle exec hanami assets compile || {
+              echo "  hanami assets compile failed or no assets to compile — continuing"
+            }
+          ''
+          else ''
+            echo "  Running: bundle exec hanami assets precompile (Hanami 1.x)"
+            bundle exec hanami assets precompile || {
+              echo "  hanami assets precompile failed or no assets to precompile — continuing"
+            }
+          ''
+        else ''
+          echo "  Framework '${autoFrameworkInfo.framework}' has no managed asset pipeline — skipping"
+        ''
+      }
 
       # Restore original Gemfile.lock - see "GEMFILE.LOCK PRESERVATION WORKAROUND" above
       # This ensures the final artifact has the correct Gemfile.lock from source,

@@ -76,15 +76,36 @@
     tailwindcss = hasGem "tailwindcss-rails" || hasGem "tailwindcss-ruby";
   };
 
+  hasHanamiGem = hasGem "hanami" || gemfileContains "hanami";
+  # Hanami 2.x has config/app.rb (introduced in 2.0). Hanami 1.x doesn't —
+  # it uses config/environment.rb (+ apps/<name>/application.rb directory
+  # layout). Rails also has config/environment.rb so we order-check rails
+  # first below; if we got past rails, config/environment.rb + hanami gem
+  # identifies a 1.x app.
+  isHanami2 = hasFile "config/app.rb" && hasHanamiGem;
+  isHanami1 =
+    !isHanami2
+    && hasHanamiGem
+    && (hasFile "config/environment.rb" || hasFile "apps");
+
 in {
-  # Framework detection logic
-  framework = 
+  # Framework detection logic. Rails is checked first because its
+  # config/environment.rb file would otherwise also match Hanami 1.x.
+  framework =
     if hasFile "config/application.rb" && (hasGem "rails" || gemfileContains "rails") then "rails"
-    else if hasFile "config/app.rb" && (hasGem "hanami" || gemfileContains "hanami") then "hanami"
-    else if hasFile "config.ru" && (hasGem "sinatra" || gemfileContains "sinatra") then "sinatra" 
+    else if isHanami2 || isHanami1 then "hanami"
+    else if hasFile "config.ru" && (hasGem "sinatra" || gemfileContains "sinatra") then "sinatra"
     else if hasFile "config.ru" then "rack"
     else if hasFile "Rakefile" then "ruby-with-rake"
     else "ruby";
+
+  # Major version of Hanami when detected, else null. Downstream scripts
+  # branch on this for the right `hanami assets` command (compile vs
+  # precompile) and for app-name parsing (config/app.rb vs lib/<name>.rb).
+  hanamiVersion =
+    if isHanami2 then 2
+    else if isHanami1 then 1
+    else null;
     
   # Determine if assets need compilation (based on actual gems)
   hasAssets = 

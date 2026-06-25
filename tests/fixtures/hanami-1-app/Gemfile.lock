@@ -1,0 +1,17 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    hanami (1.3.5)
+    hanami-model (1.3.2)
+    sqlite3 (1.4.4)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  hanami (~> 1.3)
+  hanami-model (~> 1.3)
+  sqlite3
+
+BUNDLED WITH
+   2.5.22
