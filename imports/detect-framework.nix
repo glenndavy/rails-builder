@@ -108,10 +108,17 @@ in {
     else null;
     
   # Determine if assets need compilation (based on actual gems)
-  hasAssets = 
-    assetGems.sprockets || assetGems.webpacker || assetGems.shakapacker || 
+  hasAssets =
+    assetGems.sprockets || assetGems.webpacker || assetGems.shakapacker ||
     assetGems.esbuild || assetGems.vite || assetGems.propshaft ||
     hasFile "package.json" || hasFile "webpack.config.js" || hasFile "vite.config.js";
+
+  # Simple presence flag — the template's non-Rails bundix branch uses this
+  # to decide whether to invoke `rake build` during buildRailsApp construction.
+  # Distinct from framework == "ruby-with-rake" (which fires only when no
+  # other framework matched); a rack / sinatra / hanami app can still have
+  # a Rakefile.
+  hasRakefile = hasFile "Rakefile";
     
   # Determine entry point
   entryPoint = 
