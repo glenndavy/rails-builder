@@ -2,18 +2,44 @@
 {
   description = "Generic Rails builder flake";
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
+    # Non-`github:` URL forms, deliberately — see the rationale comment in
+    # templates/universal/flake.nix. These inputs are re-resolved fresh by
+    # every CI build (the generated app flake consumes this repo as an
+    # unlocked input), and the `github:` scheme goes through api.github.com,
+    # which is anonymous-rate-limited to death on CodeBuild's shared egress
+    # IPs. Archive tarballs (codeload) avoid the REST API entirely.
+    # nixpkgs: rev-pinned archive tarball (immutable URL, served by
+    # codeload, no REST API). A branch tarball would lock as
+    # mutable-URL+narHash and hard-fail with a NAR mismatch in every
+    # locked consumer as soon as the branch advances; a git+https nixpkgs
+    # would mean multi-GB clones in CI. Bumping nixpkgs = edit this rev.
+    nixpkgs.url = "https://github.com/NixOS/nixpkgs/archive/d233902339c02a9c334e7e593de68855ad26c4cb.tar.gz";
+    # Small repos: git+https (git smart-HTTP protocol — no REST API).
+    # These lock by rev exactly like `github:` did, and stay updatable
+    # via `nix flake update`.
+    nixpkgs-ruby.url = "git+https://github.com/bobvanderlinden/nixpkgs-ruby?ref=master";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
     # Custom bundix fork with fixes
-    bundix-src.url = "github:glenndavy/bundix";
+    bundix-src.url = "git+https://github.com/glenndavy/bundix?ref=master";
     bundix-src.flake = false;
+
+    # nixpkgs-ruby's transitive inputs, redirected onto non-API pins we
+    # control. Without these follows, CI's lock-less resolution fetches
+    # them via their upstream `github:` refs — through the REST API.
+    flake-compat.url = "git+https://github.com/edolstra/flake-compat?ref=master";
+    flake-compat.flake = false;
+    flake-utils.url = "git+https://github.com/numtide/flake-utils?ref=main";
+    flake-utils.inputs.systems.follows = "systems";
+    systems.url = "git+https://github.com/nix-systems/default?ref=main";
+    nixpkgs-ruby.inputs.flake-compat.follows = "flake-compat";
+    nixpkgs-ruby.inputs.flake-utils.follows = "flake-utils";
   };
   outputs = {
     self,
     nixpkgs,
     nixpkgs-ruby,
     bundix-src,
+    ...
   }: let
     systems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
     # Simple version for compatibility - can be overridden with --impure for git info

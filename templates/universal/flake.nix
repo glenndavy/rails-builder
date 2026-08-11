@@ -3,15 +3,40 @@
   description = "Universal Ruby application template with smart dependency detection (Rails, Hanami, Sinatra, Rack, Ruby)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    nixpkgs-ruby.url = "github:bobvanderlinden/nixpkgs-ruby";
+    # URL scheme matters here — never use `github:`.
+    #
+    # This flake is generated into the app source WITHOUT a flake.lock
+    # (rx-stack's pre-build.sh runs `nix flake init -t` fresh every build),
+    # so CI re-resolves every input on every build. The `github:` scheme
+    # does that through api.github.com, whose anonymous quota (60 req/hr
+    # per IP) is shared across ALL AWS customers on CodeBuild's shared
+    # egress IPs — effectively always exhausted, and authenticating would
+    # require a PAT we can't assume exists in every client account.
+    #
+    # Rev-pinned archive tarballs (codeload) and git+https (git
+    # smart-HTTP protocol) bypass the REST API entirely. nixpkgs is
+    # rev-pinned rather than branch-tracked: a branch tarball would lock
+    # as mutable-URL+narHash and NAR-mismatch in any app that commits
+    # this flake's lock once the branch advances, and git+https nixpkgs
+    # would mean multi-GB clones. Bump by editing the rev (take the
+    # current head of the wanted nixos release branch).
+    nixpkgs.url = "https://github.com/NixOS/nixpkgs/archive/ac62194c3917d5f474c1a844b6fd6da2db95077d.tar.gz"; # nixos-25.05
+    nixpkgs-ruby.url = "git+https://github.com/bobvanderlinden/nixpkgs-ruby?ref=master";
     nixpkgs-ruby.inputs.nixpkgs.follows = "nixpkgs";
-    flake-compat.url = "github:edolstra/flake-compat";
-    flake-compat.flake = false;
     ruby-builder = {
-      url = "github:glenndavy/rails-builder"; # Will be renamed
+      url = "git+https://github.com/glenndavy/rails-builder?ref=master"; # Will be renamed
       flake = true;
     };
+    # nixpkgs-ruby's transitive inputs, redirected onto non-API pins.
+    # Without these follows, the lock-less CI resolution fetches them via
+    # their upstream `github:` refs — straight back into the REST API.
+    flake-compat.url = "git+https://github.com/edolstra/flake-compat?ref=master";
+    flake-compat.flake = false;
+    flake-utils.url = "git+https://github.com/numtide/flake-utils?ref=main";
+    flake-utils.inputs.systems.follows = "systems";
+    systems.url = "git+https://github.com/nix-systems/default?ref=main";
+    nixpkgs-ruby.inputs.flake-compat.follows = "flake-compat";
+    nixpkgs-ruby.inputs.flake-utils.follows = "flake-utils";
     app-src = {
       url = "path:.";
       flake = false;
@@ -22,7 +47,6 @@
     self,
     nixpkgs,
     nixpkgs-ruby,
-    flake-compat,
     ruby-builder,
     app-src,
     ...
