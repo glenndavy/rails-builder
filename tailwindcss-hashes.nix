@@ -19,12 +19,15 @@
   "4.2.2" = {
     npmDeps = {
       "x86_64-linux" = "sha256-2MaWW2TZwBaTkzfSaFOcO/zcSHr527l7TukVmRo+L7s=";
-      # Re-pinned 2026-08-18: transitive npm packages under
-      # @tailwindcss/cli shifted upstream (bun install isn't lockfile-
-      # frozen here, so the FOD output drifts when the registry moves).
-      # If this mismatches again, the durable fix is vendoring a
-      # bun.lock per version and installing --frozen-lockfile.
-      "aarch64-linux" = "sha256-GbW0mDnCufoSanDSKSWIM86srFLLiJB3ZdwGyfmbSjU=";
+      # Re-pinned TWICE on consecutive days (2026-08-18 x2): unfrozen
+      # `bun install` output drifted from V4Gu… → GbW0… → jZTjh… in
+      # under 24h. This cadence means the FOD may even be nondeter-
+      # ministic per-run, not merely tracking upstream movement. Do
+      # NOT keep re-pinning: the durable fix (vendored bun.lock +
+      # --frozen-lockfile) is mandatory — see rails-builder issue
+      # tracked as rx-stack task #54. If THIS pin fails again, stop
+      # and implement the freeze before any further builds.
+      "aarch64-linux" = "sha256-jZTjhAG6rOzSgo0h7lmND5tQIbIGI5JvC4n3/XIRdis=";
     };
   };
   "4.2.3" = {
