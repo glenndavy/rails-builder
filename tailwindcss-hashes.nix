@@ -18,7 +18,7 @@
   };
   "4.2.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-CLlwydSvbyzA3fNNs9U7BG8wwBuKG2WqhnX1GDmOOHQ=";
+      "x86_64-linux" = "sha256-2MaWW2TZwBaTkzfSaFOcO/zcSHr527l7TukVmRo+L7s=";
       # Re-pinned 2026-08-18: transitive npm packages under
       # @tailwindcss/cli shifted upstream (bun install isn't lockfile-
       # frozen here, so the FOD output drifts when the registry moves).
