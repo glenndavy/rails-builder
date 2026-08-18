@@ -562,6 +562,19 @@
         echo "  $line"
       done || true
 
+      # Diagnostic: name any lockfile spec bundler can't materialize
+      # BEFORE it tries. `bundle check` is local-only (no network) and
+      # prints "The following gems are missing: * <gem> (<version>)".
+      # Without this, an unmaterializable spec surfaces as bundler
+      # silently re-resolving and dying at the build sandbox's network
+      # wall with a traceback that never names the gem — which has
+      # repeatedly cost multi-hour debugging sessions (arm64-only
+      # materialize failures, 2026-08-18/19). Non-fatal: the real
+      # invocation below still decides the build's fate; this is
+      # purely so the log tells the truth.
+      echo "  bundle check (materialization diagnostic):"
+      bundle check 2>&1 | sed 's/^/    /' || true
+
       ${
         if autoFrameworkInfo.framework == "rails"
         then ''
