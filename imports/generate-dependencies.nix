@@ -12,7 +12,54 @@
   export GEM_HOME=$(mktemp -d)
   ${rubyPackage}/bin/gem install bundler --version ${bundlerVersion} --no-document
   export PATH=$GEM_HOME/bin:$PATH
+
+  # ── Ruby-platform-only invariant ─────────────────────────────────────
+  # Platform-precompiled gems (nokogiri-X-x86_64-linux-gnu.gem etc.) in
+  # vendor/cache poison the gemset: bundix resolves entries to whatever
+  # file is present, and a gemset pinned to one CPU's binaries breaks
+  # every other architecture at bundler-materialize time — silently,
+  # as a sandbox network error that names nothing (ops-core,
+  # 2026-08-18/19, two days of forensics). Correctness is enforced
+  # here, in the generator, so no hand-edits are ever needed:
+  #   1. force_ruby_platform for every bundler operation in this run
+  #   2. self-heal: any gem with only a platform-suffixed .gem in the
+  #      cache gets its generic (source) variant fetched alongside,
+  #      and the platform file is set aside so bundix can't pick it
+  #   3. post-validate: refuse to emit a gemset containing platform-
+  #      suffixed paths
+  export BUNDLE_FORCE_RUBY_PLATFORM=true
+
+  if [ -d vendor/cache ]; then
+    mkdir -p .platform-gems-excluded
+    for f in vendor/cache/*.gem; do
+      [ -e "$f" ] || continue
+      base=$(basename "$f")
+      echo "$base" | grep -qE -- '-(x86_64|aarch64|arm64)-(linux|darwin)[a-z0-9_-]*\.gem$' || continue
+      generic=$(echo "$base" | sed -E 's/-(x86_64|aarch64|arm64)-(linux|darwin)[a-z0-9_-]*\.gem$/.gem/')
+      if [ ! -f "vendor/cache/$generic" ]; then
+        # derive "gem fetch" args: last -<version> segment of the generic name
+        gv="''${generic%.gem}"
+        ver="''${gv##*-}"
+        name="''${gv%-$ver}"
+        echo "  self-heal: fetching ruby-platform $name $ver (only $base was vendored)"
+        ${rubyPackage}/bin/gem fetch "$name" -v "$ver" --platform ruby
+        mv "$generic" vendor/cache/
+      fi
+      echo "  setting aside platform gem: $base"
+      mv "$f" .platform-gems-excluded/
+    done
+  fi
+
   bundix -l
+
+  # Post-validate: the generated gemset must reference no platform gems.
+  if grep -qE 'vendor/cache/[a-zA-Z0-9_.-]+-(x86_64|aarch64|arm64)-(linux|darwin)' gemset.nix 2>/dev/null; then
+    echo "ERROR: generated gemset.nix references platform-specific vendored gems:"
+    grep -oE 'vendor/cache/[a-zA-Z0-9_.-]+-(x86_64|aarch64|arm64)-(linux|darwin)[a-z-]*\.gem' gemset.nix | sort -u | sed 's/^/    /'
+    echo "This gemset would break cross-architecture builds. Generator bug — please report."
+    exit 1
+  fi
+  echo "gemset.nix generated: ruby-platform-only ✓"
 
   # Fix git gem entries that bundix couldn't fetch from remote repositories
   # When bundix can't access a private git repo (e.g., no SSH in CI), it creates
