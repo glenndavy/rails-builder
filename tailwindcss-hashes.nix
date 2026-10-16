@@ -42,7 +42,15 @@
   };
   "4.3.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-+n6zOE105hg0gWTOs0KzNWijeLJM5UtRcqhJloYhDsA=";
+      # NOTE: this hash flip-flops between two values depending on which
+      # bun builds the FOD (lockfile is frozen; bun's node_modules layout
+      # differs across bun versions from different nixpkgs pins).
+      #   zovIIqJ… = bun from rails-builder/nixpkgs 2026-05-15 (botman-box
+      #              containers after `nix flake update` — production).
+      #   +n6zOE…  = bun from an older nixpkgs (local dev builds).
+      # Pinned to the production value. Durable fix: pin bun itself in
+      # make-tailwindcss.nix (see 4.2.2 note / rx-stack task #54).
+      "x86_64-linux" = "sha256-zovIIqJOnRiaAaxKt/tniKlM+QWqAzBkk8CMJ00KRvE=";
       "aarch64-linux" = "sha256-CcWOsgK1M5Nkxwqnzgbz3uGOmcUpyYYlM7TBDM0EdJ8=";
     };
   };
