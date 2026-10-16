@@ -42,7 +42,7 @@
   };
   "4.3.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-zovIIqJOnRiaAaxKt/tniKlM+QWqAzBkk8CMJ00KRvE=";
+      "x86_64-linux" = "sha256-+n6zOE105hg0gWTOs0KzNWijeLJM5UtRcqhJloYhDsA=";
       "aarch64-linux" = "sha256-CcWOsgK1M5Nkxwqnzgbz3uGOmcUpyYYlM7TBDM0EdJ8=";
     };
   };
