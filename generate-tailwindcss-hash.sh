@@ -48,11 +48,13 @@ if [ -z "$SYSTEM" ]; then
   SYSTEM=$(nix eval --raw --impure --expr 'builtins.currentSystem')
 fi
 
-# Get the nixpkgs rev from our flake.lock so we use cached binaries
+# Get the nixpkgs rev from our flake.lock so we use cached binaries.
+# NOTE: `|| ""` here used to EXECUTE the empty string on eval failure,
+# which set -e turned into a silent death at this exact line.
 NIXPKGS_REV=$(nix eval --raw --impure --expr "
   let lock = builtins.fromJSON (builtins.readFile $SCRIPT_DIR/flake.lock);
   in lock.nodes.nixpkgs.locked.rev
-" 2>/dev/null) || ""
+" 2>/dev/null) || NIXPKGS_REV=""
 
 if [ -z "$NIXPKGS_REV" ]; then
   NIXPKGS_URL="github:NixOS/nixpkgs/nixos-unstable"

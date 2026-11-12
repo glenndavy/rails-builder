@@ -239,4 +239,34 @@
       "x86_64-linux" = "sha256-gCIBSXai9LaQII2CyGwH8WrTULcI5AHQX4RhCSYLKg0=";
     };
   };
+  "4.3.1" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-2g1t20J+PXYgrHhlOCYEPpYAFCdwH5OZ+snBMAdZLC0=";
+      "aarch64-linux" = "sha256-Obb9n8JxHXvTcIhdTmA5p+V136lQASpRGINZLV1NhRw=";
+    };
+  };
+  "4.3.2" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-AHoEonR9o3ambPZ+V51//Cojl6YzmSaiIiYzPIHMq2U=";
+      "aarch64-linux" = "sha256-YmeG360VWOwS4Rt5qv4IqWOg1uqiM8oJSHAWkdSlHiY=";
+    };
+  };
+  "4.3.3" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-IPJ+0c1h5W8OL0StATW8K3KhvyEfYi6Z4Zt9oUG3k9M=";
+      "aarch64-linux" = "sha256-58GmJlERbWN7OjAqkvwJVYhDMAnWlLc8+PRStkmz16c=";
+    };
+  };
+  "4.3.4" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-D53mu7bd6+zoBduk0vFZCniBxPtQPQETtplbiG61G9Q=";
+      "aarch64-linux" = "sha256-dcYYXt3z1yQnuWXEDJukBnMLFg0weUZsWdsX0yTcKS8=";
+    };
+  };
+  "4.3.5" = {
+    npmDeps = {
+      "x86_64-linux" = "sha256-didLCKOihWRuJMIsNdBIwYDmTOIdJDhg087bl2RCYsc=";
+      "aarch64-linux" = "sha256-pAF6yivbdRxGV/gQDMiJMwoXJVfqaY9PHIqxjkrsLuY=";
+    };
+  };
 }

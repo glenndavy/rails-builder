@@ -1623,4 +1623,104 @@
     url = "https://rubygems.org/downloads/bundler-0.3.0.gem";
     sha256 = "0qr3vybq688p6g3h7yhbckwqqm9mpf2144a9f4kal32x46gbc3f9";
   };
+  "4.0.0" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.0.gem";
+    sha256 = "0gdx47bjaylm9vjraid69s8b9l9n6qpmn3bikg766f41bvk6353x";
+  };
+  "4.0.1" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.1.gem";
+    sha256 = "0fdxwxzh3vbcrmaxfa2yyqx9ca40lm80rklq0sf0vbj5kzsij6hx";
+  };
+  "4.0.2" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.2.gem";
+    sha256 = "1yvr3y200cyvvhma2lyv07609laly883r0sbmwkjzvpqzxqgf4ws";
+  };
+  "4.0.3" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.3.gem";
+    sha256 = "154kxsyp171sbm972r3nm8kmxn8v3wy9ayl4migkw67lxpaj6rph";
+  };
+  "4.0.4" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.4.gem";
+    sha256 = "05mxc4f62drmqd6cdzmzfj46jny51jd9yhcf66b6hrknl5xlpyfh";
+  };
+  "4.0.5" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.5.gem";
+    sha256 = "1z930z4rsy85mkvkxvm5gh57k1fmdd1ia1mj09mssms0w552aljx";
+  };
+  "4.0.6" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.6.gem";
+    sha256 = "021zwxfxpmx06rihccqvf9qlzia59ab0zl2kc291gi0qrwxc2hsf";
+  };
+  "4.0.7" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.7.gem";
+    sha256 = "05qbq94ll95rajizhyb91wsab5h1d0lpm1icvs1mjxfvrx2spn7q";
+  };
+  "4.0.8" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.8.gem";
+    sha256 = "1d791cz4abj9j44nd9mygydlaxyl2mca6xxkcay49mcj668ffxdd";
+  };
+  "4.0.9" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.9.gem";
+    sha256 = "0fxvc2c660lp36rhibslj5pjhsa3k9q3ykqlbq6jddf5wxjdwxhz";
+  };
+  "4.0.10" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.10.gem";
+    sha256 = "1sg39kvdd6zcay19kl3g4wq9pcbyb1cp9knynhmly3v1prdafwzf";
+  };
+  "4.0.11" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.11.gem";
+    sha256 = "11g71hj9mnnz3mnlmd55gdjbwhk9dvp10vz45v84hbihg3xw1kjv";
+  };
+  "4.0.12" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.12.gem";
+    sha256 = "1b1530hkyj1xaxi6vd7l4idkplbdmi227fjgnbkkddnz51ypb2vz";
+  };
+  "4.0.13" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.13.gem";
+    sha256 = "0fyaw4a2d4wa4jnl9vx9f215w1xf8jqa0zgji45wy8khybkqpw0r";
+  };
+  "4.0.14" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.14.gem";
+    sha256 = "1f14rj1v6jw0aqmc8d0iwr4lwbvwpq83ds29grm2cwppbjb0m6nh";
+  };
+  "4.0.15" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.15.gem";
+    sha256 = "1ryr516rmcc9a6bvgh2s9shk3mmz5f9i626dcfnf184lzs1bikm4";
+  };
+  "4.0.16" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.16.gem";
+    sha256 = "0zf4japkfhalnkplfnp67manm371r16g8k44x6y9lky283a5vjnn";
+  };
+  "4.0.17" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.17.gem";
+    sha256 = "1hdnrdhmnxwbiyrwh5c05skxfldiqq8mb2nzk4pxsran3d1j2ki1";
+  };
+  "4.0.18" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.18.gem";
+    sha256 = "1b0q6sg03mlmf7kv8hd6q1s0l35jwjg7mwn9w2s4f66y55sa3n82";
+  };
+  "4.0.19" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.19.gem";
+    sha256 = "0ivxb23gxd2a05lg2ciwynjali6ygr2baxbpqhy8bcvzqzj5d05l";
+  };
+  "4.0.20" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.20.gem";
+    sha256 = "1bk2qxmyv1c05mna6fbsj0msb04ynx2j8lmw6pkgarw7cjnahy3r";
+  };
+  "4.0.21" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.21.gem";
+    sha256 = "1l0xkzr1j08zjv6sn0l48ddasfic9jgaaa4ddjhnl1r6njcm9gvw";
+  };
+  "4.0.22" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.22.gem";
+    sha256 = "0nnplm1955v15lhq8vf4ks1zpa6iwjpdfgmn3pvhlpjmr22frmfq";
+  };
+  "4.0.23" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.23.gem";
+    sha256 = "0yr8hxa1d2mg29qm3sqznngwbxxfnvwab6l1gy215x18v6hshys0";
+  };
+  "4.0.24" = {
+    url = "https://rubygems.org/downloads/bundler-4.0.24.gem";
+    sha256 = "1g4qza2gx223nxvkbmxlsab2jq48sx0v33wl38awz80n13i69jhn";
+  };
 }
