@@ -8,17 +8,17 @@
 {
   "4.1.16" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-RyBN8PbZziOeFAn5jqkPgciOG/1SDsd2vOMhjsOfdxA=";
+      "x86_64-linux" = "sha256-iCsLpmgyyrit1Dw2SSIJre3+RYncsx7ftob0wZPmE20=";
     };
   };
   "4.1.18" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-DZDwT9B/gEyRkCIwPRStuKjYoRyIrtmVIwFTTiSsKww=";
+      "x86_64-linux" = "sha256-CXpbZretKxTwC0+tUXimlqkNhUnfBlFBJ/iH3YUK3Bw=";
     };
   };
   "4.2.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-CLlwydSvbyzA3fNNs9U7BG8wwBuKG2WqhnX1GDmOOHQ=";
+      "x86_64-linux" = "sha256-adVf19XNYcvWn7d39RnIfKFdFMZ4xUAVwhrkoCjTiUg=";
       # History: re-pinned repeatedly on 2026-08-18 while the install
       # was unfrozen (V4Gu… → GbW0… → jZTjh…). Re-verified 2026-11-23
       # with the frozen lockfile under bun 1.3.13 and 1.4.4.
@@ -27,12 +27,12 @@
   };
   "4.2.3" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-q6fgyfevbmh4CbB/atXqTFcFeYm0h/JTvRrImnEIP5Y=";
+      "x86_64-linux" = "sha256-uObxpheJHvPzGikgndx4jN9ZnLlNFgTHtin6xoHvuaY=";
     };
   };
   "4.2.4" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-8S7PG3vgyXBRU5xXW4U5XuSfIZmI4Gs1v44M0OVeQjQ=";
+      "x86_64-linux" = "sha256-yBVUj5WxsEkCV5b4vlprSS3PU43vy7GI9JVNadbk+Fc=";
     };
   };
   "4.3.0" = {
@@ -42,222 +42,222 @@
       # Re-verified 2026-11-23 with the frozen lockfile: bun 1.3.13
       # (rails-builder's pinned nixpkgs) and bun 1.4.4 (nixos-unstable)
       # both produce the values below on both arches.
-      "x86_64-linux" = "sha256-zovIIqJOnRiaAaxKt/tniKlM+QWqAzBkk8CMJ00KRvE=";
+      "x86_64-linux" = "sha256-xJD/NLZu1ZJ6EffNm4gig9aB+LWuRtgg18X1N4cbZTI=";
       "aarch64-linux" = "sha256-JR5ddZ0w5xpJkfkoSIJf7yKKqyzDWKZFtfWmK3qmp6U=";
     };
   };
   "4.0.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-TLEuw4mH4Cn233mwpy3TDxAI7Zvn+d4dDp8ASIL/dmc=";
+      "x86_64-linux" = "sha256-OhPmsqRL8znT+J7qKVN39wqmd5Hu9U3EI6m86EJWdRQ=";
     };
   };
   "4.0.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-Os/IRPj0Se2S/qsOcGbS1TcG0uxlCrg6KaPmnQGypWQ=";
+      "x86_64-linux" = "sha256-A+HEZUt6kQUEHTLBApBLjeauJNqBlUX6VW8s1pnGv2o=";
     };
   };
   "4.0.10" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-XXVflc1et+Gk9Elw9guOnAr6fph7xuOAI3tgLXmhjvc=";
+      "x86_64-linux" = "sha256-099jZUPUtoFDdXUt7oBGpnN7Q8/OVt0+lJJVWR/8+jg=";
     };
   };
   "4.0.11" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-+bH6ZZIyg5RBWDUKsTLxi7EH4KIh6X39xe7t7XgFxmA=";
+      "x86_64-linux" = "sha256-lOLDDxfVqr1zn2MEWT20NcaAHVfynkSvfgneGFxIGqs=";
     };
   };
   "4.0.12" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-ivsi6JjGowVnFyHhyF1vITJ3Q8FawoXQ1h8PtPPOr3o=";
+      "x86_64-linux" = "sha256-9ksVnD+zG7vdJcvWD4ySyav+3MCRGW1X4uXDgC4k+Mo=";
     };
   };
   "4.0.13" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-rLPJamBAHvCkY67doqkuVkBIUOIs0cLRw478a9UHxSc=";
+      "x86_64-linux" = "sha256-RVDK4xDswAfFG+oZlh8+oaQY8T3Rc9wUIIQUcHgMUTA=";
     };
   };
   "4.0.14" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-9bizsL5svwLFHFcFzJ9A6ONJgc7soOy/nnK9VF0P0aI=";
+      "x86_64-linux" = "sha256-uLb5dUZOLUOE+sdYMGR8L21xj+aK5Lgjhajq5TRbFYY=";
     };
   };
   "4.0.15" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-/yenK4hiWiHiiCW0yL7rDYbZt4gsG2/XpqtNf+94/mU=";
+      "x86_64-linux" = "sha256-M4wEyFEPVqljhC+95n1m6orbypQmAZ15jwozQSDV+g8=";
     };
   };
   "4.0.16" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-uBiLDXmhS9LrBT30dfnLf58kchaSEvalfesT8Uub460=";
+      "x86_64-linux" = "sha256-ha+PrutmHpH+aWfM9jsEnX/sPa4ti5ezrz3xNRER0Es=";
     };
   };
   "4.0.17" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-L7V7SRqwICCtvytI8eYtZDvR+DtBPkwZMGJB22GiBME=";
+      "x86_64-linux" = "sha256-hsiOley0GKuB+Y4crHrQ74bXswtfkWH5hNTQy44gwHQ=";
     };
   };
   "4.0.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-gZWYj96i14drrOL2bI5gU+nrvi7Aa1eqCIaddUf3zzM=";
+      "x86_64-linux" = "sha256-YJEmUqUtwIo77nW4q01203cqcydfWTrWcLcXETRFthE=";
     };
   };
   "4.0.3" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-zqFl+5OfY/xj66PXGxO5ibaXCBWy7lcLbw4QyIXb5bc=";
+      "x86_64-linux" = "sha256-OsKd/BUfQrcgszZGAaedN6FDJi1wcSiRpFO1FdQ6kwg=";
     };
   };
   "4.0.4" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-x2Alj9VXve6EGhv1gWQdnr76vtXNq8l8iN8CQWzFj60=";
+      "x86_64-linux" = "sha256-/e5J+p7GwqL6ZFMCsKCYZGsgfCbcjTJw6HckkFkZkDs=";
     };
   };
   "4.0.5" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-Gt5Uu7NJkgPldI57ji10CZumDwrL7aj3R5i0LkrhNgA=";
+      "x86_64-linux" = "sha256-rw+6Kbu3TBo+/adAGWXeDONL4qVv3NuT5m4Fjo8+l0o=";
     };
   };
   "4.0.6" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-QERwC5Uh74jsSte+bIEpLOjl4pxj9pjX+YQhehHCvQQ=";
+      "x86_64-linux" = "sha256-iKciDB7rX7sDx6ozZA4gCzAoh/2b9sAQ0iu1XhjbFrs=";
     };
   };
   "4.0.7" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-FKfWPoAt6/jQVJC/iYtfSjlHxUhBIXmE9iWyQll2UiU=";
+      "x86_64-linux" = "sha256-wmTfZ6tVXzMYtJdm7lSMlWMJA/54FO+0aWdpXPzbqig=";
     };
   };
   "4.0.8" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-QFS0S09SmrAQbQcAdZ5C+GLQ+mWGCWiSpOKUoPyh4QE=";
+      "x86_64-linux" = "sha256-09pj5Jw+VfjlT/KAUmlvZSd4rTNCm/KDJwFj9eDWIHU=";
     };
   };
   "4.0.9" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-MDnPBt1q2C0hmNpG3I90XpkcyV/6l4W4cDqr4Qo0PTc=";
+      "x86_64-linux" = "sha256-3yv5bBoh7LZsKjYuErdVoBedtG8B1LqycO0hplIOZXw=";
     };
   };
   "4.1.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-vj8ylVdD2IzU4vgyNDBQbUn20W05Ehgpm/x3SAZGKS8=";
+      "x86_64-linux" = "sha256-X4tN0WRM0PZQVBKbaFKto0Fo52ywhnywS3cTNqTecD0=";
     };
   };
   "4.1.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-GX2oSz6fmazx810Mhe9yCicrEPqjaZKwChPL2/xLJog=";
+      "x86_64-linux" = "sha256-3W47oCXtt+cOkzkgMeL9fPmkLuRQagsa3WoUD3XJskc=";
     };
   };
   "4.1.10" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-tk7nwLp5qjZz3YHhn+NXL76Rq0eaMame3i7FVv6d+Ig=";
+      "x86_64-linux" = "sha256-6ihNmWOoMsCE2QXoOwMFa1AxT7ncRgfz3x2/ZypNU8g=";
     };
   };
   "4.1.11" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-XUnWGeQDr98FhyOpHzxM0SbUWNaCFQNtKKOIEFhptjg=";
+      "x86_64-linux" = "sha256-RimvtyiIXaQGF0p0rCcuoSIkKnj8fifx7qebtfCh75s=";
     };
   };
   "4.1.12" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-UsuqayceZav/Gx6pLsdhpBm6DYZoBHa1mbq2BIPuyEQ=";
+      "x86_64-linux" = "sha256-Uaje2AEtm3+qKnmWeP3dwlvqqyDeP8x5rAST8GL5NpQ=";
     };
   };
   "4.1.13" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-VvLG6iwCcN0y93dg6DMmGAB2XZR6Caw6bmE07odCfPc=";
+      "x86_64-linux" = "sha256-dV0ECzqSKZlJ/kSLxW4OUgt4YsUVAHFjPbBIG+rgCWE=";
     };
   };
   "4.1.14" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-2lUhKEAlbdlxsmaUxnaF1uNkDBNw0N7heUP4Z77Mfaw=";
+      "x86_64-linux" = "sha256-GkAsJ2Dw8TCScJ5D+TsI0/CKwZ3oKfAO1KGbNFAOGFA=";
     };
   };
   "4.1.15" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-xenFR7nxhTHRRMO5SAQG7xCe/PUCZjURUSQ6jfvkGBg=";
+      "x86_64-linux" = "sha256-kSuXfKZwj9t3D6X3LBCTbj6c2K6MdaHnnz0HD4YKGEQ=";
     };
   };
   "4.1.17" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-Jq+DRbkhke6ecPWQtIxbbJIgrNrCWC4aBDoCSuRPcuc=";
+      "x86_64-linux" = "sha256-saJaGXvD/erHP2KcfQgFn3FYsJfKdUwsumCntmknfk8=";
     };
   };
   "4.1.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-Z2p0tHm36rMGYi3p2JbFRRJqgC4xF65xT6koqK32KtI=";
+      "x86_64-linux" = "sha256-mZb8c5vxYjAuoktf6QmkkcmZWSb9F+sNRWOuWs5MMZ8=";
     };
   };
   "4.1.3" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-hDN0tHluS/zQCR+44tbYBlEH5jZl/aOevFoDMdgolp4=";
+      "x86_64-linux" = "sha256-/LtjhHGyM56NM1uJnsoZyoFJgAMUHv7h3PleEsSyYiE=";
     };
   };
   "4.1.4" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-nwMjKGh/0BJn6JKppN4io6633ij6ekevqC8ufseWvgU=";
+      "x86_64-linux" = "sha256-6wdGhp70f2SXtBtAibMqNsu/Dz9ksZqH4ry/P3PEveQ=";
     };
   };
   "4.1.5" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-tVmxMtLaRRRBgPQSnx5i77sHx2+8EgbUdeqxLg9FNrc=";
+      "x86_64-linux" = "sha256-7RFpvcglh/hTAovaEqvIIm1NvsOT3R77IVSDpHyNLPg=";
     };
   };
   "4.1.6" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-dveK72R+BY2L4jgjdv3Xqjjnpohvqj4dh7fmpwZ3Szk=";
+      "x86_64-linux" = "sha256-d48v939zfdRXk6KqyJQLsg4GBybdv/pd1swyQZlRJyc=";
     };
   };
   "4.1.7" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-Nk8sLIFIWItEqmQgFzZBCWvSGXjB04qVqBnnUcEFkjg=";
+      "x86_64-linux" = "sha256-naDBCgqcs0BLohvzm3CmTMNcRz/g7SeINJMaAxJ+7rU=";
     };
   };
   "4.1.8" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-E3qfXsIMt1U6QvDY0zInB23bLZ13ghoQG5fMkJ7uPqw=";
+      "x86_64-linux" = "sha256-5g6nB526K1VkzHGmPifxFbzk08v7W73ZbB4DG0eXOUs=";
     };
   };
   "4.1.9" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-7Cy5EhEihTBa/fNK/fBf08HHZPfylkAQgVTqYuzHlyk=";
+      "x86_64-linux" = "sha256-3VvPLXNwhGT3n7KYhE5sBfQFYizp78l5hKbYF+H6Pok=";
     };
   };
   "4.2.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-5nhCHZwmIEnO+d2ii8LADMDAXWVnVbT/A1N7IiT3lSQ=";
+      "x86_64-linux" = "sha256-Vr56btGBi9SDK1xUSrDLA3meWyQfPZaO2Uyh1q0vzx0=";
     };
   };
   "4.2.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-BGWHklNFhXqSf1bNPJ3HxjC7R2vkxou4yslG9fWZOAM=";
+      "x86_64-linux" = "sha256-5dm0Q1+5ybVx2I0XZAtw5mdXhU9+6oDZuVzEIuPD+0U=";
     };
   };
   "4.3.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-2g1t20J+PXYgrHhlOCYEPpYAFCdwH5OZ+snBMAdZLC0=";
+      "x86_64-linux" = "sha256-i5K8cJGTOeEzwaj0TXtCOIKdEXLGXUhBXkn8wSKRwpU=";
       "aarch64-linux" = "sha256-Obb9n8JxHXvTcIhdTmA5p+V136lQASpRGINZLV1NhRw=";
     };
   };
   "4.3.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-AHoEonR9o3ambPZ+V51//Cojl6YzmSaiIiYzPIHMq2U=";
+      "x86_64-linux" = "sha256-uSXvdguHq6zA8NY82zgi1shF8455Bq1Tax0f3xW+hK4=";
       "aarch64-linux" = "sha256-YmeG360VWOwS4Rt5qv4IqWOg1uqiM8oJSHAWkdSlHiY=";
     };
   };
   "4.3.3" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-IPJ+0c1h5W8OL0StATW8K3KhvyEfYi6Z4Zt9oUG3k9M=";
+      "x86_64-linux" = "sha256-UrR3pJSUNTdwTB6fi4rpzn/tOVw6Ut5q+Zw739iz7TY=";
       "aarch64-linux" = "sha256-58GmJlERbWN7OjAqkvwJVYhDMAnWlLc8+PRStkmz16c=";
     };
   };
   "4.3.4" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-D53mu7bd6+zoBduk0vFZCniBxPtQPQETtplbiG61G9Q=";
+      "x86_64-linux" = "sha256-IEGw63BIWLIOJ478QSHLg4zNOKnQa7MQRz3CUMduiqQ=";
       "aarch64-linux" = "sha256-dcYYXt3z1yQnuWXEDJukBnMLFg0weUZsWdsX0yTcKS8=";
     };
   };
   "4.3.5" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-didLCKOihWRuJMIsNdBIwYDmTOIdJDhg087bl2RCYsc=";
+      "x86_64-linux" = "sha256-DEBUPPlAHLvjReghW9b+YabA4Ea0tduNjy8MKAPkbCg=";
       "aarch64-linux" = "sha256-pAF6yivbdRxGV/gQDMiJMwoXJVfqaY9PHIqxjkrsLuY=";
     };
   };
