@@ -8,7 +8,7 @@
 {
   "4.1.16" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-JWzmgONFpJKEPTnz/s5TOEXd48Q65Ili0rGBkUV9JYg=";
+      "x86_64-linux" = "sha256-RyBN8PbZziOeFAn5jqkPgciOG/1SDsd2vOMhjsOfdxA=";
     };
   };
   "4.1.18" = {
@@ -18,16 +18,11 @@
   };
   "4.2.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-2MaWW2TZwBaTkzfSaFOcO/zcSHr527l7TukVmRo+L7s=";
-      # Re-pinned TWICE on consecutive days (2026-08-18 x2): unfrozen
-      # `bun install` output drifted from V4Gu… → GbW0… → jZTjh… in
-      # under 24h. This cadence means the FOD may even be nondeter-
-      # ministic per-run, not merely tracking upstream movement. Do
-      # NOT keep re-pinning: the durable fix (vendored bun.lock +
-      # --frozen-lockfile) is mandatory — see rails-builder issue
-      # tracked as rx-stack task #54. If THIS pin fails again, stop
-      # and implement the freeze before any further builds.
-      "aarch64-linux" = "sha256-jZTjhAG6rOzSgo0h7lmND5tQIbIGI5JvC4n3/XIRdis=";
+      "x86_64-linux" = "sha256-CLlwydSvbyzA3fNNs9U7BG8wwBuKG2WqhnX1GDmOOHQ=";
+      # History: re-pinned repeatedly on 2026-08-18 while the install
+      # was unfrozen (V4Gu… → GbW0… → jZTjh…). Re-verified 2026-11-23
+      # with the frozen lockfile under bun 1.3.13 and 1.4.4.
+      "aarch64-linux" = "sha256-GbW0mDnCufoSanDSKSWIM86srFLLiJB3ZdwGyfmbSjU=";
     };
   };
   "4.2.3" = {
@@ -42,181 +37,178 @@
   };
   "4.3.0" = {
     npmDeps = {
-      # NOTE: this hash flip-flops between two values depending on which
-      # bun builds the FOD (lockfile is frozen; bun's node_modules layout
-      # differs across bun versions from different nixpkgs pins).
-      #   zovIIqJ… = bun from rails-builder/nixpkgs 2026-05-15 (botman-box
-      #              containers after `nix flake update` — production).
-      #   +n6zOE…  = bun from an older nixpkgs (local dev builds).
-      # Pinned to the production value. Durable fix: pin bun itself in
-      # make-tailwindcss.nix (see 4.2.2 note / rx-stack task #54).
+      # History: this pin flip-flopped between zovIIqJ… (botman-box
+      # production), +n6zOE… and l2AwUOc… (local dev builds).
+      # Re-verified 2026-11-23 with the frozen lockfile: bun 1.3.13
+      # (rails-builder's pinned nixpkgs) and bun 1.4.4 (nixos-unstable)
+      # both produce the values below on both arches.
       "x86_64-linux" = "sha256-zovIIqJOnRiaAaxKt/tniKlM+QWqAzBkk8CMJ00KRvE=";
-      "aarch64-linux" = "sha256-CcWOsgK1M5Nkxwqnzgbz3uGOmcUpyYYlM7TBDM0EdJ8=";
+      "aarch64-linux" = "sha256-JR5ddZ0w5xpJkfkoSIJf7yKKqyzDWKZFtfWmK3qmp6U=";
     };
   };
   "4.0.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-z6WcBvWVr5afHw8RzmJNBv4fsiDr/sYO35IKNxh/A34=";
+      "x86_64-linux" = "sha256-TLEuw4mH4Cn233mwpy3TDxAI7Zvn+d4dDp8ASIL/dmc=";
     };
   };
   "4.0.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-EQk9lmiqkp5tzJ3HgCkayfqIF4NmaVTDlLMDWTbRaXU=";
+      "x86_64-linux" = "sha256-Os/IRPj0Se2S/qsOcGbS1TcG0uxlCrg6KaPmnQGypWQ=";
     };
   };
   "4.0.10" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-QdYtbM051Eq1jXlrjEX4Abh4mLHAJUmP9KlrY+J85+w=";
+      "x86_64-linux" = "sha256-XXVflc1et+Gk9Elw9guOnAr6fph7xuOAI3tgLXmhjvc=";
     };
   };
   "4.0.11" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-qCrKrd8NLI330nD5DjSE9KrifNpZsoCuXycsq2ffLTk=";
+      "x86_64-linux" = "sha256-+bH6ZZIyg5RBWDUKsTLxi7EH4KIh6X39xe7t7XgFxmA=";
     };
   };
   "4.0.12" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-U1ftpcrmXD7a68glfXkQWn+rQeQFabXqkFoUzRgfEUQ=";
+      "x86_64-linux" = "sha256-ivsi6JjGowVnFyHhyF1vITJ3Q8FawoXQ1h8PtPPOr3o=";
     };
   };
   "4.0.13" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-D7N7d8oLFI8KZ9rg9kVPcUlk7UEBwKQgxUZDpsctpkI=";
+      "x86_64-linux" = "sha256-rLPJamBAHvCkY67doqkuVkBIUOIs0cLRw478a9UHxSc=";
     };
   };
   "4.0.14" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-+Cn17lUId+WOd0Wij8q/QXr1Wk5uM191xn8kKDLpZc0=";
+      "x86_64-linux" = "sha256-9bizsL5svwLFHFcFzJ9A6ONJgc7soOy/nnK9VF0P0aI=";
     };
   };
   "4.0.15" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-falKS9Yrq1+MrISUy9yrow4bBEfRHEdtLI70KFWfgBM=";
+      "x86_64-linux" = "sha256-/yenK4hiWiHiiCW0yL7rDYbZt4gsG2/XpqtNf+94/mU=";
     };
   };
   "4.0.16" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-7PWKli3lDPAiyEuxpgYnaLxfcwi6iVL2WKGJwKX1IY0=";
+      "x86_64-linux" = "sha256-uBiLDXmhS9LrBT30dfnLf58kchaSEvalfesT8Uub460=";
     };
   };
   "4.0.17" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-eplS6+5YBwRdUBhblvOMXfHLr0pviEkY79HaB1VvX74=";
+      "x86_64-linux" = "sha256-L7V7SRqwICCtvytI8eYtZDvR+DtBPkwZMGJB22GiBME=";
     };
   };
   "4.0.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-0BvsFDtIB+6nnI7EOWnktcQmS7PoyoMVMmHlXFDm1zs=";
+      "x86_64-linux" = "sha256-gZWYj96i14drrOL2bI5gU+nrvi7Aa1eqCIaddUf3zzM=";
     };
   };
   "4.0.3" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-aMJV/Oid4IsmRGQOjg+mTiYveD445ifR63gppe++qz0=";
+      "x86_64-linux" = "sha256-zqFl+5OfY/xj66PXGxO5ibaXCBWy7lcLbw4QyIXb5bc=";
     };
   };
   "4.0.4" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-+ebr90Fi31jA44tEk6vFs/ymJvvKnuc+HSbsPJvwutc=";
+      "x86_64-linux" = "sha256-x2Alj9VXve6EGhv1gWQdnr76vtXNq8l8iN8CQWzFj60=";
     };
   };
   "4.0.5" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-DTkAlkvverQ7SPsUNC54fQe7yKoYFY3bd88QJcJYBI0=";
+      "x86_64-linux" = "sha256-Gt5Uu7NJkgPldI57ji10CZumDwrL7aj3R5i0LkrhNgA=";
     };
   };
   "4.0.6" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-ODvQaU9a86ATLQ/jLXj3+OBVos8uAKMvuz8AL1xFYQ8=";
+      "x86_64-linux" = "sha256-QERwC5Uh74jsSte+bIEpLOjl4pxj9pjX+YQhehHCvQQ=";
     };
   };
   "4.0.7" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-gg18he/Wbt5nxwObePVZ3t+aH/im8X2tD2jH66Av1ks=";
+      "x86_64-linux" = "sha256-FKfWPoAt6/jQVJC/iYtfSjlHxUhBIXmE9iWyQll2UiU=";
     };
   };
   "4.0.8" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-sMF3XAT+DIMaoSz2HSmoa9yhizka83piALOikUqJHTk=";
+      "x86_64-linux" = "sha256-QFS0S09SmrAQbQcAdZ5C+GLQ+mWGCWiSpOKUoPyh4QE=";
     };
   };
   "4.0.9" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-tGQHsjxazDazTpfghDFKSdGZgFJqC8GrwOju18oKJAs=";
+      "x86_64-linux" = "sha256-MDnPBt1q2C0hmNpG3I90XpkcyV/6l4W4cDqr4Qo0PTc=";
     };
   };
   "4.1.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-tSRD12sZFvWVVSb/iCovnm2oe4aLSTtHQtS1tdPhDtI=";
+      "x86_64-linux" = "sha256-vj8ylVdD2IzU4vgyNDBQbUn20W05Ehgpm/x3SAZGKS8=";
     };
   };
   "4.1.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-5c79+ZU5P1qLGPNz8+VJEvZIPCSLofGd88aXN+DrSdo=";
+      "x86_64-linux" = "sha256-GX2oSz6fmazx810Mhe9yCicrEPqjaZKwChPL2/xLJog=";
     };
   };
   "4.1.10" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-KIIjvX1ywC0sYcbMsU8XvwFOTKFQt9M0m1Tlf//Q9QI=";
+      "x86_64-linux" = "sha256-tk7nwLp5qjZz3YHhn+NXL76Rq0eaMame3i7FVv6d+Ig=";
     };
   };
   "4.1.11" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-D/3sVgvaI2n/3ml0uzM/WmmTxXzKZdxNUUImUtXOuyQ=";
+      "x86_64-linux" = "sha256-XUnWGeQDr98FhyOpHzxM0SbUWNaCFQNtKKOIEFhptjg=";
     };
   };
   "4.1.12" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-ehhozj7Dk+RokuRiNb3uEmMHVUNyzISyO5+KsjkD2U4=";
+      "x86_64-linux" = "sha256-UsuqayceZav/Gx6pLsdhpBm6DYZoBHa1mbq2BIPuyEQ=";
     };
   };
   "4.1.13" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-EJcYPTTD7uO7YsPoL4k4eyYm9MfiPZPf80TcTlsVPHc=";
+      "x86_64-linux" = "sha256-VvLG6iwCcN0y93dg6DMmGAB2XZR6Caw6bmE07odCfPc=";
     };
   };
   "4.1.14" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-0pu7yUbdU7x5zu9e4QE0Ln2ZXabUtUGHWaQ7kpVLclw=";
+      "x86_64-linux" = "sha256-2lUhKEAlbdlxsmaUxnaF1uNkDBNw0N7heUP4Z77Mfaw=";
     };
   };
   "4.1.15" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-Fek2WJUSKG/OWnGybDjNzmrkyU7nega/Awqt5Xwiw24=";
+      "x86_64-linux" = "sha256-xenFR7nxhTHRRMO5SAQG7xCe/PUCZjURUSQ6jfvkGBg=";
     };
   };
   "4.1.17" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-etuL6H/iZvkOLt81/cdmRSVZ77OCID9shXVvSXBkN5w=";
+      "x86_64-linux" = "sha256-Jq+DRbkhke6ecPWQtIxbbJIgrNrCWC4aBDoCSuRPcuc=";
     };
   };
   "4.1.2" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-OUex06LRqNXl3c0J8Eptj6QqHLQmzfzaWROAxXt9NXM=";
+      "x86_64-linux" = "sha256-Z2p0tHm36rMGYi3p2JbFRRJqgC4xF65xT6koqK32KtI=";
     };
   };
   "4.1.3" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-WlAW4YAYDZx9KpBmTo5uFBAZoYKpr/iS4lBDnaXLl8w=";
+      "x86_64-linux" = "sha256-hDN0tHluS/zQCR+44tbYBlEH5jZl/aOevFoDMdgolp4=";
     };
   };
   "4.1.4" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-thIB1yqfds0caR6J4KEfiNZ7Gd5mrI2XeMShwqmUa7Y=";
+      "x86_64-linux" = "sha256-nwMjKGh/0BJn6JKppN4io6633ij6ekevqC8ufseWvgU=";
     };
   };
   "4.1.5" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-bZRzdE2GDVDegiiouFVTCv/3QtDX9uoub+0S1Ixz9Ws=";
+      "x86_64-linux" = "sha256-tVmxMtLaRRRBgPQSnx5i77sHx2+8EgbUdeqxLg9FNrc=";
     };
   };
   "4.1.6" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-O1e0CRyNo8UlMIP5bXgpKNjXyAPjx0YR/hzzF97f3lo=";
+      "x86_64-linux" = "sha256-dveK72R+BY2L4jgjdv3Xqjjnpohvqj4dh7fmpwZ3Szk=";
     };
   };
   "4.1.7" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-yxLdCBrqFpauZgYQusGtJzoE4EnJlkYkhxznnusKjjo=";
+      "x86_64-linux" = "sha256-Nk8sLIFIWItEqmQgFzZBCWvSGXjB04qVqBnnUcEFkjg=";
     };
   };
   "4.1.8" = {
@@ -226,17 +218,17 @@
   };
   "4.1.9" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-lw5qM8RZbqGBhS1M1eVwHgy8RJeyVwPqeC79qv/dxW8=";
+      "x86_64-linux" = "sha256-7Cy5EhEihTBa/fNK/fBf08HHZPfylkAQgVTqYuzHlyk=";
     };
   };
   "4.2.0" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-UzeCVS1LuSAZnfblIA0xEGtuIop24ZdvsfgtudCSUi4=";
+      "x86_64-linux" = "sha256-5nhCHZwmIEnO+d2ii8LADMDAXWVnVbT/A1N7IiT3lSQ=";
     };
   };
   "4.2.1" = {
     npmDeps = {
-      "x86_64-linux" = "sha256-gCIBSXai9LaQII2CyGwH8WrTULcI5AHQX4RhCSYLKg0=";
+      "x86_64-linux" = "sha256-BGWHklNFhXqSf1bNPJ3HxjC7R2vkxou4yslG9fWZOAM=";
     };
   };
   "4.3.1" = {
