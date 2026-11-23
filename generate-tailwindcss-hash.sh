@@ -51,15 +51,20 @@ fi
 # Get the nixpkgs rev from our flake.lock so we use cached binaries.
 # NOTE: `|| ""` here used to EXECUTE the empty string on eval failure,
 # which set -e turned into a silent death at this exact line.
-NIXPKGS_REV=$(nix eval --raw --impure --expr "
-  let lock = builtins.fromJSON (builtins.readFile $SCRIPT_DIR/flake.lock);
-  in lock.nodes.nixpkgs.locked.rev
-" 2>/dev/null) || NIXPKGS_REV=""
+#
+# The nixpkgs input is a rev-pinned archive tarball, so the lock node has
+# a `url` and no `rev`; handle both shapes. This pin also supplies the bun
+# that writes the lockfile (see generate_lockfile) — do NOT fall back to
+# an unpinned nixpkgs: a newer bun writes a lockfileVersion the pinned
+# bun refuses to parse.
+NIXPKGS_URL=$(nix eval --raw --impure --expr "
+  let locked = (builtins.fromJSON (builtins.readFile $SCRIPT_DIR/flake.lock)).nodes.nixpkgs.locked;
+  in if locked ? rev then \"github:NixOS/nixpkgs/\${locked.rev}\" else locked.url
+" 2>/dev/null) || NIXPKGS_URL=""
 
-if [ -z "$NIXPKGS_REV" ]; then
-  NIXPKGS_URL="github:NixOS/nixpkgs/nixos-unstable"
-else
-  NIXPKGS_URL="github:NixOS/nixpkgs/$NIXPKGS_REV"
+if [ -z "$NIXPKGS_URL" ]; then
+  echo "ERROR: could not read the pinned nixpkgs from $SCRIPT_DIR/flake.lock" >&2
+  exit 1
 fi
 
 # Create temp flake directory once — reused across all generate_hash calls
@@ -202,7 +207,8 @@ generate_lockfile() {
 
   # Run bun install WITHOUT --production — production mode skips lockfile creation
   # when no lockfile exists yet. We only need the lockfile from this step.
-  (cd "$lockdir" && nix shell "nixpkgs#bun" -c bun install 2>&1) || {
+  # Use the pinned nixpkgs' bun, the same one the FOD builds with.
+  (cd "$lockdir" && nix shell "$NIXPKGS_URL#bun" -c bun install 2>&1) || {
     echo "ERROR: bun install failed for version $version"
     return 1
   }
