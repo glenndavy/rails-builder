@@ -28,7 +28,7 @@
   pkgs.pkg-config
 ]
 ++ pkgs.lib.optionals frameworkInfo.needsPostgresql [ pkgs.libpqxx pkgs.postgresql ]
-++ pkgs.lib.optionals frameworkInfo.needsMysql [ pkgs.libmysqlclient pkgs.mysql80 ]
+++ pkgs.lib.optionals frameworkInfo.needsMysql [ pkgs.libmysqlclient ]
 ++ pkgs.lib.optionals frameworkInfo.needsSqlite [ pkgs.sqlite ]
 ++ pkgs.lib.optionals frameworkInfo.hasAssets [ pkgs.nodejs ]
 ++ pkgs.lib.optionals frameworkInfo.needsRedis [ pkgs.redis ]

@@ -1,7 +1,8 @@
 # imports/make-shell-paths.nix
 #
 # Returns shell-export lines that set PKG_CONFIG_PATH and LD_LIBRARY_PATH
-# for the libs the framework needs (postgres / mysql / imagemagick / cairo).
+# for the libs the framework needs (postgres / mysql / imagemagick / vips /
+# cairo).
 # Intended to be string-interpolated into a devShell shellHook.
 #
 # Usage:
@@ -18,35 +19,23 @@
   opensslPackage,
 }:
 let
-  pkgconfPath = ":${pkgs.postgresql}/lib/pkgconfig";
-  mysqlPkgconfPath = ":${pkgs.mysql80}/lib/pkgconfig";
-  imagemagickPkgconfPath = ":${pkgs.imagemagick.dev}/lib/pkgconfig";
-  cairoPkgconfPath = ":${pkgs.cairo.dev}/lib/pkgconfig";
-
-  postgresLibPath = ":${pkgs.postgresql}/lib";
-  mysqlLibPath = ":${pkgs.mysql80}/lib";
-  imagemagickLibPath = ":${pkgs.imagemagick}/lib";
-  cairoLibPath = ":${pkgs.cairo}/lib";
-
-  optStr = cond: s: if cond then s else "";
+  # Resolve outputs via makeLibraryPath / makeSearchPathOutput rather than
+  # interpolating "''${pkg}/lib": for multi-output packages (curl, openssl,
+  # vips, glib) the default output is `bin`, which has no lib/ at all, and
+  # postgresql keeps libpq in its `lib` output. FFI gems that dlopen their
+  # library (ethon -> libcurl, ruby-vips -> libvips + glib) need the real one.
+  libs =
+    [ pkgs.curl ]
+    ++ pkgs.lib.optionals frameworkInfo.needsPostgresql [ pkgs.postgresql ]
+    ++ pkgs.lib.optionals frameworkInfo.needsMysql [ pkgs.libmysqlclient ]
+    ++ pkgs.lib.optionals frameworkInfo.needsImageMagick [ pkgs.imagemagick ]
+    ++ pkgs.lib.optionals (frameworkInfo.needsLibVips or false) [ pkgs.vips pkgs.glib ]
+    ++ pkgs.lib.optionals frameworkInfo.needsCairo [ pkgs.cairo ]
+    ++ [ opensslPackage ];
+  # openssl stays off PKG_CONFIG_PATH, as before.
+  pkgconfLibs = pkgs.lib.remove opensslPackage libs;
 in
   ''
-    export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig${
-      optStr frameworkInfo.needsPostgresql pkgconfPath
-    }${
-      optStr frameworkInfo.needsMysql mysqlPkgconfPath
-    }${
-      optStr frameworkInfo.needsImageMagick imagemagickPkgconfPath
-    }${
-      optStr frameworkInfo.needsCairo cairoPkgconfPath
-    }"
-    export LD_LIBRARY_PATH="${pkgs.curl}/lib${
-      optStr frameworkInfo.needsPostgresql postgresLibPath
-    }${
-      optStr frameworkInfo.needsMysql mysqlLibPath
-    }${
-      optStr frameworkInfo.needsImageMagick imagemagickLibPath
-    }${
-      optStr frameworkInfo.needsCairo cairoLibPath
-    }:${opensslPackage}/lib"
+    export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" pkgconfLibs}"
+    export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath libs}"
   ''

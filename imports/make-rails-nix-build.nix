@@ -128,12 +128,10 @@
     }
     else pkgs.runCommand "empty-yarn-cache" {} "mkdir -p $out";
 
-  # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time
-  # Simply append /lib to each input path - the directory may not exist but that's OK
-  # FFI will just skip non-existent paths
-  buildInputLibPaths = builtins.concatStringsSep ":" (
-    map (input: "${input}/lib") universalBuildInputs
-  );
+  # Build LD_LIBRARY_PATH from universalBuildInputs at Nix evaluation time.
+  # makeLibraryPath picks each input's library output; a bare "''${input}/lib"
+  # is the `bin` output for curl, openssl and vips, which has no lib/.
+  buildInputLibPaths = pkgs.lib.makeLibraryPath universalBuildInputs;
 
   # 1. Collect all /lib/pkgconfig directories (most common location)
   pkgConfigPaths = builtins.concatStringsSep ":" (

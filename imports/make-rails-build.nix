@@ -34,6 +34,9 @@
     if opensslVersion == "3_2"
     then pkgs.openssl_3
     else pkgs."openssl_${opensslVersion}";
+  # makeLibraryPath picks each package's library output; a bare
+  # "${pkgs.curl}/lib" is curl's `bin` output, which has no lib/.
+  runtimeLibPath = pkgs.lib.makeLibraryPath [pkgs.curl pkgs.postgresql opensslPackage];
   usrBinDerivation = pkgs.stdenv.mkDerivation {
     name = "usr-bin-env";
     buildInputs = [pkgs.coreutils];
@@ -107,7 +110,7 @@
       export HOME=$PWD
       export DATABASE_URL="postgresql://localhost/dummy_build_db"
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}$PKG_CONFIG_PATH"
-      export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
+      export LD_LIBRARY_PATH="${runtimeLibPath}''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
 
       # Configure nix-ld for running unpatched binaries (Linux only)
       ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
@@ -196,7 +199,7 @@ export PATH="${rubyPackage}/bin${
 
 # Library paths (for bundler-based builds)
 export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig''${PKG_CONFIG_PATH:+:}''${PKG_CONFIG_PATH:-}"
-export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib''${LD_LIBRARY_PATH:+:}''${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="${runtimeLibPath}''${LD_LIBRARY_PATH:+:}''${LD_LIBRARY_PATH:-}"
 ENVEOF
       chmod +x $out/bin/rails-env
 
@@ -235,7 +238,7 @@ ENVEOF
       }
 
       export PKG_CONFIG_PATH="${pkgs.curl.dev}/lib/pkgconfig:${pkgs.postgresql}/lib/pkgconfig"
-      export LD_LIBRARY_PATH="${pkgs.curl}/lib:${pkgs.postgresql}/lib:${opensslPackage}/lib"
+      export LD_LIBRARY_PATH="${runtimeLibPath}"
     '';
   };
   # Create /etc files derivation

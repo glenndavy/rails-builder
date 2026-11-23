@@ -538,7 +538,11 @@
                 # Set GEM paths to project-local only - no system gems or ~/.gem
                 # Include Ruby's built-in gems from the Nix store to avoid loading from ~/.gem
                 export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
-                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+                # The version-matched bundler lives in its own store path. Without it
+                # here, `require "bundler/setup"` (bin/rails, binstubs) falls back to
+                # the older Bundler shipped inside Ruby, which loads both the uri gem
+                # and stdlib uri ("already initialized constant URI::..." warnings).
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0
                 export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
                 # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
@@ -719,7 +723,11 @@
                 # Set GEM paths to project-local only - no system gems or ~/.gem
                 # Include Ruby's built-in gems from the Nix store to avoid loading from ~/.gem
                 export GEM_HOME=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0
-                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0
+                # The version-matched bundler lives in its own store path. Without it
+                # here, `require "bundler/setup"` (bin/rails, binstubs) falls back to
+                # the older Bundler shipped inside Ruby, which loads both the uri gem
+                # and stdlib uri ("already initialized constant URI::..." warnings).
+                export GEM_PATH=$APP_ROOT/vendor/bundle/ruby/${rubyMajorMinor}.0:${rubyPackage}/lib/ruby/gems/${rubyMajorMinor}.0:${bundlerPackage}/lib/ruby/gems/${rubyMajorMinor}.0
                 export GEM_SPEC_CACHE=$APP_ROOT/tmp/gem_spec_cache
 
                 # PATH: Nix Ruby/Bundler first (for isolation), then original PATH (for system tools)
