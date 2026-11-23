@@ -8,6 +8,7 @@
 #   universalBuildInputs = import (ruby-builder + "/imports/make-universal-build-inputs.nix") {
 #     inherit pkgs frameworkInfo rubyPackage opensslPackage tailwindcssPackage;
 #     extraBuildInputs = [ ... ];   # optional
+#     nodejsPackage = ...;          # optional, from make-nodejs.nix
 #   };
 {
   pkgs,
@@ -16,6 +17,7 @@
   opensslPackage,
   tailwindcssPackage ? null,
   extraBuildInputs ? [],
+  nodejsPackage ? pkgs.nodejs,
 }:
 [
   rubyPackage
@@ -30,7 +32,7 @@
 ++ pkgs.lib.optionals frameworkInfo.needsPostgresql [ pkgs.libpqxx pkgs.postgresql ]
 ++ pkgs.lib.optionals frameworkInfo.needsMysql [ pkgs.libmysqlclient ]
 ++ pkgs.lib.optionals frameworkInfo.needsSqlite [ pkgs.sqlite ]
-++ pkgs.lib.optionals frameworkInfo.hasAssets [ pkgs.nodejs ]
+++ pkgs.lib.optionals frameworkInfo.hasAssets [ nodejsPackage ]
 ++ pkgs.lib.optionals frameworkInfo.needsRedis [ pkgs.redis ]
 ++ pkgs.lib.optionals frameworkInfo.needsImageMagick [ pkgs.imagemagick ]
 ++ pkgs.lib.optionals frameworkInfo.needsLibVips [ pkgs.vips ]

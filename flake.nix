@@ -121,7 +121,10 @@
         import ./imports/make-safe-shell.nix args;
     in {
       inherit mkRailsBuild mkRailsNixBuild customBundlerEnv mkCustomBundlerEnv mkRailsPackage mkSafeShell;
-      inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion detectTailwindVersion;
+      inherit (versionDetection) detectRubyVersion detectBundlerVersion detectNodeVersion detectNodeVersionSpec detectTailwindVersion;
+      # Node.js package for an app — see imports/make-nodejs.nix.
+      # Usage: (rails-builder.lib.${system}.mkNodejs { inherit pkgs; src = ./.; }).package
+      mkNodejs = args: import ./imports/make-nodejs.nix args;
       version = version;
     };
 
@@ -148,6 +151,18 @@
         plainRuby = versionDetection.detectRubyVersion {src = plainRubyFixture;};
         plainBundler = versionDetection.detectBundlerVersion {src = plainRubyFixture;};
         plainTailwind = versionDetection.detectTailwindVersion {src = plainRubyFixture;};
+
+        # Node.js: detection + package selection (evaluation only, no fetch)
+        nodeFor = dir: import ./imports/make-nodejs.nix {
+          inherit pkgs;
+          src = ./tests/fixtures/node-versions + "/${dir}";
+        };
+        nodeExact = nodeFor "nvmrc-exact";
+        nodeMajor = nodeFor "node-version-major";
+        nodeToolVersions = nodeFor "tool-versions";
+        nodeMinimum = nodeFor "engines-minimum";
+        nodeUnpinned = import ./imports/make-nodejs.nix { inherit pkgs; src = plainRubyFixture; };
+        nodeOverride = import ./imports/make-nodejs.nix { inherit pkgs; src = plainRubyFixture; nodeVersion = "12"; };
       in
         pkgs.stdenv.mkDerivation {
           name = "test-version-detection";
@@ -172,6 +187,24 @@
 
             test "${builtins.toJSON plainTailwind}" = "null" || { echo "FAIL: plain tailwind expected null"; exit 1; }
             echo "ok - Plain tailwind version: null"
+
+            test "${nodeExact.package.version}" = "14.21.3" || { echo "FAIL: .nvmrc v14.21.3 expected node 14.21.3, got ${nodeExact.package.version}"; exit 1; }
+            echo "ok - .nvmrc exact pin: node ${nodeExact.package.version}"
+
+            test "${pkgs.lib.versions.major nodeMajor.package.version}" = "16" || { echo "FAIL: .node-version 16 expected node 16.x, got ${nodeMajor.package.version}"; exit 1; }
+            echo "ok - .node-version major: node ${nodeMajor.package.version}"
+
+            test "${nodeToolVersions.package.version}" = "18.20.8" || { echo "FAIL: .tool-versions expected node 18.20.8, got ${nodeToolVersions.package.version}"; exit 1; }
+            echo "ok - .tool-versions: node ${nodeToolVersions.package.version}"
+
+            test "${nodeMinimum.package.version}" = "${pkgs.nodejs.version}" || { echo "FAIL: engines >=18 expected default node"; exit 1; }
+            echo "ok - engines.node >=18: default node ${nodeMinimum.package.version}"
+
+            test "${nodeUnpinned.package.version}" = "${pkgs.nodejs.version}" || { echo "FAIL: unpinned app expected default node"; exit 1; }
+            echo "ok - no node version pinned: default node ${nodeUnpinned.package.version}"
+
+            test "${pkgs.lib.versions.major nodeOverride.package.version}" = "12" || { echo "FAIL: nodeVersion override expected node 12.x, got ${nodeOverride.package.version}"; exit 1; }
+            echo "ok - nodeVersion override: node ${nodeOverride.package.version}"
           '';
           installPhase = ''
             mkdir -p $out

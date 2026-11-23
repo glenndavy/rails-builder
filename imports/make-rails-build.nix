@@ -10,7 +10,15 @@
   appRevision ? null, # Optional: Git revision of the app
   railsEnv ? "production", # Rails environment
   tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
+  nodejsPackage ? null, # Optional: Node.js package (auto-detected from src when null)
 }: let
+  # Node.js: the version the app asks for (.nvmrc etc.), unless the caller
+  # passed a package. Auto-detecting here means flakes generated from an older
+  # template (which don't pass nodejsPackage) still get the right Node.
+  resolvedNodejs =
+    if nodejsPackage != null
+    then nodejsPackage
+    else (import ./make-nodejs.nix { inherit pkgs src; }).package;
   # Normalize src — see make-rails-nix-build.nix for the full explanation.
   # Flake inputs with `path:...` (especially via --override-input) sometimes
   # produce an outPath ending in "/.", which breaks stdenv's unpackPhase.
@@ -31,7 +39,10 @@
     then pkgs.gcc
     else pkgs."gcc${gccVersion}";
   opensslPackage =
-    if opensslVersion == "3_2"
+    # null = "use pkgs.openssl" — the template's default (see mk-rails-package.nix)
+    if opensslVersion == null
+    then pkgs.openssl
+    else if opensslVersion == "3_2"
     then pkgs.openssl_3
     else pkgs."openssl_${opensslVersion}";
   # makeLibraryPath picks each package's library output; a bare
@@ -217,7 +228,7 @@ ENVEOF
         pkgs.pkg-config
         pkgs.gosu
         pkgs.rsync
-        pkgs.nodejs
+        resolvedNodejs
       ]
       ++ (if bundlerPackage != null then [bundlerPackage] else [])
       ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
@@ -393,7 +404,7 @@ ENVEOF
       opensslPackage
       pkgs.rsync
       pkgs.zlib
-      pkgs.nodejs
+      resolvedNodejs
       pkgs.bash
       pkgs.coreutils
       pkgs.less

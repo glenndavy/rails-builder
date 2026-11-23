@@ -83,6 +83,17 @@
     # (NOT "latest 3.x"). Don't rely on it.
     opensslVersion = null;
 
+    # Node.js version.
+    #
+    #   null (default) — auto-detect from .nvmrc / .node-version /
+    #       .tool-versions / package.json (volta.node, engines.node). With
+    #       nothing pinned, uses `pkgs.nodejs`.
+    #   "14.21.3" / "16" / "16.20" — exact release, or newest of that line.
+    #
+    # Majors nixpkgs doesn't package (EOL lines such as 14/16/18) come from
+    # the official nodejs.org binary, pinned in ruby-builder's nodejs-hashes.nix.
+    nodeVersion = null;
+
     # Import framework detection
     detectFramework = import (ruby-builder + "/imports/detect-framework.nix");
 
@@ -209,9 +220,15 @@
           }
         else null;
 
+      # Node.js package — the version the app asks for (see nodeVersion above)
+      nodejsPackage = (import (ruby-builder + "/imports/make-nodejs.nix") {
+        inherit pkgs nodeVersion;
+        src = appSrc;
+      }).package;
+
       # Shared build inputs for all Ruby apps
       universalBuildInputs = import (ruby-builder + "/imports/make-universal-build-inputs.nix") {
-        inherit pkgs frameworkInfo rubyPackage opensslPackage tailwindcssPackage;
+        inherit pkgs frameworkInfo rubyPackage opensslPackage tailwindcssPackage nodejsPackage;
       };
 
       builderExtraInputs = [
@@ -239,7 +256,7 @@
       # Bundler approach (traditional) - using Rails builder with framework override
       bundlerBuild = let
         railsBuild = (import (ruby-builder + "/imports/make-rails-build.nix") {inherit pkgs;}) {
-          inherit rubyVersion gccVersion opensslVersion bundlerPackage tailwindcssPackage;
+          inherit rubyVersion gccVersion opensslVersion bundlerPackage tailwindcssPackage nodejsPackage;
           appName = resolvedAppName;
           railsBuilderVersion = version;
           # Use rev if clean, dirtyRev if dirty (strip "-dirty" suffix)
@@ -329,7 +346,7 @@
         in
           # Use Rails build script for all frameworks - it's generic enough
           import (ruby-builder + "/imports/make-rails-nix-build.nix") {
-            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage;
+            inherit pkgs rubyVersion gccVersion opensslVersion universalBuildInputs rubyPackage rubyMajorMinor gems gccPackage opensslPackage usrBinDerivation tzinfo tailwindcssPackage bundlerPackage nodejsPackage;
             appName = resolvedAppName;
             railsBuilderVersion = version;
             # Use rev if clean, dirtyRev if dirty (strip "-dirty" suffix)

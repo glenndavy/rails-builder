@@ -409,7 +409,7 @@ All options support automatic version detection from app source:
 
 - **Ruby version**: `.ruby-version`
 - **Bundler version**: `Gemfile.lock` (`BUNDLED WITH` section)
-- **Node version**: `.node-version` or `.nvmrc`
+- **Node version**: `.nvmrc`, `.node-version`, `.tool-versions`, or `package.json` (`volta.node`, `engines.node`); override with `nodeVersion` / `nodejsPackage`
 - **Tailwind version**: `Gemfile.lock` (tailwindcss-ruby gem)
 - **Framework**: `Gemfile.lock` + config files (Rails, Hanami, Sinatra, Rack)
 - **App name**: `config/application.rb` (Rails module name)

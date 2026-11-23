@@ -17,6 +17,7 @@
   defaultShellHook,
   tailwindcssPackage ? null, # Optional: Nix-provided tailwindcss binary
   bundlerPackage ? null, # Optional: Bundler built with correct Ruby version
+  nodejsPackage ? null, # Optional: Node.js package (auto-detected from src when null)
   appName ? "rails-app", # Optional: Custom app name for Nix store differentiation
   railsEnv ? "production", # Rails environment for asset precompilation
   railsBuilderVersion ? "unknown", # Version of rails-builder for debugging
@@ -47,6 +48,13 @@
   needsRedis ? null,
   ...
 }: let
+  # Node.js: the version the app asks for (.nvmrc etc.), unless the caller
+  # passed a package. Auto-detecting here means flakes generated from an older
+  # template (which don't pass nodejsPackage) still get the right Node.
+  resolvedNodejs =
+    if nodejsPackage != null
+    then nodejsPackage
+    else (import ./make-nodejs.nix { inherit pkgs src; }).package;
   # Normalize src — Nix flake inputs of the form `path:...` (especially when
   # injected via --override-input) sometimes yield an outPath ending in "/.".
   # Passing that to mkDerivation breaks stdenv's unpackPhase because stripHash
@@ -163,7 +171,7 @@
     ];
 
     nativeBuildInputs =
-      [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp pkgs.nodejs gems rubyPackage pkgs.git]
+      [pkgs.rsync pkgs.coreutils pkgs.bash buildRailsApp resolvedNodejs gems rubyPackage pkgs.git]
       ++ pkgs.lib.optionals pkgs.stdenv.isLinux [pkgs.nix-ld]
       ++ universalBuildInputs # Include all buildInputs in nativeBuildInputs for library access
       ++ (
@@ -697,7 +705,7 @@ ENVEOF
         pkgs.pkg-config
         pkgs.gosu
         pkgs.rsync
-        pkgs.nodejs
+        resolvedNodejs
       ]
       ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
         pkgs.darwin.apple_sdk.frameworks.CoreFoundation
@@ -867,7 +875,7 @@ ENVEOF
       opensslPackage
       pkgs.rsync
       pkgs.zlib
-      pkgs.nodejs
+      resolvedNodejs
       pkgs.bash
       pkgs.coreutils
       pkgs.less

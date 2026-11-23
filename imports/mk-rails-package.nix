@@ -19,6 +19,7 @@
 #       # appName = "my-app";
 #       # railsEnv = "production";  # default, or "staging", "test"
 #       # rubyVersion = "3.2.0";  # auto-detected from .ruby-version if not specified
+#       # nodeVersion = "16";     # auto-detected from .nvmrc / .node-version / package.json
 #     };
 #   in {
 #     packages.rails-app = railsBuild.app;
@@ -59,6 +60,12 @@
                           # NOTE: on nixos-25.05 `pkgs.openssl_3` is an alias for
                           # openssl_3_0 (NOT "latest 3.x"). Don't rely on it as a
                           # synonym for the default.
+  nodeVersion ? null,     # Optional: Override Node.js version ("14.21.3", "16", "16.20").
+                          #   Auto-detected from .nvmrc / .node-version / .tool-versions /
+                          #   package.json (volta.node, engines.node). Majors nixpkgs
+                          #   doesn't package use the official prebuilt binary pinned in
+                          #   nodejs-hashes.nix. See imports/make-nodejs.nix.
+  nodejsPackage ? null,   # Optional: Node.js package to use as-is (wins over nodeVersion)
   gccVersion ? "latest",  # GCC version
   extraBuildInputs ? [],  # Additional build inputs
   extraGemConfig ? {},    # Additional gem configuration
@@ -173,6 +180,11 @@ let
     version = detectedBundlerVersion;
   };
 
+  # Node.js package — the version the app asks for, not pkgs.nodejs.
+  nodejs = import ./make-nodejs.nix {
+    inherit pkgs src nodeVersion nodejsPackage;
+  };
+
   # Tailwindcss package (if needed)
   tailwindcssHashes = import ../tailwindcss-hashes.nix;
   tailwindcssPackage =
@@ -277,6 +289,7 @@ let
   # Universal build inputs
   universalBuildInputs = import ./make-universal-build-inputs.nix {
     inherit pkgs frameworkInfo rubyPackage opensslPackage tailwindcssPackage extraBuildInputs;
+    nodejsPackage = nodejs.package;
   };
 
   # Shell hook
@@ -312,6 +325,7 @@ let
         inherit src;
         appName = finalAppName;
         inherit bunDepsHash yarnDepsHash;
+        nodejsPackage = nodejs.package;
         inherit (frameworkInfo) needsRedis;
       }
     else
@@ -331,6 +345,7 @@ let
         buildRailsApp = buildRailsAppFallback;
         appName = finalAppName;
         inherit bundlerPackage;
+        nodejsPackage = nodejs.package;
       };
 
 in {
@@ -341,6 +356,7 @@ in {
 
   # Components (for external Docker builds and advanced use)
   inherit gems rubyPackage bundlerPackage tailwindcssPackage;
+  nodejsPackage = nodejs.package;
   inherit universalBuildInputs;
   inherit rubyMajorMinor railsEnv;
 
@@ -349,6 +365,8 @@ in {
     rubyVersion = detectedRubyVersion;
     bundlerVersion = detectedBundlerVersion;
     tailwindVersion = detectedTailwindVersion;
+    nodeVersion = nodejs.requested;       # what the app asked for (null = default)
+    nodeVersionSource = nodejs.source;
     framework = framework;
     hasGemset = hasGemset;
     needsPostgresql = frameworkInfo.needsPostgresql;
