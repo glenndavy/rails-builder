@@ -5,7 +5,7 @@
   pkgs,
   version,  # e.g., "4.1.18"
   tailwindcssHashes,  # import ../tailwindcss-hashes.nix
-  lockfilesPath ? null,  # path to directory containing <version>.lock files
+  lockfilesPath ? ../tailwindcss-locks,  # directory of <version>.lock files; null installs unfrozen
 }: let
   system = pkgs.system;
   # Get the hash for this version and system (hashes are architecture-specific)
